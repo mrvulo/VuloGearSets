@@ -466,6 +466,19 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
         listLoadouts()
     elseif cmd == "config" or cmd == "options" then
         ns:ToggleOptions()
+    elseif cmd == "status" then
+        -- Diagnose: zeigt, was die Statuspunkte ermitteln.
+        local names = sortedLoadoutNames()
+        if #names == 0 then ns:Print(L["No gear sets saved yet."]) return end
+        for _, n in ipairs(names) do
+            local st = getSetStatus(n)
+            if not st then
+                ns:Print("%s: |cffff5555kein Status|r (Set leer?)", n)
+            else
+                ns:Print("%s: %s  (%d Teile: %d angelegt, %d Tasche, %d Bank, %d fehlt)",
+                    n, st.state, st.total, #st.worn, #st.inBags, #st.inBank, #st.missing)
+            end
+        end
     elseif cmd == "unlock" then
         -- Ersetzt das UnlockMode-Modul, das es im Standalone nicht gibt.
         ns:SetMoversEditMode(not ns:IsMoverEditMode())
@@ -1389,7 +1402,10 @@ refreshSidebar = function()
         -- fehlende Teile faerben ihn orange, nicht auffindbare rot.
         local st = getSetStatus(name)
         btn.statusInfo = st
-        if st then
+        -- Die Zeilen werden wiederverwendet. Stammt eine noch aus der Zeit
+        -- vor dieser Anzeige, fehlt ihr die Textur - dann lieber nichts
+        -- zeigen als hier abbrechen und den Rest der Liste mitreissen.
+        if st and btn.status then
             btn.status:Show()
             if st.state == "equipped" then
                 btn.status:SetColorTexture(0.20, 0.90, 0.25, 1)
@@ -1398,7 +1414,7 @@ refreshSidebar = function()
             else
                 btn.status:SetColorTexture(1.00, 0.65, 0.10, 1)
             end
-        else
+        elseif btn.status then
             btn.status:Hide()
         end
         btn.isSelected = (name == sidebarSelected)
