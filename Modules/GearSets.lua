@@ -196,7 +196,7 @@ local _pendingSaveSlots = nil
 
 local function promptSaveWithSlots(slotList)
     _pendingSaveSlots = slotList
-    StaticPopup_Show("VCUI_LOADOUT_SAVE")
+    StaticPopup_Show("VGS_GEARSET_SAVE")
 end
 
 -- Overwrite an existing loadout with current gear, preserving the original
@@ -309,7 +309,7 @@ end
 -- =========================================================
 -- StaticPopups
 -- =========================================================
-StaticPopupDialogs["VCUI_LOADOUT_SAVE"] = {
+StaticPopupDialogs["VGS_GEARSET_SAVE"] = {
     text = L["Save current equipment as a new gear set. Enter name:"],
     button1 = SAVE or L["Save"],
     button2 = CANCEL or L["Cancel"],
@@ -335,7 +335,7 @@ StaticPopupDialogs["VCUI_LOADOUT_SAVE"] = {
     preferredIndex = 3,
 }
 
-StaticPopupDialogs["VCUI_LOADOUT_DELETE"] = {
+StaticPopupDialogs["VGS_GEARSET_DELETE"] = {
     text = L["Delete gear set '%s'?"],
     button1 = YES or L["Yes"],
     button2 = NO  or L["No"],
@@ -385,7 +385,7 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
         if arg == "" then
             ns:Print(L["Usage: /gearset delete <name>"])
         elseif mod.db.confirmDelete then
-            local dlg = StaticPopup_Show("VCUI_LOADOUT_DELETE", arg)
+            local dlg = StaticPopup_Show("VGS_GEARSET_DELETE", arg)
             if dlg then dlg.data = arg end
         else
             deleteLoadout(arg)
@@ -1081,7 +1081,7 @@ local function createSetRow(parent, index)
             table.insert(menu, { separator = true })
             table.insert(menu, { text = L["Delete"], func = function()
                 if mod.db.confirmDelete then
-                    local dlg = StaticPopup_Show("VCUI_LOADOUT_DELETE", setName)
+                    local dlg = StaticPopup_Show("VGS_GEARSET_DELETE", setName)
                     if dlg then dlg.data = setName end
                 else
                     deleteLoadout(setName)
@@ -1638,12 +1638,13 @@ function mod:GetOptions()
               get = function() return ns:IsModuleEnabled("slotpicker") end,
               set = function(_, v) if ns.ToggleModule then ns:ToggleModule("slotpicker", v) end end },
             { type = "dropdown", label = L["Activation modifier"],
-              tooltip = L["Choose which key combination opens the item picker when you click an equipment slot."],
+              tooltip = L["Choose what opens the item picker on an equipment slot. On hover it opens by itself after a moment and stays open while the mouse is on the slot or the popup."],
               values = {
                   { value = "right",       text = L["Right-click only"] },
                   { value = "shift-right", text = L["Shift + Right-click"] },
                   { value = "alt-right",   text = L["Alt + Right-click"] },
                   { value = "ctrl-right",  text = L["Ctrl + Right-click"] },
+                  { value = "hover",       text = L["On hover (no click)"] },
               },
               get = function() local sp = ns.modules and ns.modules.slotpicker; return (sp and sp.db and sp.db.modifier) or "right" end,
               set = function(_, v) local sp = ns.modules and ns.modules.slotpicker; if sp and sp.db then sp.db.modifier = v end end },
@@ -1711,7 +1712,7 @@ function mod:GetOptions()
                     { type = "button", label = L["Delete"], width = 100,
                       onClick = function()
                           if mod.db.confirmDelete then
-                              local dlg = StaticPopup_Show("VCUI_LOADOUT_DELETE", capturedName)
+                              local dlg = StaticPopup_Show("VGS_GEARSET_DELETE", capturedName)
                               if dlg then dlg.data = capturedName end
                           else
                               deleteLoadout(capturedName)

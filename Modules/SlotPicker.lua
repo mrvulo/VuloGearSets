@@ -18,7 +18,8 @@ local mod = ns:RegisterModule("slotpicker", {
     description = "Shift+Right-click an equipment slot to show all compatible items from your bags. Click to equip.",
     defaults = {
         enabled  = true,
-        modifier = "right",  -- "right" | "shift-right" | "alt-right" | "ctrl-right"
+        -- "right" | "shift-right" | "alt-right" | "ctrl-right" | "hover"
+        modifier = "right",
         cols     = 8,
     },
 })
@@ -80,7 +81,12 @@ local function checkModifier(button)
     elseif mode == "ctrl-right" then
         return button == "RightButton" and IsControlKeyDown()
     end
+    -- "hover" wird nicht ueber Klicks ausgeloest, siehe hookSlots
     return false
+end
+
+local function isHoverMode()
+    return (mod.db.modifier or "right") == "hover"
 end
 
 -- =========================================================
@@ -129,7 +135,7 @@ local BTN_SIZE = 36
 
 local function createPopup()
     if popup then return popup end
-    popup = CreateFrame("Frame", "VCUI_SlotPickerPopup", UIParent,
+    popup = CreateFrame("Frame", "VGS_SlotPickerPopup", UIParent,
         BackdropTemplateMixin and "BackdropTemplate")
     popup:SetFrameStrata("DIALOG")
     popup:SetSize(360, 80)
@@ -147,7 +153,7 @@ local function createPopup()
         popup:SetBackdropColor(0.05, 0.05, 0.08, 0.95)
         popup:SetBackdropBorderColor(0.4, 0.3, 0.6, 1)
     end
-    tinsert(UISpecialFrames, "VCUI_SlotPickerPopup")
+    tinsert(UISpecialFrames, "VGS_SlotPickerPopup")
 
     -- Draggable via title bar
     local title = popup:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -301,6 +307,65 @@ end
 -- =========================================================
 local _hooked = false
 
+-- =========================================================
+-- Hover-Modus
+--
+-- Oeffnen mit kurzer Verzoegerung, damit das Popup nicht bei jedem
+-- Ueberfahren des Charakterfensters aufspringt. Schliessen mit Nachlauf,
+-- damit die Maus vom Slot ins Popup wandern kann - sonst klappt es genau
+-- dann zu, wenn man zugreifen will.
+--
+-- Statt Timer abzubrechen (C_Timer.NewTimer gibt es nicht ueberall) laeuft
+-- das ueber Generationszaehler: ein spaeterer Aufruf entwertet den frueheren.
+-- =========================================================
+local OPEN_DELAY, CLOSE_DELAY = 0.25, 0.45
+local _openGen, _closeGen = 0, 0
+local _hoverSlotBtn
+
+local function mouseIsOnPopupOrSlot()
+    if popup and popup:IsShown() and popup:IsMouseOver() then return true end
+    if _hoverSlotBtn and _hoverSlotBtn:IsMouseOver() then return true end
+    return false
+end
+
+local function scheduleClose()
+    if not (C_Timer and C_Timer.After) then return end
+    _closeGen = _closeGen + 1
+    local myGen = _closeGen
+    C_Timer.After(CLOSE_DELAY, function()
+        if myGen ~= _closeGen then return end          -- ueberholt
+        if not (popup and popup:IsShown()) then return end
+        if mouseIsOnPopupOrSlot() then
+            scheduleClose()                             -- noch drueber: erneut pruefen
+            return
+        end
+        popup:Hide()
+    end)
+end
+
+local function scheduleOpen(slotID, slotBtn)
+    if not (C_Timer and C_Timer.After) then return end
+    _openGen = _openGen + 1
+    local myGen = _openGen
+    C_Timer.After(OPEN_DELAY, function()
+        if myGen ~= _openGen then return end            -- Maus schon weiter
+        if not (mod._enabled and isHoverMode()) then return end
+        if not slotBtn:IsMouseOver() then return end
+        _hoverSlotBtn = slotBtn
+        showSlotPicker(slotID)
+
+        -- Das Popup entsteht erst beim ersten Oeffnen, deshalb wird die
+        -- Haltelogik hier angehaengt und nicht in hookSlots.
+        if popup and not popup._vgsHoverHooked then
+            popup._vgsHoverHooked = true
+            popup:HookScript("OnEnter", function() _closeGen = _closeGen + 1 end)
+            popup:HookScript("OnLeave", function()
+                if isHoverMode() then scheduleClose() end
+            end)
+        end
+    end)
+end
+
 local function hookSlots()
     if _hooked then return end
     for slotID, frameName in pairs(SLOT_FRAME_NAMES) do
@@ -312,8 +377,19 @@ local function hookSlots()
                     showSlotPicker(slotID)
                 end
             end)
+            slotBtn:HookScript("OnEnter", function(self)
+                if not (mod._enabled and isHoverMode()) then return end
+                _closeGen = _closeGen + 1               -- geplantes Schliessen verwerfen
+                scheduleOpen(slotID, self)
+            end)
+            slotBtn:HookScript("OnLeave", function()
+                if not (mod._enabled and isHoverMode()) then return end
+                _openGen = _openGen + 1                 -- geplantes Oeffnen verwerfen
+                scheduleClose()
+            end)
         end
     end
+
     _hooked = true
 end
 
@@ -346,12 +422,13 @@ function mod:GetOptions()
 
         { type = "spacer", height = 6 },
         { type = "dropdown", label = L["Activation modifier"],
-          tooltip = L["Choose which key combination opens the item picker when you click an equipment slot."],
+          tooltip = L["Choose what opens the item picker on an equipment slot. On hover it opens by itself after a moment and stays open while the mouse is on the slot or the popup."],
           values = {
               { value = "right",       text = L["Right-click only"] },
               { value = "shift-right", text = L["Shift + Right-click"] },
               { value = "alt-right",   text = L["Alt + Right-click"] },
               { value = "ctrl-right",  text = L["Ctrl + Right-click"] },
+              { value = "hover",       text = L["On hover (no click)"] },
           },
           get = function() return mod.db.modifier or "right" end,
           set = function(_, v) mod.db.modifier = v end },
