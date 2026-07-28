@@ -49,7 +49,7 @@ renderers.header = function(parent, item, y, width)
     fs:SetWidth(width)
     fs:SetJustifyH("LEFT")
     fs:SetText(item.text or "")
-    fs:SetTextColor(C.accent.r, C.accent.g, C.accent.b)
+    fs:SetTextColor(ns:AccentColor())
     return fs:GetStringHeight() + 8
 end
 
@@ -140,7 +140,7 @@ renderers.section = function(parent, item, y, width)
     local fs = head:CreateFontString(nil, "OVERLAY")
     UI.Font(fs, 13, "OUTLINE")
     fs:SetPoint("LEFT")
-    fs:SetTextColor(C.accent.r, C.accent.g, C.accent.b)
+    fs:SetTextColor(ns:AccentColor())
 
     local collapsed = item.collapsed and true or false
     fs:SetText((collapsed and "+ " or "- ") .. (item.title or ""))
@@ -259,7 +259,7 @@ local function createFrame()
     UI.Font(title, 15, "OUTLINE")
     title:SetPoint("TOPLEFT", PAD, -PAD)
     title:SetText(L["Gear Sets"])
-    title:SetTextColor(C.accent.r, C.accent.g, C.accent.b)
+    title:SetTextColor(ns:AccentColor())
 
     local close = UI:CreateButton(frame, "X", 22, 22)
     close:SetPoint("TOPRIGHT", -PAD, -PAD + 2)

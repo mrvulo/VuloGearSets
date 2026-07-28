@@ -729,6 +729,15 @@ end
 local sidebar
 local sidebarSetButtons = {}
 local sidebarItemRows   = {}    -- pool of expanded-item-row frames
+-- Set-Zeilen, deren Farben beim Stilwechsel nachgezogen werden muessen.
+local _setRowTextures   = {}
+
+ns:OnStyleChanged(function()
+    for _, btn in ipairs(_setRowTextures) do
+        if btn.selection then btn.selection:SetColorTexture(ns:SelectionColor()) end
+        if btn.hl        then btn.hl:SetColorTexture(ns:HoverColor()) end
+    end
+end)
 local sidebarSelected           -- currently highlighted loadout name
 local sidebarExpanded           -- name of currently expanded loadout (only one at a time)
 local refreshSidebar            -- forward declaration
@@ -1010,14 +1019,16 @@ local function createSetRow(parent, index)
     -- Selection background
     btn.selection = btn:CreateTexture(nil, "BACKGROUND")
     btn.selection:SetAllPoints(btn)
-    btn.selection:SetColorTexture(0.4, 0.3, 0.6, 0.45)
+    btn.selection:SetColorTexture(ns:SelectionColor())
     btn.selection:Hide()
 
     -- Hover highlight
     btn.hl = btn:CreateTexture(nil, "BACKGROUND")
     btn.hl:SetAllPoints(btn)
-    btn.hl:SetColorTexture(0.25, 0.2, 0.35, 0.4)
+    btn.hl:SetColorTexture(ns:HoverColor())
     btn.hl:Hide()
+    -- Fuer den Stilwechsel merken: die Farben werden dann neu gesetzt.
+    _setRowTextures[#_setRowTextures + 1] = btn
 
     btn:SetScript("OnEnter", function(self)
         if not self.isSelected then self.hl:Show() end

@@ -49,23 +49,31 @@ local BACKDROPS = {
             insets   = { left = 1, right = 1, top = 1, bottom = 1 },
         },
     },
+    -- Nur die RAHMEN kommen von Blizzard. Als Grund dient eine eigene
+    -- dunkle Flaeche: UI-DialogBox-Background wird auf dem Anniversary-
+    -- Client nicht gezeichnet (Fenster blieb durchsichtig), und
+    -- ChatFrameBackground ist eine weisse Textur, die eingefaerbt werden
+    -- muss - ohne Einfaerbung leuchtet das Menue weiss.
     classic = {
-        -- Derselbe Rahmen, den Blizzards Dialoge benutzen.
         window = {
-            bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            bgFile   = "Interface\\Buttons\\WHITE8X8",
             edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-            tile = true, tileSize = 32, edgeSize = 32,
+            tile = false, edgeSize = 32,
             insets = { left = 11, right = 12, top = 12, bottom = 11 },
         },
-        -- Der schmalere Tooltip-Rahmen fuer Flaechen innerhalb eines Fensters.
         pane = {
-            bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
+            bgFile   = "Interface\\Buttons\\WHITE8X8",
             edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-            tile = true, tileSize = 16, edgeSize = 16,
-            insets = { left = 3, right = 3, top = 5, bottom = 3 },
+            tile = false, edgeSize = 16,
+            insets = { left = 4, right = 4, top = 4, bottom = 4 },
         },
     },
 }
+
+-- Farbtoene fuer den Classic-Stil: dunkel wie Blizzards Dialoge innen.
+local CLASSIC_BG     = { r = 0.05, g = 0.05, b = 0.06, a = 0.95 }
+local CLASSIC_PANE   = { r = 0.09, g = 0.09, b = 0.11, a = 0.95 }
+local CLASSIC_BORDER = { r = 1,    g = 1,    b = 1,    a = 1    }   -- Textur faerben nicht
 
 -- Farben je Stil. Im Classic-Stil traegt die Textur die Farbe, deshalb
 -- bleibt der Grund dort weiss (= unveraendert) und nur die Deckkraft zaehlt.
@@ -109,6 +117,36 @@ function UI:SkinFrame(frame, kind)
     return frame
 end
 
+-- =========================================================
+-- Farben, die vom Stil abhaengen
+--
+-- Im Classic-Stil traegt Blizzard-Gold den Akzent, sonst das Lila
+-- der Vulo-Familie.
+-- =========================================================
+function ns:AccentColor()
+    if ns:GetStyle() == "classic" then return 1, 0.82, 0 end
+    return C.accent.r, C.accent.g, C.accent.b
+end
+
+-- Hinterlegung des ausgewaehlten Sets in der Seitenleiste.
+function ns:SelectionColor()
+    if ns:GetStyle() == "classic" then return 0.55, 0.44, 0.12, 0.55 end
+    return 0.40, 0.30, 0.60, 0.45
+end
+
+-- Hinterlegung beim Ueberfahren.
+function ns:HoverColor()
+    if ns:GetStyle() == "classic" then return 0.42, 0.34, 0.12, 0.40 end
+    return 0.25, 0.20, 0.35, 0.40
+end
+
+-- Module tragen sich hier ein, um auf einen Stilwechsel zu reagieren -
+-- etwa um bereits erzeugte Zeilen neu einzufaerben.
+local callbacks = {}
+function ns:OnStyleChanged(fn)
+    if type(fn) == "function" then callbacks[#callbacks + 1] = fn end
+end
+
 -- Alle gemerkten Frames neu zeichnen.
 function ns:RefreshStyle()
     local style = ns:GetStyle()
@@ -116,6 +154,7 @@ function ns:RefreshStyle()
         apply(frame, kind, style)
     end
     if UI.RestyleButtons then UI.RestyleButtons(style) end
+    for _, fn in ipairs(callbacks) do pcall(fn, style) end
 end
 
 function ns:SetStyle(style)

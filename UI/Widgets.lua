@@ -115,25 +115,33 @@ end
 -- Knopftexturen zum Einsatz, sonst eine schlichte Flaeche.
 local buttons = setmetatable({}, { __mode = "k" })   -- schwach: Knoepfe duerfen sterben
 
-local BTN_UP        = "Interface\\Buttons\\UI-Panel-Button-Up"
-local BTN_HIGHLIGHT = "Interface\\Buttons\\UI-Panel-Button-Highlight"
--- Blizzards Knopfgrafik enthaelt rechts und unten leeren Rand.
-local BTN_COORDS    = { 0, 0.625, 0, 0.6875 }
+-- Blizzards Knopfgrafik ist neunfach zerlegt (links, gedehnte Mitte,
+-- rechts). Sie als ein Stueck zu strecken sieht falsch aus, deshalb
+-- kommt das Original-Template zum Einsatz und wird im modernen Stil
+-- nur ausgeblendet.
+local function setBlizzTextures(b, shown)
+    local a = shown and 1 or 0
+    for _, get in ipairs({ b.GetNormalTexture, b.GetPushedTexture,
+                           b.GetHighlightTexture, b.GetDisabledTexture }) do
+        local t = get and get(b)
+        if t then t:SetAlpha(a) end
+    end
+end
 
 local function styleButton(b, style, hovered)
     if style == "classic" then
-        b.bg:SetColorTexture(1, 1, 1, 0)   -- Farbe zuruecknehmen
-        b.bg:SetTexture(hovered and BTN_HIGHLIGHT or BTN_UP)
-        b.bg:SetTexCoord(unpack(BTN_COORDS))
-        b.bg:SetVertexColor(1, 1, 1, 1)
-        b.text:SetTextColor(1, 0.82, 0)    -- Blizzard-Gold
+        setBlizzTextures(b, true)
+        if b.bg then b.bg:Hide() end
+        b.text:SetTextColor(1, 0.82, 0)          -- Blizzard-Gold
     else
-        b.bg:SetTexture(nil)
-        b.bg:SetTexCoord(0, 1, 0, 1)
-        if hovered then
-            b.bg:SetColorTexture(C.accent.r * 0.5, C.accent.g * 0.5, C.accent.b * 0.5, 1)
-        else
-            b.bg:SetColorTexture(C.bgLight.r, C.bgLight.g, C.bgLight.b, 1)
+        setBlizzTextures(b, false)
+        if b.bg then
+            b.bg:Show()
+            if hovered then
+                b.bg:SetColorTexture(C.accent.r * 0.5, C.accent.g * 0.5, C.accent.b * 0.5, 1)
+            else
+                b.bg:SetColorTexture(C.bgLight.r, C.bgLight.g, C.bgLight.b, 1)
+            end
         end
         b.text:SetTextColor(C.text.r, C.text.g, C.text.b)
     end
@@ -147,14 +155,14 @@ function UI.RestyleButtons(style)
 end
 
 function UI:CreateButton(parent, text, width, height)
-    local b = CreateFrame("Button", nil, parent)
+    local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     b:SetSize(width or 120, height or 22)
     b.bg = b:CreateTexture(nil, "BACKGROUND")
-    b.bg:SetAllPoints(b)
-    b.text = b:CreateFontString(nil, "OVERLAY")
+    b.bg:SetPoint("TOPLEFT", 1, -1)
+    b.bg:SetPoint("BOTTOMRIGHT", -1, 1)
+    b:SetText(text or "")
+    b.text = b:GetFontString()
     UI.Font(b.text, 12)
-    b.text:SetPoint("CENTER")
-    b.text:SetText(text or "")
     buttons[b] = true
     styleButton(b, ns:GetStyle(), false)
 
@@ -187,7 +195,7 @@ function UI:CreateToggle(parent, label)
     f.fill = f.box:CreateTexture(nil, "ARTWORK")
     f.fill:SetPoint("TOPLEFT", 3, -3)
     f.fill:SetPoint("BOTTOMRIGHT", -3, 3)
-    f.fill:SetColorTexture(C.accent.r, C.accent.g, C.accent.b, 1)
+    f.fill:SetColorTexture(ns:AccentColor())
     f.fill:Hide()
     f.label = f:CreateFontString(nil, "OVERLAY")
     UI.Font(f.label, 12)
@@ -236,7 +244,7 @@ function UI:CreateSlider(parent, label, minV, maxV, step)
     f.value = f:CreateFontString(nil, "OVERLAY")
     UI.Font(f.value, 12)
     f.value:SetPoint("LEFT", f.slider, "RIGHT", 10, 0)
-    f.value:SetTextColor(C.accent.r, C.accent.g, C.accent.b)
+    f.value:SetTextColor(ns:AccentColor())
 
     f.slider:SetScript("OnValueChanged", function(_, v)
         v = math.floor(v + 0.5)
