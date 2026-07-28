@@ -12,6 +12,22 @@ local _, ns = ...
 local UI = ns.UI
 
 -- ---------------------------------------------------------
+-- Schrift-Diagnose
+-- ---------------------------------------------------------
+SLASH_VGSFONT1 = "/vgsfont"
+SlashCmdList["VGSFONT"] = function()
+    local path, isExpressway = UI.GetResolvedFont()
+    ns:Print("Benutzte Schrift: %s", tostring(path))
+    ns:Print("Expressway aktiv: %s", isExpressway and "ja" or "NEIN")
+
+    -- Direkter Ladeversuch, unabhaengig vom gemerkten Ergebnis.
+    local probe = CreateFont("VuloGearSetsFontProbe2")
+    local ok = probe and probe:SetFont(UI.FONT_PATH, 12, "")
+    ns:Print("Direkter Ladeversuch: %s", ok and "erfolgreich" or "fehlgeschlagen")
+    ns:Print("Erwarteter Pfad: %s", UI.FONT_PATH)
+end
+
+-- ---------------------------------------------------------
 -- Widgets einzeln
 -- ---------------------------------------------------------
 SLASH_VGSDEMO1 = "/vgsdemo"

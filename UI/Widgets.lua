@@ -11,13 +11,38 @@ local C  = ns.COLORS
 local FONT_PATH = "Interface\\AddOns\\VuloGearSets\\Media\\Fonts\\Expressway.TTF"
 UI.FONT_PATH = FONT_PATH
 
--- Fehlt oder bricht die Schriftdatei, bliebe der Text unsichtbar. Der
--- Rueckgabewert von SetFont ist nicht auf allen Clients verlaesslich,
--- deshalb pruefen wir ueber GetFont, ob wirklich eine Schrift sitzt.
+-- Laesst sich die Schriftdatei nicht laden, rendert der Client den Text
+-- kommentarlos leer - das Fenster sieht dann aus, als fehle jede Beschriftung.
+--
+-- FontString:GetFont() taugt NICHT zur Pruefung: es liefert den gesetzten Pfad
+-- auch dann zurueck, wenn die Datei nie geladen wurde. Verlaesslich ist nur
+-- Font:SetFont() auf einem echten Font-Objekt - das meldet per Boolean, ob es
+-- geklappt hat. Einmal pruefen, Ergebnis merken.
+local _resolved
+
+local function resolveFont()
+    if _resolved then return _resolved end
+    local probe = CreateFont("VuloGearSetsFontProbe")
+    local ok = probe and probe:SetFont(FONT_PATH, 12, "")
+    _resolved = ok and FONT_PATH or STANDARD_TEXT_FONT
+    if not ok then
+        ns:Print("Expressway konnte nicht geladen werden, benutze die Standardschrift. "
+              .. "Neue Schriftdateien erkennt der Client erst nach einem vollstaendigen "
+              .. "Neustart - ein /reload genuegt nicht.")
+    end
+    return _resolved
+end
+
+-- Nur fuer die Diagnose interessant.
+function UI.GetResolvedFont()
+    return resolveFont(), (_resolved == FONT_PATH)
+end
+
 function UI.Font(fs, size, flags)
-    fs:SetFont(FONT_PATH, size or 12, flags or "")
+    fs:SetFont(resolveFont(), size or 12, flags or "")
+    -- Notnagel, falls selbst die Standardschrift nicht sitzt.
     if not fs:GetFont() then
-        fs:SetFont(STANDARD_TEXT_FONT, size or 12, flags or "")
+        fs:SetFont("Fonts\\FRIZQT__.TTF", size or 12, flags or "")
     end
     return fs
 end
