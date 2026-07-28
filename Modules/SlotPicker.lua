@@ -18,8 +18,10 @@ local mod = ns:RegisterModule("slotpicker", {
     description = "Shift+Right-click an equipment slot to show all compatible items from your bags. Click to equip.",
     defaults = {
         enabled  = true,
-        -- "hover" | "right" | "shift-right" | "alt-right" | "ctrl-right"
-        modifier = "hover",
+        -- Steuert nur den KLICK-Weg. Das Ueberfahren zeigt die kompakte
+        -- Auswahl immer, unabhaengig davon.
+        -- "right" | "shift-right" | "alt-right" | "ctrl-right"
+        modifier = "right",
         cols     = 8,
     },
 })
@@ -81,12 +83,7 @@ local function checkModifier(button)
     elseif mode == "ctrl-right" then
         return button == "RightButton" and IsControlKeyDown()
     end
-    -- "hover" wird nicht ueber Klicks ausgeloest, siehe hookSlots
     return false
-end
-
-local function isHoverMode()
-    return (mod.db.modifier or "right") == "hover"
 end
 
 -- =========================================================
@@ -227,6 +224,9 @@ local function showSlotPicker(slotID, anchorBtn)
 
     local results = scanBagsForSlot(slotID)
     local compact = anchorBtn ~= nil
+    -- Merken, wie das Fenster geoeffnet wurde: der Hover-Timer darf nur
+    -- die kompakte Anzeige wieder schliessen, nie ein per Klick geoeffnetes.
+    popup._vgsCompact = compact
 
     -- Im kompakten Modus nichts zeigen, wenn es nichts zu wechseln gibt -
     -- sonst poppt beim Ueberfahren staendig "keine Teile" auf.
@@ -363,6 +363,7 @@ local function scheduleClose()
     C_Timer.After(CLOSE_DELAY, function()
         if myGen ~= _closeGen then return end          -- ueberholt
         if not (popup and popup:IsShown()) then return end
+        if not popup._vgsCompact then return end       -- per Klick geoeffnet: stehen lassen
         if mouseIsOnPopupOrSlot() then
             scheduleClose()                             -- noch drueber: erneut pruefen
             return
@@ -377,8 +378,10 @@ local function scheduleOpen(slotID, slotBtn)
     local myGen = _openGen
     C_Timer.After(OPEN_DELAY, function()
         if myGen ~= _openGen then return end            -- Maus schon weiter
-        if not (mod._enabled and isHoverMode()) then return end
+        if not mod._enabled then return end
         if not slotBtn:IsMouseOver() then return end
+        -- Ein per Klick geoeffnetes Fenster nicht ueberschreiben.
+        if popup and popup:IsShown() and not popup._vgsCompact then return end
         _hoverSlotBtn = slotBtn
         showSlotPicker(slotID, slotBtn)   -- kompakt, am Slot verankert
 
@@ -387,9 +390,7 @@ local function scheduleOpen(slotID, slotBtn)
         if popup and not popup._vgsHoverHooked then
             popup._vgsHoverHooked = true
             popup:HookScript("OnEnter", function() _closeGen = _closeGen + 1 end)
-            popup:HookScript("OnLeave", function()
-                if isHoverMode() then scheduleClose() end
-            end)
+            popup:HookScript("OnLeave", function() scheduleClose() end)
         end
     end)
 end
@@ -406,12 +407,12 @@ local function hookSlots()
                 end
             end)
             slotBtn:HookScript("OnEnter", function(self)
-                if not (mod._enabled and isHoverMode()) then return end
+                if not mod._enabled then return end
                 _closeGen = _closeGen + 1               -- geplantes Schliessen verwerfen
                 scheduleOpen(slotID, self)
             end)
             slotBtn:HookScript("OnLeave", function()
-                if not (mod._enabled and isHoverMode()) then return end
+                if not mod._enabled then return end
                 _openGen = _openGen + 1                 -- geplantes Oeffnen verwerfen
                 scheduleClose()
             end)
@@ -436,12 +437,12 @@ function mod:OnEnable()
         end
         mod.db._defaultMigrated_v2 = true
     end
-    if not mod.db._defaultMigrated_v3 then
-        if mod.db.modifier == "right" then
-            mod.db.modifier = "hover"
-        end
-        mod.db._defaultMigrated_v3 = true
+    -- Das Ueberfahren ist inzwischen fest eingebaut; "hover" ist als
+    -- Klick-Einstellung ungueltig geworden.
+    if mod.db.modifier == "hover" then
+        mod.db.modifier = "right"
     end
+    mod.db._defaultMigrated_v3 = nil
 
     hookSlots()
 end
@@ -456,13 +457,12 @@ function mod:GetOptions()
 
         { type = "spacer", height = 6 },
         { type = "dropdown", label = L["Activation modifier"],
-          tooltip = L["Choose what opens the item picker on an equipment slot. On hover it opens by itself after a moment and stays open while the mouse is on the slot or the popup."],
+          tooltip = L["Which click opens the full picker window. Hovering a slot always shows the compact list, regardless of this setting."],
           values = {
               { value = "right",       text = L["Right-click only"] },
               { value = "shift-right", text = L["Shift + Right-click"] },
               { value = "alt-right",   text = L["Alt + Right-click"] },
               { value = "ctrl-right",  text = L["Ctrl + Right-click"] },
-              { value = "hover",       text = L["On hover (no click)"] },
           },
           get = function() return mod.db.modifier or "right" end,
           set = function(_, v) mod.db.modifier = v end },

@@ -1633,18 +1633,17 @@ function mod:GetOptions()
         -- Slot Picker (formerly its own module, now integrated here)
         { type = "spacer", height = 6 },
         { type = "section", title = L["Slot Picker"], collapsed = false, items = {
-            { type = "desc", text = L["|cffaaaaaaHover an equipment slot in the character window to see all compatible items from your bags and click one to equip it. The picker only opens when there is something to swap.|r"] },
+            { type = "desc", text = L["|cffaaaaaaHover an equipment slot to see the matching items from your bags right next to it, and click one to equip. The click below opens the full window with all of them.|r"] },
             { type = "toggle", label = L["Enable slot picker"],
               get = function() return ns:IsModuleEnabled("slotpicker") end,
               set = function(_, v) if ns.ToggleModule then ns:ToggleModule("slotpicker", v) end end },
             { type = "dropdown", label = L["Activation modifier"],
-              tooltip = L["Choose what opens the item picker on an equipment slot. On hover it opens by itself after a moment and stays open while the mouse is on the slot or the popup."],
+              tooltip = L["Which click opens the full picker window. Hovering a slot always shows the compact list, regardless of this setting."],
               values = {
                   { value = "right",       text = L["Right-click only"] },
                   { value = "shift-right", text = L["Shift + Right-click"] },
                   { value = "alt-right",   text = L["Alt + Right-click"] },
                   { value = "ctrl-right",  text = L["Ctrl + Right-click"] },
-                  { value = "hover",       text = L["On hover (no click)"] },
               },
               get = function() local sp = ns.modules and ns.modules.slotpicker; return (sp and sp.db and sp.db.modifier) or "right" end,
               set = function(_, v) local sp = ns.modules and ns.modules.slotpicker; if sp and sp.db then sp.db.modifier = v end end },
