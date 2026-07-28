@@ -13,6 +13,12 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Der Standard-GITHUB_TOKEN darf in neuen Repos nur lesen. Ohne
+    # Schreibrecht auf contents scheitert das Anlegen des GitHub-Releases
+    # mit 403 "Resource not accessible by integration" - CurseForge und
+    # Wago sind davon nicht betroffen, die laufen ueber eigene Tokens.
+    permissions:
+      contents: write
     steps:
       - name: Repository auschecken
         uses: actions/checkout@v5
