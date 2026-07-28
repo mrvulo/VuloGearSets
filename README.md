@@ -33,7 +33,7 @@ click. Runs on its own, no other addons required.
 | `/gearset spec` | view and set spec bindings |
 | `/gearset config` | open the settings |
 | `/gearset unlock` | make the sidebar movable |
-| `/gearset tune top\|bottom\|reset <n>` | fine-tune the sidebar height |
+| `/gearset tune top\|bottom\|left <n>` | fine-tune the sidebar edges (`show`, `reset`) |
 | `/vgs` | short form of `/gearset` |
 | `/rl` | reload the interface (not in combat) |
 | `/vgsfont` | font diagnostics |

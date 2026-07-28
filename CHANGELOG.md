@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.1
+
+Polish for the Classic style, which uses a much wider frame than the modern one.
+
+- The sidebar now lines up with the *visible* edge of the character window
+  instead of the frame bounds, which are larger and include invisible padding.
+  New `/gearset tune left <n>`, plus `tune show` to print the current values.
+- Rows, buttons, popup titles and item icons kept the spacing of the thin modern
+  border and overlapped the Classic frame. Padding now follows the style.
+- Sidebar buttons stretch to the available width instead of using fixed sizes,
+  so they keep the same distance to the frame in both styles.
+- The selection bar on a gear set is inset and less intense in Classic.
+- Hovering an equipment slot reacts faster: 0.10s instead of 0.25s.
+
 ## 1.2.0
 
 - Window style option. **Modern** keeps the dark look with the purple accent,
