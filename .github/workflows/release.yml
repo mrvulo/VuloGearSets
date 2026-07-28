@@ -1,0 +1,29 @@
+name: Release
+
+# Laeuft, sobald ein Versions-Tag geschoben wird:
+#   git tag v1.0.0 && git push origin v1.0.0
+on:
+  push:
+    tags:
+      - 'v*'
+  # Zum Ausprobieren ohne Tag: Actions -> Release -> Run workflow.
+  # Ohne Tag laedt der Packager nichts hoch, baut aber das Paket.
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+        with:
+          # Der Packager braucht die volle Historie fuer den Changelog
+          # zwischen zwei Tags.
+          fetch-depth: 0
+
+      - name: Paket bauen und veroeffentlichen
+        uses: BigWigsMods/packager@master
+        env:
+          GITHUB_OAUTH:    ${{ secrets.GITHUB_TOKEN }}
+          CF_API_KEY:      ${{ secrets.CF_API_KEY }}
+          WAGO_API_TOKEN:  ${{ secrets.WAGO_API_TOKEN }}
