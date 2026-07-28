@@ -144,6 +144,13 @@ function ns:SelectionColor()
     return 0.40, 0.30, 0.60, 0.45
 end
 
+-- Zusaetzlicher Innenabstand, den der Rahmen des Stils braucht.
+-- Blizzards Dialograhmen ist deutlich breiter als der duenne Rand des
+-- modernen Stils; ohne den Aufschlag sitzt der Inhalt im Rahmen.
+function ns:FrameInset()
+    return (ns:GetStyle() == "classic") and 8 or 0
+end
+
 -- Hinterlegung beim Ueberfahren.
 function ns:HoverColor()
     if ns:GetStyle() == "classic" then return 0.42, 0.34, 0.12, 0.40 end

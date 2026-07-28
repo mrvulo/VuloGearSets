@@ -751,6 +751,12 @@ ns:OnStyleChanged(function()
         if btn.selection then btn.selection:SetColorTexture(ns:SelectionColor()) end
         if btn.hl        then btn.hl:SetColorTexture(ns:HoverColor()) end
     end
+    -- Der Innenabstand haengt am Stil: neu aufbauen, damit Zeilen und
+    -- Knoepfe nicht ueber den Rahmen laufen.
+    if _G.VGS_GearSetsSidebar and _G.VGS_GearSetsSidebar:IsShown() then
+        if mod._reanchorSidebar then mod._reanchorSidebar() end
+        if mod._refreshSidebar  then mod._refreshSidebar()  end
+    end
 end)
 local sidebarSelected           -- currently highlighted loadout name
 local sidebarExpanded           -- name of currently expanded loadout (only one at a time)
@@ -1302,8 +1308,9 @@ refreshSidebar = function()
             btn.expand.icon:SetTexture("Interface\\Buttons\\UI-Panel-ExpandButton-Up")
         end
         btn:ClearAllPoints()
-        btn:SetPoint("TOPLEFT",  sidebar, "TOPLEFT",  4, y)
-        btn:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -4, y)
+        local pad = 4 + ns:FrameInset()
+        btn:SetPoint("TOPLEFT",  sidebar, "TOPLEFT",  pad, y)
+        btn:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -pad, y)
         btn:Show()
         y = y - 33
 
@@ -1312,8 +1319,9 @@ refreshSidebar = function()
             local row = getItemRow(sidebar, i)
             renderItemRow(row, name)
             row:ClearAllPoints()
-            row:SetPoint("TOPLEFT",  sidebar, "TOPLEFT",  6, y)
-            row:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -6, y)
+            local rpad = 6 + ns:FrameInset()
+            row:SetPoint("TOPLEFT",  sidebar, "TOPLEFT",  rpad, y)
+            row:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -rpad, y)
             row:Show()
             y = y - row:GetHeight() - 4
         end
@@ -1374,6 +1382,9 @@ local function createSidebar()
     anchorToCharacterFrame()
     sidebar._reanchor = anchorToCharacterFrame
     mod._reanchorSidebar = anchorToCharacterFrame
+    -- Fuer den Stilwechsel: die Zeilen muessen mit neuem Innenabstand
+    -- neu gesetzt werden.
+    mod._refreshSidebar = refreshSidebar
 
     -- Debug: print real top/bottom/height of CharacterFrame vs the sidebar
     mod._debugSizes = function()
@@ -1407,7 +1418,7 @@ local function createSidebar()
     -- Action buttons (top row)
     local equipBtn = CreateFrame("Button", nil, sidebar, "UIPanelButtonTemplate")
     equipBtn:SetSize(86, 22)
-    equipBtn:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 4, -4)
+    equipBtn:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 4 + ns:FrameInset(), -4 - ns:FrameInset())
     equipBtn:SetText(L["Equip"])
     equipBtn:SetScript("OnClick", function()
         if sidebarSelected then equipLoadout(sidebarSelected) end
@@ -1416,7 +1427,7 @@ local function createSidebar()
 
     local saveBtn = CreateFrame("Button", nil, sidebar, "UIPanelButtonTemplate")
     saveBtn:SetSize(86, 22)
-    saveBtn:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -4, -4)
+    saveBtn:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -4 - ns:FrameInset(), -4 - ns:FrameInset())
     saveBtn:SetText(L["Save"])
     saveBtn:SetScript("OnClick", function()
         if sidebarSelected then
@@ -1429,7 +1440,7 @@ local function createSidebar()
     -- New Set button (bottom)
     local newBtn = CreateFrame("Button", nil, sidebar, "UIPanelButtonTemplate")
     newBtn:SetSize(178, 24)
-    newBtn:SetPoint("BOTTOM", sidebar, "BOTTOM", 0, 4)
+    newBtn:SetPoint("BOTTOM", sidebar, "BOTTOM", 0, 4 + ns:FrameInset())
     newBtn:SetText("+ " .. L["New Set"])
     newBtn:SetScript("OnClick", function() promptSaveWithSlots(nil) end)
     sidebar.newBtn = newBtn

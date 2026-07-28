@@ -146,14 +146,24 @@ local function createPopup()
 
     -- Draggable via title bar
     local title = popup:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    title:SetPoint("TOPLEFT", popup, "TOPLEFT", 8, -6)
+    popup.titleAnchor = function()
+        local i = ns:FrameInset()
+        title:ClearAllPoints()
+        title:SetPoint("TOPLEFT", popup, "TOPLEFT", 8 + i, -6 - i)
+    end
+    popup.titleAnchor()
     title:SetTextColor(1, 0.82, 0)
     popup.title = title
 
     -- Close button (X)
     local closeBtn = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
     closeBtn:SetSize(22, 22)
-    closeBtn:SetPoint("TOPRIGHT", popup, "TOPRIGHT", 0, 0)
+    popup.closeAnchor = function()
+        local i = ns:FrameInset()
+        closeBtn:ClearAllPoints()
+        closeBtn:SetPoint("TOPRIGHT", popup, "TOPRIGHT", -i, -i)
+    end
+    popup.closeAnchor()
     closeBtn:SetScript("OnClick", function() popup:Hide() end)
     popup.closeBtn = closeBtn   -- im kompakten Hover-Modus ausgeblendet
 
@@ -232,6 +242,10 @@ local function showSlotPicker(slotID, anchorBtn)
         .. string.format(" |cff888888(%d)|r", #results))
     popup.title:SetShown(not compact)
     if popup.closeBtn then popup.closeBtn:SetShown(not compact) end
+    -- Bei jedem Oeffnen neu ansetzen: der noetige Innenabstand haengt
+    -- am Stil und kann sich zwischendurch geaendert haben.
+    if popup.titleAnchor then popup.titleAnchor() end
+    if popup.closeAnchor then popup.closeAnchor() end
 
     -- Hide leftover buttons
     for _, b in ipairs(itemButtons) do b:Hide() end
@@ -254,8 +268,11 @@ local function showSlotPicker(slotID, anchorBtn)
         local cols = mod.db.cols or 8
         if compact then cols = math.min(cols, #results) end
         local rows = math.ceil(#results / cols)
-        local padding   = compact and 6 or 8
-        local gridStart = compact and 6 or 28  -- unterhalb der Titelleiste
+        -- Der Classic-Rahmen ist breiter und braucht mehr Innenabstand,
+        -- sonst sitzen die Symbole im Rahmen.
+        local inset     = ns:FrameInset()
+        local padding   = (compact and 6 or 8) + inset
+        local gridStart = (compact and 6 or 28) + inset
         local btnPad    = 4
 
         local width  = cols * (BTN_SIZE + btnPad) - btnPad + padding * 2
@@ -338,7 +355,10 @@ local _hooked = false
 -- Statt Timer abzubrechen (C_Timer.NewTimer gibt es nicht ueberall) laeuft
 -- das ueber Generationszaehler: ein spaeterer Aufruf entwertet den frueheren.
 -- =========================================================
-local OPEN_DELAY, CLOSE_DELAY = 0.25, 0.45
+-- Oeffnen bewusst kurz: die Anzeige soll dem Blick folgen, nicht
+-- hinterherhinken. Der Nachlauf beim Schliessen bleibt laenger,
+-- damit die Maus vom Slot ins Fenster wandern kann.
+local OPEN_DELAY, CLOSE_DELAY = 0.10, 0.45
 local _openGen, _closeGen = 0, 0
 local _hoverSlotBtn
 
