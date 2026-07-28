@@ -5,7 +5,7 @@
 ## Version: 1.0.0
 ## SavedVariables: VuloGearSetsDB
 ## SavedVariablesPerCharacter: VuloGearSetsCharDB
-## IconTexture: Interface\Icons\INV_Chest_Plate06
+## IconTexture: Interface\AddOns\VuloGearSets\Media\Icons\vui4
 ## Category: VuloUI
 
 Core\Namespace.lua
@@ -16,3 +16,8 @@ Locales\deDE.lua
 Core\Database.lua
 Core\Modules.lua
 Core\Events.lua
+Core\PopupMenu.lua
+Core\Mover.lua
+UI\Widgets.lua
+UI\OptionsFrame.lua
+UI\_Demo.lua
