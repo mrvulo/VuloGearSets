@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.4.0
+
+- Status marker next to each gear set: **green** when the set is fully worn,
+  **orange** when parts are in the bank, **red** when a part cannot be found at
+  all. The tooltip lists which parts are where.
+  Note that "not found" means "not on this character" — the client cannot tell a
+  sold item from one sitting on an alt or in the mail.
+- The marker updates right after equipping. Swapping runs over several frames, so
+  it used to show the state from before the change.
+- `/gearset tune left <n>` and `tune show` for the sidebar edges.
+- Fixed: the compact slot picker always opened to the right instead of only when
+  the preferred side had no room.
+
 ## 1.3.1
 
 - A custom icon no longer disappears when you update a set. Saving and overwriting
