@@ -1506,9 +1506,16 @@ local function createSidebar()
         mvr:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
     end
 
-    -- Hook CharacterFrame show/hide
-    CharacterFrame:HookScript("OnShow", function()
-        if mod._enabled and mod.db and mod.db.sidebarEnabled ~= false then
+    -- Die Leiste gehoert zum Reiter "Charakter". Auf Ruf, Fertigkeiten oder
+    -- PvP hat sie keinen Bezug, deshalb haengt sie an PaperDollFrame - das
+    -- ist genau dieser Reiter - und nicht am Charakterfenster insgesamt.
+    local function updateVisibility()
+        if not (mod._enabled and mod.db and mod.db.sidebarEnabled ~= false) then
+            sidebar:Hide()
+            return
+        end
+        local onGearTab = PaperDollFrame and PaperDollFrame:IsShown()
+        if CharacterFrame and CharacterFrame:IsShown() and onGearTab then
             sidebar:Show()
             anchorToCharacterFrame()  -- re-sync size in case CharacterFrame changed
             refreshSidebar()
@@ -1516,9 +1523,19 @@ local function createSidebar()
             if sidebar.mover then
                 if ns:IsMoverEditMode() then sidebar.mover:Show() else sidebar.mover:Hide() end
             end
+        else
+            sidebar:Hide()
         end
-    end)
+    end
+    mod._updateSidebarVisibility = updateVisibility
+
+    CharacterFrame:HookScript("OnShow", updateVisibility)
     CharacterFrame:HookScript("OnHide", function() sidebar:Hide() end)
+    if PaperDollFrame then
+        PaperDollFrame:HookScript("OnShow", updateVisibility)
+        PaperDollFrame:HookScript("OnHide", function() sidebar:Hide() end)
+    end
+    updateVisibility()
 
     if ns:IsMoverEditMode() then sidebar.mover:Show() end
     return sidebar
@@ -1526,11 +1543,12 @@ end
 
 local function applySidebarVisibility()
     if not sidebar then return end
-    if mod.db.sidebarEnabled == false then
+    -- Entscheidet dieselbe Stelle wie die Frame-Hooks, damit der Reiter
+    -- nicht an zwei Orten geprueft wird.
+    if mod._updateSidebarVisibility then
+        mod._updateSidebarVisibility()
+    elseif mod.db.sidebarEnabled == false then
         sidebar:Hide()
-    elseif CharacterFrame and CharacterFrame:IsShown() then
-        sidebar:Show()
-        refreshSidebar()
     end
 end
 
