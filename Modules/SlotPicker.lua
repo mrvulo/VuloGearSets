@@ -18,8 +18,8 @@ local mod = ns:RegisterModule("slotpicker", {
     description = "Shift+Right-click an equipment slot to show all compatible items from your bags. Click to equip.",
     defaults = {
         enabled  = true,
-        -- "right" | "shift-right" | "alt-right" | "ctrl-right" | "hover"
-        modifier = "right",
+        -- "hover" | "right" | "shift-right" | "alt-right" | "ctrl-right"
+        modifier = "hover",
         cols     = 8,
     },
 })
@@ -166,6 +166,7 @@ local function createPopup()
     closeBtn:SetSize(22, 22)
     closeBtn:SetPoint("TOPRIGHT", popup, "TOPRIGHT", 0, 0)
     closeBtn:SetScript("OnClick", function() popup:Hide() end)
+    popup.closeBtn = closeBtn   -- im kompakten Hover-Modus ausgeblendet
 
     -- Drag area = title bar (top 24px)
     popup:RegisterForDrag("LeftButton")
@@ -214,7 +215,9 @@ local function getItemButton(idx)
     return btn
 end
 
-local function showSlotPicker(slotID)
+-- anchorBtn gesetzt = kompakter Modus: direkt am Slot, ohne Titelleiste
+-- und Schliessen-Knopf, Breite passt sich der Anzahl der Teile an.
+local function showSlotPicker(slotID, anchorBtn)
     if not GetItemInfoInstant then
         ns:Print(L["Item scanning API not available on this client."])
         return
@@ -223,9 +226,20 @@ local function showSlotPicker(slotID)
     createPopup()
 
     local results = scanBagsForSlot(slotID)
+    local compact = anchorBtn ~= nil
+
+    -- Im kompakten Modus nichts zeigen, wenn es nichts zu wechseln gibt -
+    -- sonst poppt beim Ueberfahren staendig "keine Teile" auf.
+    if compact and #results == 0 then
+        popup:Hide()
+        return
+    end
+
     local slotName = SLOT_FRAME_NAMES[slotID] or string.format("Slot %d", slotID)
     popup.title:SetText(string.format(L["Items for: %s"], slotName)
         .. string.format(" |cff888888(%d)|r", #results))
+    popup.title:SetShown(not compact)
+    if popup.closeBtn then popup.closeBtn:SetShown(not compact) end
 
     -- Hide leftover buttons
     for _, b in ipairs(itemButtons) do b:Hide() end
@@ -243,16 +257,19 @@ local function showSlotPicker(slotID)
     else
         if popup.noItemsText then popup.noItemsText:Hide() end
 
+        -- Kompakt: nur so viele Spalten wie noetig, kein Platz fuer die
+        -- Titelleiste, keine Mindestbreite.
         local cols = mod.db.cols or 8
+        if compact then cols = math.min(cols, #results) end
         local rows = math.ceil(#results / cols)
-        local padding   = 8
-        local gridStart = 28  -- below title bar
+        local padding   = compact and 6 or 8
+        local gridStart = compact and 6 or 28  -- unterhalb der Titelleiste
         local btnPad    = 4
 
         local width  = cols * (BTN_SIZE + btnPad) - btnPad + padding * 2
         local height = gridStart + rows * (BTN_SIZE + btnPad) - btnPad + padding
 
-        popup:SetSize(math.max(width, 180), height)
+        popup:SetSize(compact and width or math.max(width, 180), height)
 
         for i, entry in ipairs(results) do
             local btn = getItemButton(i)
@@ -287,9 +304,20 @@ local function showSlotPicker(slotID)
         end
     end
 
-    -- Position next to the character frame
     popup:ClearAllPoints()
-    if CharacterFrame and CharacterFrame:IsShown() then
+    if compact then
+        -- Zur Fensteraussenseite hin oeffnen, damit das Charaktermodell
+        -- frei bleibt: linke Slotspalte nach links, rechte nach rechts.
+        local toLeft = false
+        local sx = anchorBtn:GetCenter()
+        local cx = CharacterFrame and CharacterFrame:GetCenter()
+        if sx and cx then toLeft = sx < cx end
+        if toLeft then
+            popup:SetPoint("RIGHT", anchorBtn, "LEFT", -6, 0)
+        else
+            popup:SetPoint("LEFT", anchorBtn, "RIGHT", 6, 0)
+        end
+    elseif CharacterFrame and CharacterFrame:IsShown() then
         popup:SetPoint("TOPLEFT", CharacterFrame, "TOPRIGHT", 4, 0)
     else
         popup:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
@@ -352,7 +380,7 @@ local function scheduleOpen(slotID, slotBtn)
         if not (mod._enabled and isHoverMode()) then return end
         if not slotBtn:IsMouseOver() then return end
         _hoverSlotBtn = slotBtn
-        showSlotPicker(slotID)
+        showSlotPicker(slotID, slotBtn)   -- kompakt, am Slot verankert
 
         -- Das Popup entsteht erst beim ersten Oeffnen, deshalb wird die
         -- Haltelogik hier angehaengt und nicht in hookSlots.
@@ -399,14 +427,20 @@ end
 function mod:OnEnable()
     if not mod.db then return end
 
-    -- One-time migration: previous default modifier was "shift-right".
-    -- Switch existing users to the new "right" default. If a user actively
-    -- prefers shift/alt/ctrl, they can change it back in the dropdown.
+    -- Einmalige Umstellung: frueher war "shift-right" die Voreinstellung,
+    -- dann "right", jetzt "hover". Wer noch auf dem jeweils alten Standard
+    -- steht, wird mitgenommen; eine bewusst gewaehlte Einstellung bleibt.
     if not mod.db._defaultMigrated_v2 then
         if mod.db.modifier == "shift-right" then
             mod.db.modifier = "right"
         end
         mod.db._defaultMigrated_v2 = true
+    end
+    if not mod.db._defaultMigrated_v3 then
+        if mod.db.modifier == "right" then
+            mod.db.modifier = "hover"
+        end
+        mod.db._defaultMigrated_v3 = true
     end
 
     hookSlots()

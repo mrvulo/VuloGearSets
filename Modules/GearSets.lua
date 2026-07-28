@@ -1633,7 +1633,7 @@ function mod:GetOptions()
         -- Slot Picker (formerly its own module, now integrated here)
         { type = "spacer", height = 6 },
         { type = "section", title = L["Slot Picker"], collapsed = false, items = {
-            { type = "desc", text = L["|cffaaaaaaRight-click an equipment slot in the character window to see all compatible items from your bags and click one to equip it.|r"] },
+            { type = "desc", text = L["|cffaaaaaaHover an equipment slot in the character window to see all compatible items from your bags and click one to equip it. The picker only opens when there is something to swap.|r"] },
             { type = "toggle", label = L["Enable slot picker"],
               get = function() return ns:IsModuleEnabled("slotpicker") end,
               set = function(_, v) if ns.ToggleModule then ns:ToggleModule("slotpicker", v) end end },
