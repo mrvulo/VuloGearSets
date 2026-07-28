@@ -21,18 +21,25 @@ jobs:
           # zwischen zwei Tags.
           fetch-depth: 0
 
+      # Zwei getrennte Schritte statt eines Ausdrucks fuer args: ein leerer
+      # String gilt in GitHub-Ausdruecken als falsch, weshalb sich "keine
+      # Argumente" dort nicht sauber ausdruecken laesst.
+
       - name: Paket bauen und veroeffentlichen
+        if: github.ref_type == 'tag'
         uses: BigWigsMods/packager@master
-        with:
-          # Ohne Tag baut der Packager eine Alpha und laedt sie hoch, sobald
-          # Tokens da sind. Beim manuellen Lauf deshalb -d setzen: bauen,
-          # aber nicht veroeffentlichen. Nur ein Tag loest einen echten
-          # Release aus.
-          args: ${{ github.ref_type == 'tag' && ' ' || '-d' }}
         env:
           GITHUB_OAUTH:    ${{ secrets.GITHUB_TOKEN }}
           CF_API_KEY:      ${{ secrets.CF_API_KEY }}
           WAGO_API_TOKEN:  ${{ secrets.WAGO_API_TOKEN }}
+
+      - name: Paket nur bauen (Probelauf)
+        if: github.ref_type != 'tag'
+        uses: BigWigsMods/packager@master
+        with:
+          args: -d   # bauen, nicht hochladen
+        env:
+          GITHUB_OAUTH:    ${{ secrets.GITHUB_TOKEN }}
 
       # Beim Probelauf das gebaute Paket mitgeben, damit sich der Inhalt
       # pruefen laesst. Der Packager selbst legt kein Artefakt an.
