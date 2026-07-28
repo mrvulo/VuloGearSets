@@ -78,51 +78,10 @@ Nimmt ein Client Expressway an, wird sie automatisch benutzt.
 
 `/vgsfont` zeigt, welche Schrift aktiv ist und was die Messung ergibt.
 
-## Entwicklung
+## Mitarbeit
 
-Der Repo-Ordner **ist** der Addon-Ordner — `VuloGearSets.toc` liegt im Wurzelverzeichnis.
-`docs/` und `tools/` gehören nicht zur Auslieferung.
-
-```
-python tools/check.py      # TOC-, Locale- und Kopplungsprüfung
-powershell tools/deploy.ps1  # ins Spielverzeichnis kopieren
-```
-
-`tools/check.py` prüft, dass jede Lua-Datei in der TOC steht und umgekehrt, dass
-jeder benutzte Locale-Schlüssel eine deutsche Übersetzung hat und keine verwaisten
-übrig sind, und dass die SavedVariables von VuloClassicUI nur in
-`Core/Coexistence.lua` angefasst werden.
-
-## Veröffentlichung
-
-Ein Tag löst den Workflow in `.github/workflows/release.yml` aus, der das Paket über
-[BigWigsMods/packager](https://github.com/BigWigsMods/packager) baut und zu CurseForge,
-Wago und als GitHub-Release hochlädt.
-
-```bash
-git tag v1.0.0 && git push origin v1.0.0
-```
-
-`.pkgmeta` schließt `docs/`, `tools/`, `.github/` und die README aus dem Paket aus —
-ausgeliefert wird nur, was das Spiel braucht.
-
-**Vor dem ersten Release einmalig einrichten:**
-
-1. Projekte auf CurseForge und Wago anlegen. Beide vergeben eine ID.
-2. Diese IDs in `VuloGearSets.toc` eintragen, direkt unter `## Version`:
-   ```
-   ## X-Curse-Project-ID: <Zahl aus der CurseForge-Projektseite>
-   ## X-Wago-ID: <Kürzel aus der Wago-Projekt-URL>
-   ```
-   Fehlt eine Zeile, überspringt der Packager den jeweiligen Dienst kommentarlos.
-3. In den GitHub-Repo-Einstellungen unter *Secrets and variables → Actions* anlegen:
-   - `CF_API_KEY` — CurseForge-API-Token aus dem Konto-Bereich
-   - `WAGO_API_TOKEN` — Wago-API-Token aus den Kontoeinstellungen
-
-   `GITHUB_TOKEN` stellt GitHub selbst bereit, das ist nichts einzurichten.
-
-Die Versionsnummer zieht der Packager aus dem Tag, nicht aus der TOC. Beide sollten
-trotzdem übereinstimmen.
+Aufbau des Projekts, Prüfwerkzeuge, Übersetzungen und der Release-Ablauf stehen in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Lizenz
 

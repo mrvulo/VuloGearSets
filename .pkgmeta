@@ -8,6 +8,7 @@ ignore:
   - docs
   - tools
   - README.md
+  - CONTRIBUTING.md
 
 # Keine externen Bibliotheken - das Addon kommt ohne Libs aus.
 enable-nolib-creation: no
