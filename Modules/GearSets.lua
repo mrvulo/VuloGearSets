@@ -1140,17 +1140,11 @@ local function createSetRow(parent, index)
         refreshSidebar()
     end)
 
-    -- Statuspunkt: gruen angelegt, orange vorhanden, rot nicht auffindbar
-    btn.status = btn:CreateTexture(nil, "OVERLAY")
-    btn.status:SetSize(8, 8)
-    btn.status:SetPoint("RIGHT", btn.expand, "LEFT", -6, 0)
-    btn.status:SetTexture("Interface\\Buttons\\WHITE8X8")
-    btn.status:Hide()
-
-    -- Name text (between icon and status dot)
+    -- Name text (between icon and expand button). Der Statusmarker haengt
+    -- als eingefaerbter Punkt am Namen - wie in VuloClassicUI.
     btn.text = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     btn.text:SetPoint("LEFT", btn.icon, "RIGHT", 8, 0)
-    btn.text:SetPoint("RIGHT", btn.status, "LEFT", -4, 0)
+    btn.text:SetPoint("RIGHT", btn.expand, "LEFT", -4, 0)
     btn.text:SetJustifyH("LEFT")
 
     -- Selection background
@@ -1434,28 +1428,24 @@ refreshSidebar = function()
     for i, name in ipairs(names) do
         local btn = createSetRow(sidebar, i)
         btn.setName = name
-        btn.text:SetText(name)
         btn.icon:SetTexture(getSetIcon(name))
 
-        -- Statuspunkt. Ist alles angelegt, bleibt er unauffaellig gruen;
-        -- fehlende Teile faerben ihn orange, nicht auffindbare rot.
+        -- Statusmarker hinter dem Namen, in absteigender Dringlichkeit:
+        -- rot fuer nicht auffindbar, orange fuer Bank, gruen nur wenn
+        -- wirklich alles getragen wird.
         local st = getSetStatus(name)
         btn.statusInfo = st
-        -- Die Zeilen werden wiederverwendet. Stammt eine noch aus der Zeit
-        -- vor dieser Anzeige, fehlt ihr die Textur - dann lieber nichts
-        -- zeigen als hier abbrechen und den Rest der Liste mitreissen.
-        if st and btn.status then
-            btn.status:Show()
-            if st.state == "equipped" then
-                btn.status:SetColorTexture(0.20, 0.90, 0.25, 1)
-            elseif st.state == "missing" then
-                btn.status:SetColorTexture(0.95, 0.25, 0.20, 1)
-            else
-                btn.status:SetColorTexture(1.00, 0.65, 0.10, 1)
+        local marker = ""
+        if st then
+            if st.state == "missing" then
+                marker = " |cffff5555\226\128\162|r"
+            elseif #st.inBank > 0 then
+                marker = " |cffff9933\226\128\162|r"
+            elseif st.state == "equipped" then
+                marker = " |cff33ff55\226\128\162|r"
             end
-        elseif btn.status then
-            btn.status:Hide()
         end
+        btn.text:SetText(name .. marker)
         btn.isSelected = (name == sidebarSelected)
         if btn.isSelected then
             btn.selection:Show()
