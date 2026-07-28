@@ -160,6 +160,58 @@ local function countSlots(loadout)
     return n
 end
 
+-- =========================================================
+-- Zustand eines Sets
+--
+--   equipped   alles angelegt
+--   ready      alles vorhanden, aber nicht angelegt (Taschen/Bank)
+--   missing    mindestens ein Teil nirgends auffindbar
+--
+-- WICHTIG: "nicht auffindbar" heisst nicht "existiert nicht mehr". Der
+-- Client kennt nur Taschen, angelegte Ausruestung und - sofern schon
+-- einmal geoeffnet - die Bank. Ein Teil bei einem anderen Charakter oder
+-- in der Post ist von hier aus nicht von einem verkauften zu unterscheiden.
+--
+-- Verglichen wird die Item-ID, nicht der Link: derselbe Gegenstand hat je
+-- nach Verzauberung oder Sockel unterschiedliche Links.
+-- =========================================================
+local function getSetStatus(name)
+    local set = LO()[name]
+    if not set or not set.slots then return nil end
+
+    local worn, inBags, inBank, missing = {}, {}, {}, {}
+    local total = 0
+
+    for slot, link in pairs(set.slots) do
+        total = total + 1
+        local id = getItemIDFromLink(link)
+        local itemName = (link:match("|h%[(.-)%]|h")) or link
+        local entry = { slot = slot, name = itemName, link = link }
+
+        if id and getItemIDFromLink(GetInventoryItemLink("player", slot)) == id then
+            table.insert(worn, entry)
+        elseif id and GetItemCount and GetItemCount(id) > 0 then
+            table.insert(inBags, entry)
+        elseif id and GetItemCount and GetItemCount(id, true) > 0 then
+            table.insert(inBank, entry)
+        else
+            table.insert(missing, entry)
+        end
+    end
+
+    if total == 0 then return nil end
+    local state = "ready"
+    if #missing > 0 then
+        state = "missing"
+    elseif #worn == total then
+        state = "equipped"
+    end
+    return {
+        state = state, total = total,
+        worn = worn, inBags = inBags, inBank = inBank, missing = missing,
+    }
+end
+
 local function sortedLoadoutNames()
     local names = {}
     if mod.db and LO() then
@@ -1036,10 +1088,17 @@ local function createSetRow(parent, index)
         refreshSidebar()
     end)
 
-    -- Name text (between icon and expand button)
+    -- Statuspunkt: gruen angelegt, orange vorhanden, rot nicht auffindbar
+    btn.status = btn:CreateTexture(nil, "OVERLAY")
+    btn.status:SetSize(8, 8)
+    btn.status:SetPoint("RIGHT", btn.expand, "LEFT", -6, 0)
+    btn.status:SetTexture("Interface\\Buttons\\WHITE8X8")
+    btn.status:Hide()
+
+    -- Name text (between icon and status dot)
     btn.text = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     btn.text:SetPoint("LEFT", btn.icon, "RIGHT", 8, 0)
-    btn.text:SetPoint("RIGHT", btn.expand, "LEFT", -4, 0)
+    btn.text:SetPoint("RIGHT", btn.status, "LEFT", -4, 0)
     btn.text:SetJustifyH("LEFT")
 
     -- Selection background
@@ -1068,6 +1127,32 @@ local function createSetRow(parent, index)
             GameTooltip:AddLine(self.setName, 1, 0.82, 0)
             GameTooltip:AddLine(string.format("%d %s", countSlots(loadout), L["items"]),
                 0.6, 0.6, 0.6)
+
+            -- Zustand im Klartext, und bei fehlenden Teilen auch welche.
+            local st = self.statusInfo
+            if st then
+                GameTooltip:AddLine(" ")
+                if st.state == "equipped" then
+                    GameTooltip:AddLine(L["Currently equipped"], 0.2, 0.9, 0.25)
+                elseif st.state == "missing" then
+                    GameTooltip:AddLine(L["Some items are not on this character"], 0.95, 0.25, 0.2)
+                else
+                    GameTooltip:AddLine(L["Ready to equip"], 1, 0.65, 0.1)
+                end
+
+                local function listPart(entries, label, r, g, b)
+                    if #entries == 0 then return end
+                    GameTooltip:AddLine(label, r, g, b)
+                    for _, e in ipairs(entries) do
+                        GameTooltip:AddLine("   " .. e.name, 0.85, 0.85, 0.85)
+                    end
+                end
+                -- Angelegtes nicht aufzaehlen - das sieht man am Charakter.
+                listPart(st.inBags,  L["In your bags:"],   0.7, 0.9, 0.7)
+                listPart(st.inBank,  L["In the bank:"],    1.0, 0.82, 0.1)
+                listPart(st.missing, L["Not found:"],      0.95, 0.4, 0.35)
+            end
+
             GameTooltip:AddLine(" ")
             GameTooltip:AddLine(L["Left-click: select"], 1, 1, 1)
             GameTooltip:AddLine(L["Double-click / Right-click menu: equip"], 0.7, 0.7, 0.7)
@@ -1299,6 +1384,23 @@ refreshSidebar = function()
         btn.setName = name
         btn.text:SetText(name)
         btn.icon:SetTexture(getSetIcon(name))
+
+        -- Statuspunkt. Ist alles angelegt, bleibt er unauffaellig gruen;
+        -- fehlende Teile faerben ihn orange, nicht auffindbare rot.
+        local st = getSetStatus(name)
+        btn.statusInfo = st
+        if st then
+            btn.status:Show()
+            if st.state == "equipped" then
+                btn.status:SetColorTexture(0.20, 0.90, 0.25, 1)
+            elseif st.state == "missing" then
+                btn.status:SetColorTexture(0.95, 0.25, 0.20, 1)
+            else
+                btn.status:SetColorTexture(1.00, 0.65, 0.10, 1)
+            end
+        else
+            btn.status:Hide()
+        end
         btn.isSelected = (name == sidebarSelected)
         if btn.isSelected then
             btn.selection:Show()
@@ -1624,6 +1726,18 @@ function mod:OnEnable()
     end
 
     -- Hook stance/form events
+    -- Statuspunkte nachziehen, wenn sich Ausruestung oder Taschen aendern.
+    -- Nur wenn die Leiste sichtbar ist - sonst waere es Arbeit fuer nichts.
+    local function refreshStatusDots()
+        if sidebar and sidebar:IsShown() and mod._refreshSidebar then
+            mod._refreshSidebar()
+        end
+    end
+    ns:RegisterEvent("UNIT_INVENTORY_CHANGED", function(_, unit)
+        if unit == "player" or unit == nil then refreshStatusDots() end
+    end)
+    ns:RegisterEvent("BAG_UPDATE_DELAYED", refreshStatusDots)
+
     ns:RegisterEvent("UPDATE_SHAPESHIFT_FORM",  onShapeshiftChange)
     ns:RegisterEvent("UPDATE_SHAPESHIFT_FORMS", onShapeshiftChange)
     ns:RegisterEvent("PLAYER_REGEN_ENABLED",    onShapeshiftChange)  -- retry leaving combat
