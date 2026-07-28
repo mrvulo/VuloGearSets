@@ -1,0 +1,17 @@
+# Windows
+Thumbs.db
+desktop.ini
+*.lnk
+
+# Editoren
+.vscode/
+.idea/
+*.swp
+*~
+
+# Python-Werkzeuge unter tools/
+__pycache__/
+*.pyc
+
+# Lokale Bauartefakte
+*.zip
