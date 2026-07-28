@@ -29,10 +29,12 @@ local mod = ns:RegisterModule("gearsets", {
         specSwitchEnabled = true,
         -- Character-frame sidebar
         sidebarEnabled      = true,
-        -- Feinjustierung der Kanten gegenueber dem Charakterfenster.
-        -- 0 = exakt gleich hoch. Nachstellbar mit /gearset tune.
-        sidebarTopOffset    = 0,
-        sidebarBottomOffset = 0,
+        -- Feinjustierung gegenueber dem Charakterfenster. Blizzards Frame
+        -- ist breiter und hoeher als sein sichtbarer Rahmen, deshalb sind
+        -- die Standardwerte nicht 0. Nachstellbar mit /gearset tune.
+        sidebarTopOffset    = -12,   -- Oberkante nach unten
+        sidebarBottomOffset = 76,    -- Unterkante nach oben (ueber die Reiter)
+        sidebarXOffset      = -34,   -- nach links, an den sichtbaren Rand
     },
 })
 
@@ -413,7 +415,8 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
     elseif cmd == "debug" then
         if mod._debugSizes then mod._debugSizes() else ns:Print("Sidebar not created yet.") end
     elseif cmd == "tune" then
-        -- /loadout tune top <n>  |  /loadout tune bottom <n>
+        -- Blizzards CharacterFrame ist groesser als sein sichtbarer Rahmen.
+        -- Diese drei Werte richten die Leiste am sichtbaren Fenster aus.
         local which, valStr = arg:match("^(%S+)%s*(%-?%d*)$")
         local val = tonumber(valStr)
         if which == "top" and val then
@@ -424,13 +427,22 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
             mod.db.sidebarBottomOffset = val
             if mod._reanchorSidebar then mod._reanchorSidebar() end
             ns:Print(string.format("Sidebar bottom offset = %d", val))
-        elseif which == "reset" then
-            mod.db.sidebarTopOffset = 0
-            mod.db.sidebarBottomOffset = 0
+        elseif (which == "left" or which == "x") and val then
+            mod.db.sidebarXOffset = val
             if mod._reanchorSidebar then mod._reanchorSidebar() end
-            ns:Print("Sidebar offsets reset to 0.")
+            ns:Print(string.format("Sidebar left offset = %d", val))
+        elseif which == "show" then
+            ns:Print(string.format("top=%d bottom=%d left=%d",
+                mod.db.sidebarTopOffset or 0, mod.db.sidebarBottomOffset or 0,
+                mod.db.sidebarXOffset or 0))
+        elseif which == "reset" then
+            mod.db.sidebarTopOffset    = -12
+            mod.db.sidebarBottomOffset = 76
+            mod.db.sidebarXOffset      = -34
+            if mod._reanchorSidebar then mod._reanchorSidebar() end
+            ns:Print("Sidebar offsets reset to defaults.")
         else
-            ns:Print("Usage: /gearset tune top <n> | tune bottom <n> | tune reset")
+            ns:Print("Usage: /gearset tune top <n> | bottom <n> | left <n> | show | reset")
         end
     else
         -- Treat unknown first word as a loadout name to equip
@@ -1355,10 +1367,9 @@ local function createSidebar()
         local topOff = ((mod.db and mod.db.sidebarTopOffset)    or 0) + py
         local botOff = ((mod.db and mod.db.sidebarBottomOffset) or 0) + py
         sidebar:ClearAllPoints()
-        -- Buendig anschliessen: gleiche Hoehe wie das Charakterfenster,
-        -- kein Abstand dazwischen.
-        sidebar:SetPoint("TOPLEFT",    CharacterFrame, "TOPRIGHT", px, topOff)
-        sidebar:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMRIGHT", px, botOff)
+        local xOff = ((mod.db and mod.db.sidebarXOffset) or 0) + px
+        sidebar:SetPoint("TOPLEFT",    CharacterFrame, "TOPRIGHT", xOff, topOff)
+        sidebar:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMRIGHT", xOff, botOff)
     end
     anchorToCharacterFrame()
     sidebar._reanchor = anchorToCharacterFrame
@@ -1534,14 +1545,19 @@ function mod:OnEnable()
     -- Die Seitenleiste schliesst jetzt buendig an das Charakterfenster an.
     -- Wer noch auf den frueheren Werten -14/45 steht, wird einmalig auf 0
     -- gesetzt; selbst eingestellte Werte bleiben erhalten.
-    if not mod.db._offsetMigrated_v2 then
-        if (mod.db.sidebarTopOffset or 0) == -14
-           and (mod.db.sidebarBottomOffset or 0) == 45 then
-            mod.db.sidebarTopOffset    = 0
-            mod.db.sidebarBottomOffset = 0
+    if not mod.db._offsetMigrated_v3 then
+        -- Frueher galten -14/45 (aus VuloClassicUI) und zwischenzeitlich 0/0.
+        -- Beide richteten sich nach den Frame-Grenzen statt nach dem
+        -- sichtbaren Rahmen. Wer noch darauf steht, wird mitgenommen.
+        local top, bot = mod.db.sidebarTopOffset or 0, mod.db.sidebarBottomOffset or 0
+        if (top == -14 and bot == 45) or (top == 0 and bot == 0) then
+            mod.db.sidebarTopOffset    = -12
+            mod.db.sidebarBottomOffset = 76
+            mod.db.sidebarXOffset      = -34
         end
-        mod.db._offsetMigrated   = nil
-        mod.db._offsetMigrated_v2 = true
+        mod.db._offsetMigrated    = nil
+        mod.db._offsetMigrated_v2 = nil
+        mod.db._offsetMigrated_v3 = true
     end
 
     -- Create minimap button (deferred so Minimap definitely exists)
