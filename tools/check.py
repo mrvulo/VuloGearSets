@@ -93,6 +93,43 @@ def code_of(p):
     return strip_comments(p.read_text(encoding="utf-8"))
 
 
+def strip_strings(text):
+    """Ersetzt String-Inhalte durch Leerzeichen, Laenge bleibt erhalten.
+
+    Fuer die Strukturpruefung noetig: Uebersetzungstexte enthalten Woerter
+    wie "for" oder "end", die sonst als Lua-Bloecke gezaehlt wuerden.
+    """
+    out = []
+    i, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == "[":
+            m = re.match(r"\[(=*)\[", text[i:])
+            if m:
+                close = "]" + m.group(1) + "]"
+                end = text.find(close, i + m.end())
+                end = n if end == -1 else end + len(close)
+                out.append("".join(ch if ch == "\n" else " " for ch in text[i:end]))
+                i = end
+                continue
+        if c in "\"'":
+            j = i + 1
+            while j < n:
+                if text[j] == "\\":
+                    j += 2
+                    continue
+                if text[j] == c or text[j] == "\n":
+                    j += 1
+                    break
+                j += 1
+            out.append("".join(ch if ch == "\n" else " " for ch in text[i:j]))
+            i = j
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
 def check_toc():
     if not TOC.exists():
         errors.append(f"TOC fehlt: {TOC}")
@@ -174,6 +211,32 @@ def check_lua5_1():
                 errors.append(f"{rel(p)}:{n}: goto gibt es in Lua 5.1 nicht")
 
 
+def check_block_balance():
+    """Grobe Strukturpruefung: oeffnende Bloecke gegen 'end'.
+
+    Kein Ersatz fuer einen Parser, faengt aber den haeufigsten Fall - ein
+    'end' zu viel oder zu wenig nach einer Bearbeitung. Der Client laedt
+    eine Datei mit Syntaxfehler komplett nicht, deshalb faellt so etwas
+    sonst erst im Spiel auf, und zwar als "Addon tut gar nichts".
+    """
+    opens = re.compile(r"\b(function|if|for|while|do)\b")
+    closes = re.compile(r"\bend\b")
+    for p in lua_files():
+        code = strip_strings(code_of(p))
+        # 'do' in 'for ... do' und 'while ... do' zaehlt sonst doppelt.
+        # DOTALL, weil die Kopfzeile umbrechen darf.
+        code = re.sub(r"\b(for|while)\b(.*?)\bdo\b", r"\1\2", code, flags=re.DOTALL)
+        # 'elseif' enthaelt kein eigenes 'end'.
+        code = re.sub(r"\belseif\b", "", code)
+        n_open = len(opens.findall(code))
+        n_end = len(closes.findall(code))
+        if n_open != n_end:
+            errors.append(
+                f"{rel(p)}: Blockstruktur unausgeglichen - "
+                f"{n_open} oeffnende gegen {n_end} 'end' "
+                f"(Differenz {n_open - n_end})")
+
+
 def main():
     if not TOC.exists():
         print(f"FEHLER: {TOC} existiert nicht")
@@ -182,6 +245,7 @@ def main():
     check_locales()
     check_coupling()
     check_lua5_1()
+    check_block_balance()
     if errors:
         print(f"{len(errors)} Problem(e):")
         for e in errors:
