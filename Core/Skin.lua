@@ -54,18 +54,21 @@ local BACKDROPS = {
     -- Client nicht gezeichnet (Fenster blieb durchsichtig), und
     -- ChatFrameBackground ist eine weisse Textur, die eingefaerbt werden
     -- muss - ohne Einfaerbung leuchtet das Menue weiss.
+    -- Die Insets ruecken die Grundflaeche vom Rand ein. Sie muessen KLEINER
+    -- sein als der sichtbare Rahmen, damit die Flaeche unter ihn laeuft -
+    -- sonst klafft dazwischen eine Luecke und man sieht durch.
     classic = {
         window = {
             bgFile   = "Interface\\Buttons\\WHITE8X8",
             edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
             tile = false, edgeSize = 32,
-            insets = { left = 11, right = 12, top = 12, bottom = 11 },
+            insets = { left = 5, right = 5, top = 5, bottom = 5 },
         },
         pane = {
             bgFile   = "Interface\\Buttons\\WHITE8X8",
             edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
             tile = false, edgeSize = 16,
-            insets = { left = 4, right = 4, top = 4, bottom = 4 },
+            insets = { left = 2, right = 2, top = 2, bottom = 2 },
         },
     },
 }
