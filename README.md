@@ -1,88 +1,87 @@
 # VuloGearSets
 
-Ausrüstungsset-Verwaltung für WoW TBC Classic Anniversary (Interface 20505).
+Equipment set manager for WoW TBC Classic Anniversary (Interface 20505).
 
-Speichere deine aktuelle Ausrüstung als benannte Sets und wechsle mit einem Klick
-zwischen ihnen. Läuft eigenständig, ohne weitere Addons.
+Save your current equipment as named gear sets and switch between them with a single
+click. Runs on its own, no other addons required.
 
-## Funktionen
+## Features
 
-- **Sets speichern und anlegen** — komplett oder nur Teilbereiche: Schmuckstücke,
-  Waffen, Ringe, Rüstung
-- **Seitenleiste am Charakterfenster** mit eigenem Symbol je Set, Slot-weisem
-  Ersetzen und Kontextmenü
-- **Minimap-Button** — Linksklick öffnet die Set-Auswahl, Rechtsklick die
-  Einstellungen, Ziehen verschiebt ihn
-- **Slot-Auswahl** — beim Überfahren eines Ausrüstungsslots erscheinen die
-  passenden Teile aus deinen Taschen direkt daneben; ein Klick legt sie an.
-  Der eingestellte Klick öffnet zusätzlich das große Fenster mit allen Teilen.
-- **Automatischer Wechsel** bei Haltung und Gestalt (Krieger-Haltungen,
-  Druiden-Gestalten) und bei Dual-Spec
-- **Kampfsperre** — im Kampf wird nicht umgerüstet; ein währenddessen
-  ausgelöster Wechsel wird nachgeholt, sobald der Kampf endet
-- Deutsch und Englisch
+- **Save and equip sets** — the whole outfit or just parts of it: trinkets, weapons,
+  rings, armour
+- **Sidebar on the character frame** with a custom icon per set, per-slot replacement
+  and a context menu
+- **Minimap button** — left-click for the set switcher, right-click for the settings,
+  drag to reposition
+- **Slot picker** — hover an equipment slot and the matching items from your bags
+  appear right next to it; click one to equip. A configurable click opens the full
+  window with all of them.
+- **Automatic switching** on stance and form (warrior stances, druid forms) and on
+  dual spec
+- **Combat lock** — nothing is swapped during combat; a switch triggered mid-fight is
+  carried out as soon as combat ends
+- English and German
 
-## Slash-Befehle
+## Slash commands
 
-| Befehl | Wirkung |
+| Command | Effect |
 |---|---|
-| `/gearset save <Name>` | aktuelle Ausrüstung als Set speichern |
-| `/gearset equip <Name>` | Set anlegen |
-| `/gearset delete <Name>` | Set löschen |
-| `/gearset list` | gespeicherte Sets auflisten |
-| `/gearset spec` | Spec-Bindungen anzeigen und setzen |
-| `/gearset config` | Einstellungen öffnen |
-| `/gearset unlock` | Seitenleiste verschiebbar machen |
-| `/gearset tune top\|bottom\|reset <n>` | Höhe der Seitenleiste feinjustieren |
-| `/vgs` | Kurzform von `/gearset` |
-| `/rl` | Oberfläche neu laden (nicht im Kampf) |
-| `/vgsfont` | Schriftdiagnose |
+| `/gearset save <name>` | save your current equipment as a set |
+| `/gearset equip <name>` | equip a set |
+| `/gearset delete <name>` | delete a set |
+| `/gearset list` | list your saved sets |
+| `/gearset spec` | view and set spec bindings |
+| `/gearset config` | open the settings |
+| `/gearset unlock` | make the sidebar movable |
+| `/gearset tune top\|bottom\|reset <n>` | fine-tune the sidebar height |
+| `/vgs` | short form of `/gearset` |
+| `/rl` | reload the interface (not in combat) |
+| `/vgsfont` | font diagnostics |
 
-Ein Set lässt sich auch direkt anlegen: `/gearset <Name>`.
+Typing `/gearset <name>` equips that set directly.
 
-## Verhältnis zu VuloClassicUI
+## Coming from VuloClassicUI?
 
-VuloGearSets ist aus dem Ausrüstungsset-Modul von VuloClassicUI hervorgegangen und
-läuft völlig unabhängig davon.
+VuloGearSets started out as the equipment set module of VuloClassicUI and now runs
+completely independently of it.
 
-Ist VuloClassicUI installiert, übernimmt VuloGearSets beim **ersten Start auf einem
-Charakter** dessen gespeicherte Sets samt Spec- und Gestalt-Bindungen. Die Daten von
-VuloClassicUI werden dabei nur gelesen und bleiben unverändert.
+If VuloClassicUI is installed, VuloGearSets imports its saved sets — including spec
+and form bindings — the **first time you log in on a character**. VuloClassicUI's data
+is only read and stays untouched.
 
-Kein Addon schaltet das andere ab. Sind beide mit aktivem Set-Modul unterwegs, siehst
-du zwangsläufig zwei Minimap-Buttons und zwei Seitenleisten; VuloGearSets weist einmal
-pro Sitzung im Chat darauf hin. Wenn dich das stört, deaktiviere eines von beiden.
+Neither addon disables the other. If you run both with their set modules active you
+will inevitably get two minimap buttons and two sidebars; VuloGearSets points this out
+once per session in chat. If it bothers you, disable one of them.
 
-> **Reihenfolge beachten:** Wer VuloClassicUI entfernt, **bevor** VuloGearSets zum
-> ersten Mal gestartet ist, hat keine gespeicherten Daten mehr zum Auslesen — der
-> Import läuft dann ins Leere. Also erst VuloGearSets einmal starten, dann
-> VuloClassicUI entfernen.
+> **Mind the order:** if you remove VuloClassicUI **before** starting VuloGearSets for
+> the first time, there is no saved data left to read — the import finds nothing. So
+> start VuloGearSets once, then remove VuloClassicUI.
 
-## Daten
+## Saved variables
 
-| SavedVariable | Inhalt |
+| SavedVariable | Contents |
 |---|---|
-| `VuloGearSetsDB` | kontoweit: Darstellungsoptionen, Minimap-Button, Slot-Auswahl |
-| `VuloGearSetsCharDB` | pro Charakter: Sets, Spec- und Gestalt-Bindungen, Position der Seitenleiste |
+| `VuloGearSetsDB` | account-wide: display options, minimap button, slot picker |
+| `VuloGearSetsCharDB` | per character: sets, spec and form bindings, sidebar position |
 
-Sets liegen pro Charakter, weil sie sich auf dessen Ausrüstung beziehen.
+Sets are stored per character because they reference that character's equipment.
 
-## Bekannte Einschränkung: Schrift
+## Known limitation: font
 
-Das Addon liefert Expressway mit, dieselbe Schrift wie VuloClassicUI. Auf dem
-Anniversary-Client werden Schriftdateien aus Addon-Ordnern jedoch nicht geladen —
-das betrifft nicht nur dieses Addon, sondern gleichermaßen dieselbe Datei aus
-Details oder VuloClassicUI (gemessene Textbreite jeweils 0). Deshalb wird auf
-Arial Narrow aus dem Client zurückgegriffen, das im Schnitt ähnlich schmal ist.
-Nimmt ein Client Expressway an, wird sie automatisch benutzt.
+The addon ships Expressway, the same font VuloClassicUI uses. The Anniversary client,
+however, does not load font files from addon folders — this affects not just this
+addon but equally the same file shipped by Details or VuloClassicUI (measured text
+width of 0 in every case). Arial Narrow from the client is used instead, which has a
+similarly narrow cut. If a client does accept Expressway, it is picked up
+automatically.
 
-`/vgsfont` zeigt, welche Schrift aktiv ist und was die Messung ergibt.
+`/vgsfont` shows which font is active and what the measurement returns.
 
-## Mitarbeit
+## Contributing
 
-Aufbau des Projekts, Prüfwerkzeuge, Übersetzungen und der Release-Ablauf stehen in
-[CONTRIBUTING.md](CONTRIBUTING.md).
+Project layout, tooling, translations and the release process are documented in
+[CONTRIBUTING.md](CONTRIBUTING.md) (in German).
 
-## Lizenz
+## License
 
-Siehe LICENSE.
+MIT — see [LICENSE](LICENSE).

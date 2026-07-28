@@ -2,41 +2,40 @@
 
 ## 1.0.0
 
-Erste Fassung. Ausgekoppelt aus dem Ausrüstungsset-Modul von VuloClassicUI und als
-eigenständiges Addon aufgebaut.
+First release. Split out of the equipment set module of VuloClassicUI and rebuilt as a
+standalone addon.
 
-**Ausrüstungssets**
+**Gear sets**
 
-- Sets speichern, anlegen, überschreiben und löschen, wahlweise für die komplette
-  Ausrüstung oder nur für Schmuckstücke, Waffen, Ringe oder Rüstung
-- Seitenleiste am Charakterfenster mit eigenem Symbol je Set, Slot-weisem Ersetzen
-  und Kontextmenü; per `/gearset unlock` frei verschiebbar
-- Minimap-Button mit Set-Auswahl auf Links- und Einstellungen auf Rechtsklick
-- Automatischer Wechsel bei Haltung und Gestalt sowie bei Dual-Spec
-- Umrüsten wird im Kampf abgelehnt und nach Kampfende nachgeholt
+- Save, equip, overwrite and delete sets — either your full equipment or just
+  trinkets, weapons, rings or armour
+- Sidebar on the character frame with a custom icon per set, per-slot replacement and
+  a context menu; freely movable via `/gearset unlock`
+- Minimap button with the set switcher on left-click and the settings on right-click
+- Automatic switching on stance and form as well as on dual spec
+- Swapping is refused during combat and carried out once the fight ends
 
-**Slot-Auswahl**
+**Slot picker**
 
-- Beim Überfahren eines Ausrüstungsslots erscheinen die passenden Teile aus den
-  Taschen direkt daneben; ein Klick legt sie an. Ohne passende Teile bleibt die
-  Anzeige aus.
-- Der eingestellte Klick öffnet zusätzlich das große Fenster mit allen Teilen,
-  Zähler und verschiebbarer Titelleiste
+- Hovering an equipment slot shows the matching items from your bags right next to it;
+  a click equips one. Nothing appears when there is nothing to swap.
+- The configured click additionally opens the full window with all items, a counter
+  and a movable title bar
 
-**Gegenüber dem Modul in VuloClassicUI**
+**Compared to the module in VuloClassicUI**
 
-- Läuft eigenständig, ohne weitere Addons
-- Eigenes Einstellungsfenster statt der Navigationsleiste
-- Sets liegen pro Charakter; die kontoweite Sammlung älterer Versionen entfällt
-- Bestehende Sets werden beim ersten Start je Charakter automatisch übernommen,
-  ein eigener Import-Befehl ist nicht mehr nötig
-- Kein Addon schaltet das andere ab; bei Doppelbetrieb gibt es einen Hinweis
-- `/gearset unlock` ersetzt das UnlockMode-Modul, `/gearset config` öffnet die
-  Einstellungen
-- Die Slot-Auswahl reagiert zusätzlich auf das bloße Überfahren
+- Runs on its own, no other addons required
+- Its own settings window instead of the navigation sidebar
+- Sets are stored per character; the account-wide pool of older versions is gone
+- Existing sets are imported automatically on first login per character, so the
+  separate import command is no longer needed
+- Neither addon disables the other; running both just prints a notice
+- `/gearset unlock` replaces the UnlockMode module, `/gearset config` opens the
+  settings
+- The slot picker now also reacts to plain hovering
 
-**Bekannt**
+**Known issues**
 
-- Der Anniversary-Client lädt keine Schriftdateien aus Addon-Ordnern. Das
-  mitgelieferte Expressway wird deshalb derzeit nicht verwendet; stattdessen greift
-  Arial Narrow aus dem Client. Details über `/vgsfont`.
+- The Anniversary client does not load font files from addon folders. The bundled
+  Expressway is therefore unused for now and Arial Narrow from the client is used
+  instead. Details via `/vgsfont`.
