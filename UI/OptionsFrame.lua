@@ -152,14 +152,25 @@ end
 -- =========================================================
 -- Liste rendern. Gibt die Gesamthoehe zurueck.
 -- =========================================================
+-- Jedes Element einzeln gekapselt: faellt eines aus (fehlendes Blizzard-Template,
+-- kaputter get/set-Callback), wird nur dieses uebersprungen. Ohne die Kapselung
+-- reisst der erste Fehler den gesamten Rest der Seite mit.
 renderItems = function(parent, items, y, width)
     local used = 0
-    for _, item in ipairs(items) do
+    for i, item in ipairs(items) do
         local fn = renderers[item.type]
-        if fn then
-            used = used + fn(parent, item, y - used, width)
+        if not fn then
+            ns:Print("|cffff5555Options:|r unbekannter Typ '%s' an Position %d",
+                     tostring(item.type), i)
         else
-            ns:Debug("Unbekannter Options-Typ: %s", tostring(item.type))
+            local ok, result = pcall(fn, parent, item, y - used, width)
+            if ok then
+                used = used + (tonumber(result) or 0)
+            else
+                ns:Print("|cffff5555Options:|r '%s' an Position %d fehlgeschlagen: %s",
+                         tostring(item.type), i, tostring(result))
+                used = used + 20   -- Luecke lassen, damit nichts uebereinander liegt
+            end
         end
     end
     return used

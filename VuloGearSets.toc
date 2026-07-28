@@ -16,6 +16,7 @@ Locales\deDE.lua
 Core\Database.lua
 Core\Modules.lua
 Core\Events.lua
+Core\Slash.lua
 Core\PopupMenu.lua
 Core\Mover.lua
 UI\Widgets.lua

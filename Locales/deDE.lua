@@ -84,6 +84,7 @@ ns:RegisterLocale("deDE", {
     ["No matching items in your bags."] = "Keine passenden Items in deinen Taschen.",
     ["No"] = "Nein",
     ["None"] = "Keine",
+    ["Not possible in combat."] = "Im Kampf nicht möglich.",
     ["Off Hand"] = "Schildhand",
     ["Overwrite"] = "Überschreiben",
     ["Please provide a name for the gear set."] = "Bitte einen Namen für das Set angeben.",
