@@ -29,6 +29,7 @@ ns:RegisterLocale("deDE", {
     ["Character Frame Sidebar"] = "Charakterfenster-Sidebar",
     ["Chest"] = "Brust",
     ["Confirm before deleting a gear set"] = "Bestätigen vor dem Löschen eines Sets",
+    ["Could not read the name field on this client."] = "Das Namensfeld konnte auf diesem Client nicht gelesen werden.",
     ["Ctrl + Right-click"] = "Strg + Rechtsklick",
     ["Delete gear set '%s'?"] = "Set '%s' löschen?",
     ["Delete"] = "Löschen",

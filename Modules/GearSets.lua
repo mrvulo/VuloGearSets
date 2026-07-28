@@ -316,18 +316,29 @@ StaticPopupDialogs["VGS_GEARSET_SAVE"] = {
     hasEditBox = true,
     maxLetters = 32,
     OnAccept = function(self)
-        saveAs(self.editBox:GetText(), _pendingSaveSlots)
+        -- Das Eingabefeld heisst je nach Client self.editBox (altes
+        -- StaticPopup) oder self.EditBox (neues GameDialog). Ohne beide
+        -- Schreibweisen schlaegt das Speichern mit einem Lua-Fehler fehl.
+        local eb = self.editBox or self.EditBox
+                or (self.GetEditBox and self:GetEditBox())
+        if not eb then
+            ns:Print(L["Could not read the name field on this client."])
+            return
+        end
+        saveAs(eb:GetText(), _pendingSaveSlots)
         _pendingSaveSlots = nil
     end,
     EditBoxOnEnterPressed = function(self)
         saveAs(self:GetText(), _pendingSaveSlots)
         _pendingSaveSlots = nil
-        self:GetParent():Hide()
+        -- Ueber den Namen schliessen: GetParent ist im neuen GameDialog
+        -- nicht zwingend der Dialog selbst.
+        StaticPopup_Hide("VGS_GEARSET_SAVE")
     end,
     OnCancel = function() _pendingSaveSlots = nil end,
     EditBoxOnEscapePressed = function(self)
         _pendingSaveSlots = nil
-        self:GetParent():Hide()
+        StaticPopup_Hide("VGS_GEARSET_SAVE")
     end,
     timeout = 0,
     whileDead = true,
@@ -339,7 +350,11 @@ StaticPopupDialogs["VGS_GEARSET_DELETE"] = {
     text = L["Delete gear set '%s'?"],
     button1 = YES or L["Yes"],
     button2 = NO  or L["No"],
-    OnAccept = function(_, data) deleteLoadout(data) end,
+    -- data kommt je nach Client als Argument oder haengt am Dialog.
+    OnAccept = function(self, data)
+        local name = data or (self and self.data)
+        if name then deleteLoadout(name) end
+    end,
     timeout = 0,
     whileDead = true,
     hideOnEscape = true,
