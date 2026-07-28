@@ -322,17 +322,18 @@ local function showSlotPicker(slotID, anchorBtn)
         local cx = CharacterFrame and CharacterFrame:GetCenter()
         if sx and cx then toLeft = sx < cx end
 
-        -- Klebt das Charakterfenster am Bildschirmrand, ist auf der
-        -- bevorzugten Seite kein Platz. Dann zur anderen Seite kippen,
-        -- statt aus dem Bild zu laufen.
+        -- Nur kippen, wenn auf der bevorzugten Seite nachweislich kein
+        -- Platz ist. Die Kantenabfragen koennen nil liefern; ein
+        -- unbekannter Wert ist KEIN Platzmangel und darf nicht wie einer
+        -- behandelt werden - sonst kippt die Auswahl immer.
         local need    = (popup:GetWidth() or 0) + 12
-        local edgeL   = anchorBtn:GetLeft()  or 0
-        local edgeR   = anchorBtn:GetRight() or 0
-        local screenR = UIParent:GetRight()  or 0
-        if toLeft and edgeL < need then
-            toLeft = false
-        elseif not toLeft and (screenR - edgeR) < need then
-            toLeft = true
+        local edgeL   = anchorBtn:GetLeft()
+        local edgeR   = anchorBtn:GetRight()
+        local screenR = UIParent:GetRight()
+        if toLeft then
+            if edgeL and edgeL < need then toLeft = false end
+        else
+            if edgeR and screenR and (screenR - edgeR) < need then toLeft = true end
         end
 
         if toLeft then
