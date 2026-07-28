@@ -519,9 +519,9 @@ local function createMinimapButton()
     background:SetSize(20, 20)
     background:SetPoint("TOPLEFT", 7, -5)
 
-    -- Icon: dasselbe V wie in der AddOn-Liste
+    -- Icon: dasselbe Kachel-V wie in der AddOn-Liste
     local icon = mmBtn:CreateTexture(nil, "ARTWORK")
-    icon:SetTexture("Interface\\AddOns\\VuloGearSets\\Media\\Icons\\vui4")
+    icon:SetTexture("Interface\\AddOns\\VuloGearSets\\Media\\Icons\\vgs")
     icon:SetSize(17, 17)
     icon:SetPoint("TOPLEFT", 7, -6)
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)  -- crop default Blizzard icon border
