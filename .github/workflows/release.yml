@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Repository auschecken
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # Der Packager braucht die volle Historie fuer den Changelog
           # zwischen zwei Tags.
@@ -33,3 +33,13 @@ jobs:
           GITHUB_OAUTH:    ${{ secrets.GITHUB_TOKEN }}
           CF_API_KEY:      ${{ secrets.CF_API_KEY }}
           WAGO_API_TOKEN:  ${{ secrets.WAGO_API_TOKEN }}
+
+      # Beim Probelauf das gebaute Paket mitgeben, damit sich der Inhalt
+      # pruefen laesst. Der Packager selbst legt kein Artefakt an.
+      - name: Paket als Artefakt anhaengen
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: VuloGearSets-probelauf
+          path: .release/*.zip
+          if-no-files-found: warn
