@@ -47,8 +47,8 @@ WoW ignoriert sie, weil sie nicht in der TOC stehen.
 | `Core/Events.lua` | `RegisterEvent`, `UnregisterEvent` über einen gemeinsamen Frame |
 | `Core/PopupMenu.lua` | `ShowPopupMenu`, `HidePopupMenu` |
 | `Core/Mover.lua` | `CreateMover`, `IsMoverEditMode`, `SetMoversEditMode` für einen Frame |
-| `Core/Coexistence.lua` | Vulo-Erkennung, Einmal-Import, Schlafmodus |
-| `Core/Init.lua` | `PLAYER_LOGIN`-Ablauf, Reihenfolge Import → Konflikt → Module |
+| `Core/Coexistence.lua` | Einmal-Import aus VuloClassicUI, Hinweis bei Doppelbetrieb |
+| `Core/Init.lua` | `PLAYER_LOGIN`-Ablauf, Reihenfolge Datenbank → Import → Module |
 | `UI/Widgets.lua` | Backdrop, Shadow, Font, Button, Toggle, Slider, Dropdown |
 | `UI/OptionsFrame.lua` | Fenster + Renderer für die neun `GetOptions()`-Item-Typen |
 | `Locales/enUS.lua` | leer, dokumentiert nur das Muster |
@@ -1738,6 +1738,16 @@ Der Kern. Die 1823 Zeichen umfassende Datei wird kopiert und an genau den unten 
 - Consumes: alles aus Task 1–6
 - Produces: `ns.modules.gearsets` mit `GetOptions`, `OnEnable`, `OnDisable`; `ns:EquipBagItemToSlot(bag, bagSlot, equipSlot)` (wird von SlotPicker in Task 8 gebraucht)
 
+- [ ] **Step 0: Demo-Datei entfernen**
+
+`UI/_Demo.lua` hängt ein Pseudo-Modul unter `ns.modules.gearsets` ein und belegt drei Slash-Befehle. Beides kollidiert mit dem echten Modul. Datei löschen und die Zeile `UI\_Demo.lua` aus der TOC streichen:
+
+```powershell
+Remove-Item "C:\Users\aobiw\Desktop\Test\VuloGearSets\UI\_Demo.lua"
+```
+
+Gegenprobe nach dem TOC-Edit: `python tools/check.py` darf keine fehlende Datei melden.
+
 - [ ] **Step 1: Datei kopieren**
 
 ```powershell
@@ -1803,14 +1813,15 @@ Vier Stellen mit `VCUI_`-Präfix auf `VGS_` ändern, damit nichts mit VuloClassi
 
 - [ ] **Step 6: Slash-Commands umstellen**
 
-Zeile 354–356. Nur `/gearset` wird hier registriert — den zweiten Alias bewusst weglassen:
+Zeile 354–356:
 
 ```lua
 _G.SLASH_VGSGEARSET1 = "/gearset"
+_G.SLASH_VGSGEARSET2 = "/vgs"
 _G.SlashCmdList["VGSGEARSET"] = function(msg)
 ```
 
-`/vgs` registriert in Task 9 `Core/Init.lua`, weil dieser Befehl auch im Schlafmodus antworten muss, wenn das Modul gar nicht erst startet. Er reicht im Wachzustand an `SlashCmdList["VGSGEARSET"]` weiter. Würden beide Dateien denselben Befehl belegen, gewänne einer davon unvorhersehbar.
+Beide stehen auf Dateiebene, nicht in `OnEnable` — sie funktionieren also auch, wenn das Modul abgeschaltet ist. Das entspricht dem Original.
 
 - [ ] **Step 7: Die Unterbefehle `unlock` und `config` ergänzen**
 
@@ -1907,7 +1918,7 @@ Meldet der Prüfer "Key ohne deutsche Übersetzung", wurde in Step 2 eine Umbene
 
 - [ ] **Step 15: Im Spiel verifizieren**
 
-Nach `powershell -File tools/deploy.ps1`: **vorher VuloClassicUI in der AddOn-Liste deaktivieren**, sonst greift ab Task 9 der Schlafmodus — in dieser Task gibt es ihn noch nicht, aber doppelte Minimap-Buttons und doppelte Sidebars würden die Prüfung unbrauchbar machen.
+Nach `powershell -File tools/deploy.ps1`: **vorher VuloClassicUI in der AddOn-Liste deaktivieren**. Beide Addons zeigen sonst je einen Minimap-Button und je eine Seitenleiste, was die Prüfung unbrauchbar macht.
 
 Dann im Spiel:
 
@@ -1996,7 +2007,7 @@ git commit -m "Slot-Picker portiert"
 
 ---
 
-### Task 9: Koexistenz, Import und Start
+### Task 9: Import und Start
 
 **Files:**
 - Create: `Core/Coexistence.lua`
@@ -2006,45 +2017,26 @@ git commit -m "Slot-Picker portiert"
 
 **Interfaces:**
 - Consumes: `ns:InitDB`, `ns:GetCharDB`, `ns:EnableModules`, `ns:DeepCopy`, `ns:IsAddOnLoaded`, `ns:Print`, `ns.L`
-- Produces: `ns:ImportFromVuloClassicUI()` → Anzahl importierter Sets, `ns:IsVuloLoadoutsActive()` → boolean, `ns.asleep` → boolean
+- Produces: `ns:ImportFromVuloClassicUI()` -> Anzahl importierter Sets, `ns:WarnIfVuloAlsoRunning()`
 
-Reihenfolge ist bindend: DB → Import → Konflikt → Module. Läge der Import nach dem Konflikt-Check, könnte ein Nutzer mit aktivem VuloClassicUI seine Sets nie übernehmen.
+VuloGearSets laeuft immer. Es gibt keinen Schlafmodus und keine gegenseitige Abschaltung.
+Die einzige Beruehrung mit VuloClassicUI sind der einmalige Import und ein rein
+informativer Hinweis bei Doppelbetrieb.
 
 - [ ] **Step 1: `Core/Coexistence.lua` schreiben**
 
-Dies ist die **einzige** Datei, die `VuloClassicUI` erwähnen darf.
+Dies ist die **einzige** Datei, die `VuloClassicUI` erwaehnen darf.
 
 ```lua
 -- =========================================================
 -- VuloGearSets / Core / Coexistence
--- Erkennt ein aktives VuloClassicUI, uebernimmt einmalig dessen
--- Sets und legt sich schlafen, damit es keine doppelten Buttons,
--- Seitenleisten und Slot-Hooks gibt.
+-- Uebernimmt einmalig die Sets aus VuloClassicUI und weist auf
+-- Doppelbetrieb hin. Kein Schlafmodus: VuloGearSets laeuft immer.
 --
 -- VuloClassicUIs SavedVariables werden ausschliesslich GELESEN.
 -- =========================================================
 local _, ns = ...
 local L = ns.L
-
--- Ist VuloClassicUI geladen UND dessen Loadouts-Modul aktiv?
--- Der Zustand liegt pro Charakter in modEnabled und faellt sonst auf den
--- Profil-Default zurueck. Laesst er sich nicht ermitteln, gilt "aktiv" —
--- die konservative Annahme verhindert doppelte Oberflaechen.
-function ns:IsVuloLoadoutsActive()
-    if not ns:IsAddOnLoaded("VuloClassicUI") then return false end
-
-    local charDB = _G.VuloClassicUICharDB
-    local ov = charDB and charDB.modEnabled
-    if ov and ov.loadouts ~= nil then
-        return ov.loadouts and true or false
-    end
-
-    local db   = _G.VuloClassicUIDB
-    local prof = db and db.profiles and db.profiles[db.activeProfile or "Default"]
-    local m    = prof and prof.modules and prof.modules.loadouts
-    -- Vulo setzt enabled per Default auf true; nur ein explizites false zaehlt als aus.
-    return not (m and m.enabled == false)
-end
 
 -- Einmaliger Import. Gibt die Anzahl uebernommener Sets zurueck.
 function ns:ImportFromVuloClassicUI()
@@ -2054,7 +2046,7 @@ function ns:ImportFromVuloClassicUI()
     local src = _G.VuloClassicUICharDB
     if not src then
         -- Vulo ist nicht (mehr) installiert: nichts zu holen, aber auch
-        -- nicht als erledigt markieren — vielleicht kommt es zurueck.
+        -- nicht als erledigt markieren - vielleicht kommt es zurueck.
         return 0
     end
 
@@ -2080,10 +2072,26 @@ function ns:ImportFromVuloClassicUI()
     return n
 end
 
--- Schlafmodus: keine Frames, keine Hooks, keine Module.
-function ns:GoToSleep()
-    ns.asleep = true
-    ns:Print(L["VuloClassicUI already provides gear sets, so VuloGearSets stayed inactive. Disable one of them to use the other. Type /vgs for details."])
+-- Reiner Hinweis, einmal pro Sitzung. Aendert nichts am Verhalten.
+function ns:WarnIfVuloAlsoRunning()
+    if not ns:IsAddOnLoaded("VuloClassicUI") then return end
+
+    -- Modulzustand: pro Charakter in modEnabled, sonst der Profil-Default.
+    local active
+    local charDB = _G.VuloClassicUICharDB
+    local ov = charDB and charDB.modEnabled
+    if ov and ov.loadouts ~= nil then
+        active = ov.loadouts and true or false
+    else
+        local db   = _G.VuloClassicUIDB
+        local prof = db and db.profiles and db.profiles[db.activeProfile or "Default"]
+        local m    = prof and prof.modules and prof.modules.loadouts
+        -- Vulo setzt enabled per Default auf true; nur ein explizites false zaehlt als aus.
+        active = not (m and m.enabled == false)
+    end
+    if not active then return end
+
+    ns:Print(L["VuloClassicUI also manages gear sets, so you will see two minimap buttons and two sidebars. Disable one of them if that bothers you."])
 end
 ```
 
@@ -2092,24 +2100,15 @@ end
 ```lua
 -- =========================================================
 -- VuloGearSets / Core / Init
--- Startreihenfolge: Datenbank -> Import -> Konfliktpruefung -> Module.
+-- Startreihenfolge: Datenbank -> Import -> Module.
 -- =========================================================
 local _, ns = ...
-local L = ns.L
 
 local function onLogin()
     ns:InitDB()
-
-    -- Vor der Konfliktpruefung, sonst koennte ein Nutzer mit aktivem
-    -- VuloClassicUI seine Sets nie uebernehmen.
     ns:ImportFromVuloClassicUI()
-
-    if ns:IsVuloLoadoutsActive() then
-        ns:GoToSleep()
-        return
-    end
-
     ns:EnableModules()
+    ns:WarnIfVuloAlsoRunning()
 end
 
 local frame = CreateFrame("Frame")
@@ -2118,40 +2117,21 @@ frame:SetScript("OnEvent", function(self)
     self:UnregisterEvent("PLAYER_LOGIN")
     onLogin()
 end)
-
--- Im Schlafmodus registriert das Modul seine Slash-Befehle nicht,
--- deshalb hier ein eigener Einstieg, der den Zustand erklaert.
-_G.SLASH_VGSSTATUS1 = "/vgs"
-local function statusHandler(msg)
-    if not ns.asleep then
-        -- Wach: an den Modul-Handler weiterreichen.
-        local fn = _G.SlashCmdList["VGSGEARSET"]
-        if fn then fn(msg) end
-        return
-    end
-    ns:Print(L["Inactive: VuloClassicUI is handling gear sets. Disable its Equipment Sets module, or disable VuloClassicUI, then /reload."])
-end
-_G.SlashCmdList["VGSSTATUS"] = statusHandler
 ```
 
-- [ ] **Step 3: Prüfen, dass `/vgs` nur einmal registriert wird**
+Der Hinweis kommt nach `EnableModules`, damit er in der Chatausgabe unter den
+Import-Meldungen steht und nicht davor.
 
-Task 7 Step 6 hat `/gearset` beim Modul gelassen und `/vgs` bewusst nicht vergeben. Gegenprobe:
-
-Run: `python -c "import pathlib,re; ps=list(pathlib.Path('VuloGearSets').rglob('*.lua')); hits=[(p.as_posix(),n) for p in ps for n,l in enumerate(p.read_text(encoding='utf-8').splitlines(),1) if '\"/vgs\"' in l]; print(hits)"`
-Expected: genau ein Treffer, in `Core/Init.lua`
-
-- [ ] **Step 4: Die drei neuen Locale-Keys ergänzen**
+- [ ] **Step 3: Die zwei neuen Locale-Keys ergaenzen**
 
 In `Locales/deDE.lua`:
 
 ```lua
     ["Imported %d gear set(s) from VuloClassicUI onto this character."] = "%d Ausruestungsset(s) aus VuloClassicUI auf diesen Charakter uebernommen.",
-    ["VuloClassicUI already provides gear sets, so VuloGearSets stayed inactive. Disable one of them to use the other. Type /vgs for details."] = "VuloClassicUI stellt Ausruestungssets bereits bereit, deshalb bleibt VuloGearSets inaktiv. Deaktiviere eines von beiden. Tippe /vgs fuer Details.",
-    ["Inactive: VuloClassicUI is handling gear sets. Disable its Equipment Sets module, or disable VuloClassicUI, then /reload."] = "Inaktiv: VuloClassicUI verwaltet die Ausruestungssets. Deaktiviere dort das Modul Ausruestungssets oder das ganze Addon und dann /reload.",
+    ["VuloClassicUI also manages gear sets, so you will see two minimap buttons and two sidebars. Disable one of them if that bothers you."] = "VuloClassicUI verwaltet ebenfalls Ausruestungssets, deshalb siehst du zwei Minimap-Buttons und zwei Seitenleisten. Deaktiviere eines von beiden, wenn dich das stoert.",
 ```
 
-- [ ] **Step 5: TOC ergänzen**
+- [ ] **Step 4: TOC ergaenzen**
 
 Ganz ans Ende, nach `Modules\SlotPicker.lua`:
 
@@ -2160,37 +2140,37 @@ Core\Coexistence.lua
 Core\Init.lua
 ```
 
-Die Reihenfolge ist wichtig: `Init.lua` ruft Funktionen aus `Coexistence.lua` auf und muss danach geladen werden.
+Die Reihenfolge ist wichtig: `Init.lua` ruft Funktionen aus `Coexistence.lua` auf.
 
-- [ ] **Step 6: Prüfer laufen lassen**
+- [ ] **Step 5: Pruefer laufen lassen**
 
 Run: `python tools/check.py`
-Expected: `OK - 13 Lua-Dateien, ... Locale-Keys` ohne Fehler
+Expected: `OK - ... Lua-Dateien, ... Locale-Keys` ohne Fehler
+
+- [ ] **Step 6: Ohne VuloClassicUI verifizieren**
+
+VuloClassicUI in der AddOn-Liste deaktivieren, einloggen:
+
+1. Kein Hinweis im Chat, keine Fehlermeldung
+2. `/gearset save Test`, `/gearset list`, `/gearset equip Test` funktionieren
+3. Seitenleiste und Minimap-Button sind da
+4. BugSack bleibt leer
 
 - [ ] **Step 7: Import verifizieren**
 
-Voraussetzung: VuloClassicUI ist **aktiv** und hat auf diesem Charakter mindestens zwei gespeicherte Sets.
+Voraussetzung: VuloClassicUI aktiv, mit mindestens zwei gespeicherten Sets auf diesem Charakter.
 
-1. `powershell -File tools/deploy.ps1`, dann VuloGearSets in der AddOn-Liste aktivieren, VuloClassicUI aktiv lassen
-2. Einloggen → im Chat erscheint die Import-Meldung mit der Anzahl **und** der Hinweis auf den Schlafmodus
-3. `/vgs` → erklärt den Schlafmodus
-4. Keine zweite Seitenleiste am Charakterfenster, kein zweiter Minimap-Button
-5. In VuloClassicUI prüfen, dass die Sets dort unverändert vorhanden sind
-6. `/reload` → die Import-Meldung erscheint **nicht** erneut
+1. Einloggen -> Import-Meldung mit der Anzahl **und** der Doppelbetrieb-Hinweis
+2. `/gearset list` zeigt die importierten Sets
+3. In VuloClassicUI pruefen, dass die Sets dort unveraendert vorhanden sind
+4. `/reload` -> die Import-Meldung erscheint **nicht** erneut, der Hinweis schon
+5. Beide Addons funktionieren nebeneinander; zwei Minimap-Buttons sind erwartet
 
-- [ ] **Step 8: Übernahme verifizieren**
-
-1. VuloClassicUI in der AddOn-Liste deaktivieren, ausloggen und wieder einloggen
-2. VuloGearSets ist wach, `/gearset list` zeigt die importierten Sets
-3. Charakterfenster öffnen → Seitenleiste mit den importierten Sets, Icons stimmen
-4. Ein importiertes Set anlegen → funktioniert
-5. Spec-Bindungen sind übernommen: im Optionsfenster stehen die Zuordnungen wie vorher
-
-- [ ] **Step 9: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add VuloGearSets
-git commit -m "Koexistenz mit VuloClassicUI, Einmal-Import und Startablauf ergaenzt"
+git add .
+git commit -m "Einmal-Import aus VuloClassicUI und Startablauf ergaenzt"
 ```
 
 ---
@@ -2203,7 +2183,7 @@ git commit -m "Koexistenz mit VuloClassicUI, Einmal-Import und Startablauf ergae
 
 - [ ] **Step 1: `README.md` schreiben**
 
-Muss enthalten: was das Addon tut, die Slash-Befehle (`/gearset save|equip|delete|list|unlock|config`, `/vgs`), das Verhältnis zu VuloClassicUI (Schlafmodus und automatischer Import) und die bekannte Einschränkung aus der Spec:
+Muss enthalten: was das Addon tut, die Slash-Befehle (`/gearset save|equip|delete|list|unlock|config`, `/vgs`), das Verhältnis zu VuloClassicUI (automatischer Einmal-Import, kein gegenseitiges Abschalten, Doppelbetrieb möglich) und die bekannte Einschränkung aus der Spec:
 
 > Wer VuloClassicUI deinstalliert, **bevor** er VuloGearSets zum ersten Mal startet, hat keine SavedVariables mehr zum Auslesen. Der Import läuft dann ins Leere. Richtige Reihenfolge: VuloGearSets einmal mit installiertem VuloClassicUI starten, danach VuloClassicUI entfernen.
 
@@ -2220,7 +2200,7 @@ Die neun Punkte aus der Spec, in dieser Reihenfolge, mit deaktiviertem VuloClass
 5. Auto-Switch: Stance-Wechsel beim Krieger, Form-Wechsel beim Druiden, Dual-Spec-Wechsel
 6. Kampf: Ausrüsten im Kampf wird abgelehnt, verschobener Wechsel läuft nach Kampfende
 7. Import: mit aktivem VuloClassicUI starten, Sets erscheinen, Vulos Daten unverändert, zweiter Start importiert nicht erneut
-8. Koexistenz: Vulo-Modul aktiv → Schlafmodus, genau ein Hinweis, keine doppelten Frames; Vulo-Modul deaktiviert → VuloGearSets übernimmt nach `/reload`
+8. Doppelbetrieb: mit aktivem Vulo-Set-Modul genau ein Hinweis im Chat, VuloGearSets funktioniert trotzdem vollständig; ohne VuloClassicUI kein Hinweis
 9. Beide Sprachen durchklicken (deutscher und englischer Client), keine sichtbaren rohen Schlüssel
 
 Jeden Punkt abhaken. Ein fehlgeschlagener Punkt ist ein Bug, kein Grund zum Weitermachen.

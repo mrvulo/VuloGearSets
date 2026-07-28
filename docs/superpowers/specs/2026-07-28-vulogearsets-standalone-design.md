@@ -45,8 +45,8 @@ Zwei Befunde verkleinern den Aufwand erheblich:
    (aufklappbar), `spacer`. Ein Renderer für genau diese Typen ersetzt 72 KB
    `Widgets.lua` + `OptionsBuilder.lua`, und die Optionsseite bleibt unverändert.
 2. Beide Module laden **ausschließlich Blizzard-interne Texturen**. Es gibt keine einzige
-   Referenz auf `Interface\AddOns\VuloClassicUI\Media\`. Mitgeliefert werden muss deshalb
-   nur die Schrift, die die Widgets benutzen — keine Icons, keine Rahmen.
+   Referenz auf `Interface\AddOns\VuloClassicUI\Media\`. Mitgeliefert werden nur die Schrift
+   der Widgets und das Addon-Icon für die AddOn-Liste — keine Rahmen, keine Masken.
 
 ## Struktur
 
@@ -67,7 +67,7 @@ VuloGearSets/                     = Git-Repo-Root = Addon-Ordner
 │  ├─ Events.lua         ~60    RegisterEvent / UnregisterEvent
 │  ├─ PopupMenu.lua      ~200   aus Vulo übernommen
 │  ├─ Mover.lua          ~180   CreateMover / IsMoverEditMode für einen Frame
-│  ├─ Coexistence.lua    ~70    Vulo-Erkennung, Import, Schlafmodus
+│  ├─ Coexistence.lua    ~60    Einmal-Import, Hinweis bei Doppelbetrieb
 │  └─ Init.lua           ~70    PLAYER_LOGIN-Ablauf, Module aktivieren
 ├─ UI/
 │  ├─ Widgets.lua        ~300   Backdrop, CreateShadow, Font, Button, Toggle,
@@ -80,7 +80,8 @@ VuloGearSets/                     = Git-Repo-Root = Addon-Ordner
 │  ├─ GearSets.lua       ~1800  aus Loadouts.lua
 │  └─ SlotPicker.lua      ~365  unverändert
 ├─ Media/
-│  └─ Fonts/Expressway.TTF      Schrift, wie in VuloClassicUI
+│  ├─ Fonts/Expressway.TTF      Schrift, wie in VuloClassicUI
+│  └─ Icons/vui4.tga            Addon-Icon (das V), 64x64 32-bit unkomprimiert
 ├─ tools/                       nicht Teil der Auslieferung
 │  ├─ extract_locales.py        zieht die benutzten Keys aus Vulos deDE.lua
 │  ├─ rename_keys.py            Loadout → Gear Set in Code und Übersetzung
@@ -103,7 +104,8 @@ Etwa 3900 Zeilen, davon rund 2200 übernommen.
 ## Version: 1.0.0
 ## SavedVariables: VuloGearSetsDB
 ## SavedVariablesPerCharacter: VuloGearSetsCharDB
-## IconTexture: Interface\Icons\INV_Chest_Plate06
+## IconTexture: Interface\AddOns\VuloGearSets\Media\Icons\vui4
+ui4
 ## Category: VuloUI
 
 Core\Namespace.lua
@@ -124,7 +126,8 @@ Core\Coexistence.lua
 Core\Init.lua
 ```
 
-`IconTexture` verweist auf eine Blizzard-interne Textur, damit kein eigenes Asset nötig ist.
+`IconTexture` zeigt auf dasselbe V wie VuloClassicUI. Die Datei muss ein 32-bit-TGA mit
+Kantenlängen in Zweierpotenzen sein — sonst rendert der Client sie kommentarlos nicht.
 
 ## Änderungen an den übernommenen Modulen
 
@@ -204,51 +207,41 @@ Das Set-Format bleibt unverändert:
 
 ## Ablauf bei PLAYER_LOGIN
 
-Die Reihenfolge ist bindend:
-
 1. **DB initialisieren** — Defaults mergen, fehlende Tabellen anlegen.
 2. **Import** — wenn `VuloGearSetsCharDB.imported` nicht gesetzt ist und
    `_G.VuloClassicUICharDB` existiert: `loadouts`, `specMapping` und `formMapping` per
    DeepCopy übernehmen, `imported = true` setzen, einmalig eine Chat-Meldung mit der Anzahl
    ausgeben. Vulos SavedVariables werden nur gelesen, nie geschrieben.
-3. **Konflikt-Check** — ist VuloClassicUI geladen und dessen Loadouts-Modul aktiv, geht
-   VuloGearSets in den Schlafmodus.
+3. **Module aktivieren.**
 
-Import vor Konflikt-Check ist entscheidend: läge es umgekehrt, könnte ein Nutzer mit aktivem
-VuloClassicUI seine Sets nie übernehmen.
+VuloGearSets läuft immer, unabhängig davon, ob VuloClassicUI installiert ist und was dessen
+Ausrüstungsset-Modul tut. Es gibt keinen Schlafmodus und keine gegenseitige Abschaltung.
 
-### Konflikt-Erkennung
+### Doppelbetrieb
 
-Vulos Modul-Zustand liegt per Charakter in `VuloClassicUICharDB.modEnabled[key]` und fällt
-sonst auf den Profil-Default zurück:
+Sind beide Addons mit aktivem Set-Modul unterwegs, erscheinen zwangsläufig zwei
+Minimap-Buttons, zwei Seitenleisten am Charakterfenster und zwei Rechtsklick-Hooks auf den
+Ausrüstungsslots. Das ist die bewusst gewählte Konsequenz davon, dass keines der beiden
+Addons das andere entmündigt.
+
+Damit das nicht wie ein Fehler aussieht, gibt VuloGearSets einmal pro Sitzung einen Hinweis
+im Chat aus, wenn es ein aktives Set-Modul in VuloClassicUI erkennt — reine Information,
+ohne Wirkung auf das Verhalten. Der Zustand wird so ermittelt:
 
 ```lua
-local function vuloLoadoutsActive()
-    if not (C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded)("VuloClassicUI") then
-        return false
-    end
-    local charDB = _G.VuloClassicUICharDB
-    local ov = charDB and charDB.modEnabled
-    if ov and ov.loadouts ~= nil then
-        return ov.loadouts and true or false
-    end
+-- Pro Charakter in modEnabled, sonst der Profil-Default.
+local charDB = _G.VuloClassicUICharDB
+local ov = charDB and charDB.modEnabled
+if ov and ov.loadouts ~= nil then
+    active = ov.loadouts and true or false
+else
     local db   = _G.VuloClassicUIDB
     local prof = db and db.profiles and db.profiles[db.activeProfile or "Default"]
     local m    = prof and prof.modules and prof.modules.loadouts
     -- Vulo setzt enabled per Default auf true; nur ein explizites false zählt als aus.
-    return not (m and m.enabled == false)
+    active = not (m and m.enabled == false)
 end
 ```
-
-Lässt sich der Zustand nicht ermitteln, gilt er als aktiv. Diese konservative Annahme
-verhindert doppelte Minimap-Buttons, doppelte Sidebars und doppelte Slot-Hooks.
-
-### Schlafmodus
-
-Es werden keine Frames erzeugt, keine Events registriert, keine Blizzard-Slots gehookt und
-keine Slash-Commands außer `/vgs` registriert. Einmal pro Session erscheint im Chat der
-Hinweis, dass VuloClassicUI das Modul bereits bereitstellt und wo man eins von beiden
-abschalten kann. `/vgs` bleibt nutzbar und meldet den Zustand.
 
 ## Optionsoberfläche
 
@@ -287,8 +280,9 @@ VuloClassicUI erledigt das ein eigenes UnlockMode-Modul — und `config` öffnet
 Optionsfenster, was nötig ist, weil sich der Minimap-Button ausblenden lässt. Der Subcommand
 `import` entfällt, weil der Import automatisch läuft.
 
-`/vgs` wird in `Core/Init.lua` registriert statt im Modul, weil er auch im Schlafmodus
-antworten muss; im Wachzustand reicht er an den Modul-Handler weiter.
+`/vgs` ist der Kurz-Alias desselben Handlers. Beide werden beim Laden der Moduldatei
+registriert, nicht erst in `OnEnable` — sie funktionieren also auch, wenn das Modul
+abgeschaltet ist.
 
 `/gs` bleibt bewusst frei — das ist historisch von GearScore-Addons belegt.
 
@@ -318,8 +312,9 @@ im Spiel, gegen diese Liste:
 6. Kampf: Equippen im Kampf wird sauber abgelehnt, verschobener Wechsel läuft nach Kampfende
 7. Import: mit installiertem VuloClassicUI und vorhandenen Loadouts starten, Sets erscheinen,
    Vulos Daten unverändert, zweiter Start importiert nicht erneut
-8. Koexistenz: Vulo-Modul aktiv → Schlafmodus, genau ein Hinweis, keine doppelten Frames;
-   Vulo-Modul deaktiviert → VuloGearSets übernimmt nach `/reload`
+8. Doppelbetrieb: mit aktivem Vulo-Set-Modul erscheint genau ein Hinweis im Chat, und
+   VuloGearSets funktioniert trotzdem vollständig; ohne VuloClassicUI läuft alles
+   unverändert und ohne Hinweis
 9. Beide Sprachen durchklicken, keine sichtbaren rohen Schlüssel
 
 ## Bekannte Einschränkung
