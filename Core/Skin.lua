@@ -79,8 +79,13 @@ local CLASSIC_BORDER = { r = 1,    g = 1,    b = 1,    a = 1    }   -- Textur fa
 -- bleibt der Grund dort weiss (= unveraendert) und nur die Deckkraft zaehlt.
 local function applyColors(frame, style, kind)
     if style == "classic" then
-        frame:SetBackdropColor(1, 1, 1, 1)
-        frame:SetBackdropBorderColor(1, 1, 1, 1)
+        -- Der Grund ist eine weisse Textur und MUSS eingefaerbt werden,
+        -- sonst leuchtet das ganze Fenster weiss. Nur der Rahmen bleibt
+        -- ungefaerbt, der bringt seine Farbe selbst mit.
+        local c = (kind == "pane") and CLASSIC_PANE or CLASSIC_BG
+        frame:SetBackdropColor(c.r, c.g, c.b, c.a)
+        frame:SetBackdropBorderColor(CLASSIC_BORDER.r, CLASSIC_BORDER.g,
+                                     CLASSIC_BORDER.b, CLASSIC_BORDER.a)
         return
     end
     if kind == "pane" then
