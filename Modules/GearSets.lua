@@ -753,6 +753,7 @@ ns:OnStyleChanged(function()
     end
     -- Der Innenabstand haengt am Stil: neu aufbauen, damit Zeilen und
     -- Knoepfe nicht ueber den Rahmen laufen.
+    if mod._layoutSidebarButtons then mod._layoutSidebarButtons() end
     if _G.VGS_GearSetsSidebar and _G.VGS_GearSetsSidebar:IsShown() then
         if mod._reanchorSidebar then mod._reanchorSidebar() end
         if mod._refreshSidebar  then mod._refreshSidebar()  end
@@ -1417,8 +1418,7 @@ local function createSidebar()
 
     -- Action buttons (top row)
     local equipBtn = CreateFrame("Button", nil, sidebar, "UIPanelButtonTemplate")
-    equipBtn:SetSize(86, 22)
-    equipBtn:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 4 + ns:FrameInset(), -4 - ns:FrameInset())
+    equipBtn:SetHeight(22)
     equipBtn:SetText(L["Equip"])
     equipBtn:SetScript("OnClick", function()
         if sidebarSelected then equipLoadout(sidebarSelected) end
@@ -1426,8 +1426,7 @@ local function createSidebar()
     sidebar.equipBtn = equipBtn
 
     local saveBtn = CreateFrame("Button", nil, sidebar, "UIPanelButtonTemplate")
-    saveBtn:SetSize(86, 22)
-    saveBtn:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -4 - ns:FrameInset(), -4 - ns:FrameInset())
+    saveBtn:SetHeight(22)
     saveBtn:SetText(L["Save"])
     saveBtn:SetScript("OnClick", function()
         if sidebarSelected then
@@ -1439,11 +1438,32 @@ local function createSidebar()
 
     -- New Set button (bottom)
     local newBtn = CreateFrame("Button", nil, sidebar, "UIPanelButtonTemplate")
-    newBtn:SetSize(178, 24)
-    newBtn:SetPoint("BOTTOM", sidebar, "BOTTOM", 0, 4 + ns:FrameInset())
+    newBtn:SetHeight(24)
+
+    -- Die drei Knoepfe spannen sich zwischen den Raendern auf, statt eine
+    -- feste Breite zu haben - so halten sie in beiden Stilen denselben
+    -- Abstand zum Rahmen. Beim Stilwechsel erneut aufgerufen.
+    mod._layoutSidebarButtons = function()
+        local pad = 4 + ns:FrameInset()
+        local gap = 4
+        local half = (sidebar:GetWidth() - pad * 2 - gap) / 2
+
+        equipBtn:ClearAllPoints()
+        equipBtn:SetWidth(half)
+        equipBtn:SetPoint("TOPLEFT", sidebar, "TOPLEFT", pad, -pad)
+
+        saveBtn:ClearAllPoints()
+        saveBtn:SetWidth(half)
+        saveBtn:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -pad, -pad)
+
+        newBtn:ClearAllPoints()
+        newBtn:SetPoint("BOTTOMLEFT",  sidebar, "BOTTOMLEFT",  pad, pad)
+        newBtn:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -pad, pad)
+    end
     newBtn:SetText("+ " .. L["New Set"])
     newBtn:SetScript("OnClick", function() promptSaveWithSlots(nil) end)
     sidebar.newBtn = newBtn
+    mod._layoutSidebarButtons()
 
     -- Edit-mode mover: drag the sidebar to an offset from the character window.
     -- It STAYS anchored to CharacterFrame (keeps tracking the window height and
