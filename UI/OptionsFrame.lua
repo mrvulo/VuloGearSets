@@ -85,9 +85,10 @@ renderers.toggle = function(parent, item, y, width)
     return 26
 end
 
-renderers.slider = function(parent, item, y)
+renderers.slider = function(parent, item, y, width)
     local s = UI:CreateSlider(parent, item.label or "", item.min, item.max, item.step)
     s:SetPoint("TOPLEFT", PAD, y)
+    s:SetWidth(width)   -- ohne Breite rendert der Frame seine Kinder nicht
     s:SetValue(item.get and item.get() or item.min or 0)
     s.OnValueChanged = function(v)
         if item.set then item.set(nil, v) end
@@ -96,9 +97,10 @@ renderers.slider = function(parent, item, y)
     return 48
 end
 
-renderers.dropdown = function(parent, item, y)
+renderers.dropdown = function(parent, item, y, width)
     local d = UI:CreateDropdown(parent, item.label or "", item.values)
     d:SetPoint("TOPLEFT", PAD, y)
+    d:SetWidth(width)   -- ohne Breite rendert der Frame seine Kinder nicht
     d:SetValue(item.get and item.get() or nil)
     d.OnValueChanged = function(v)
         if item.set then item.set(nil, v) end

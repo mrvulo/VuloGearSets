@@ -116,7 +116,7 @@ end
 -- Kaestchen mit Fuellung. OnValueChanged(newState) wird von aussen gesetzt.
 function UI:CreateToggle(parent, label)
     local f = CreateFrame("Button", nil, parent)
-    f:SetHeight(22)
+    f:SetSize(260, 22)   -- siehe CreateSlider: Breite 0 macht die Kinder unsichtbar
     f.box = CreateFrame("Frame", nil, f)
     f.box:SetSize(16, 16)
     f.box:SetPoint("LEFT", 0, 0)
@@ -148,7 +148,9 @@ end
 
 function UI:CreateSlider(parent, label, minV, maxV, step)
     local f = CreateFrame("Frame", nil, parent)
-    f:SetHeight(44)
+    -- Breite nicht weglassen: ein Frame mit Breite 0 zeichnet seine Kinder
+    -- nicht, ohne dabei einen Fehler zu werfen.
+    f:SetSize(260, 44)
     f.label = f:CreateFontString(nil, "OVERLAY")
     UI.Font(f.label, 12)
     f.label:SetPoint("TOPLEFT")
@@ -157,7 +159,9 @@ function UI:CreateSlider(parent, label, minV, maxV, step)
 
     f.slider = CreateFrame("Slider", nil, f, "OptionsSliderTemplate")
     f.slider:SetPoint("TOPLEFT", f.label, "BOTTOMLEFT", 0, -6)
-    f.slider:SetWidth(200)
+    -- Hoehe nicht dem Template ueberlassen: kommt sie dort nicht mit,
+    -- waere der Regler unsichtbar, ohne dass ein Fehler auffaellt.
+    f.slider:SetSize(200, 17)
     f.slider:SetMinMaxValues(minV or 0, maxV or 100)
     f.slider:SetValueStep(step or 1)
     if f.slider.SetObeyStepOnDrag then f.slider:SetObeyStepOnDrag(true) end
@@ -189,7 +193,7 @@ end
 -- values = { { value = "x", text = "Anzeige" }, ... }
 function UI:CreateDropdown(parent, label, values)
     local f = CreateFrame("Frame", nil, parent)
-    f:SetHeight(46)
+    f:SetSize(260, 46)   -- siehe CreateSlider: Breite 0 macht die Kinder unsichtbar
     f.values = values or {}
     f.label = f:CreateFontString(nil, "OVERLAY")
     UI.Font(f.label, 12)
