@@ -29,8 +29,10 @@ local mod = ns:RegisterModule("gearsets", {
         specSwitchEnabled = true,
         -- Character-frame sidebar
         sidebarEnabled      = true,
-        sidebarTopOffset    = -14,  -- fine-tune top edge (px) vs CharacterFrame
-        sidebarBottomOffset = 45,   -- fine-tune bottom edge (px) vs CharacterFrame
+        -- Feinjustierung der Kanten gegenueber dem Charakterfenster.
+        -- 0 = exakt gleich hoch. Nachstellbar mit /gearset tune.
+        sidebarTopOffset    = 0,
+        sidebarBottomOffset = 0,
     },
 })
 
@@ -1017,14 +1019,18 @@ local function createSetRow(parent, index)
     btn.text:SetJustifyH("LEFT")
 
     -- Selection background
+    -- Etwas eingerueckt statt randfuellend: der Balken soll die Zeile
+    -- markieren, nicht dominieren.
     btn.selection = btn:CreateTexture(nil, "BACKGROUND")
-    btn.selection:SetAllPoints(btn)
+    btn.selection:SetPoint("TOPLEFT",     2, -2)
+    btn.selection:SetPoint("BOTTOMRIGHT", -2, 2)
     btn.selection:SetColorTexture(ns:SelectionColor())
     btn.selection:Hide()
 
     -- Hover highlight
     btn.hl = btn:CreateTexture(nil, "BACKGROUND")
-    btn.hl:SetAllPoints(btn)
+    btn.hl:SetPoint("TOPLEFT",     2, -2)
+    btn.hl:SetPoint("BOTTOMRIGHT", -2, 2)
     btn.hl:SetColorTexture(ns:HoverColor())
     btn.hl:Hide()
     -- Fuer den Stilwechsel merken: die Farben werden dann neu gesetzt.
@@ -1349,8 +1355,10 @@ local function createSidebar()
         local topOff = ((mod.db and mod.db.sidebarTopOffset)    or 0) + py
         local botOff = ((mod.db and mod.db.sidebarBottomOffset) or 0) + py
         sidebar:ClearAllPoints()
-        sidebar:SetPoint("TOPLEFT",    CharacterFrame, "TOPRIGHT", -4 + px, topOff)
-        sidebar:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMRIGHT", -4 + px, botOff)
+        -- Buendig anschliessen: gleiche Hoehe wie das Charakterfenster,
+        -- kein Abstand dazwischen.
+        sidebar:SetPoint("TOPLEFT",    CharacterFrame, "TOPRIGHT", px, topOff)
+        sidebar:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMRIGHT", px, botOff)
     end
     anchorToCharacterFrame()
     sidebar._reanchor = anchorToCharacterFrame
@@ -1523,14 +1531,17 @@ function mod:OnEnable()
         end
     end
 
-    -- Migration: bump sidebar offsets from old 0/0 default to the tuned -14/45
-    -- (one-time; users who deliberately set their own values keep them via the flag)
-    if not mod.db._offsetMigrated then
-        if (mod.db.sidebarTopOffset or 0) == 0 and (mod.db.sidebarBottomOffset or 0) == 0 then
-            mod.db.sidebarTopOffset    = -14
-            mod.db.sidebarBottomOffset = 45
+    -- Die Seitenleiste schliesst jetzt buendig an das Charakterfenster an.
+    -- Wer noch auf den frueheren Werten -14/45 steht, wird einmalig auf 0
+    -- gesetzt; selbst eingestellte Werte bleiben erhalten.
+    if not mod.db._offsetMigrated_v2 then
+        if (mod.db.sidebarTopOffset or 0) == -14
+           and (mod.db.sidebarBottomOffset or 0) == 45 then
+            mod.db.sidebarTopOffset    = 0
+            mod.db.sidebarBottomOffset = 0
         end
-        mod.db._offsetMigrated = true
+        mod.db._offsetMigrated   = nil
+        mod.db._offsetMigrated_v2 = true
     end
 
     -- Create minimap button (deferred so Minimap definitely exists)

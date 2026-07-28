@@ -137,8 +137,10 @@ function ns:AccentColor()
 end
 
 -- Hinterlegung des ausgewaehlten Sets in der Seitenleiste.
+-- Im Classic-Stil zurueckhaltender: der Goldton wirkt auf dem hellen
+-- Blizzard-Rahmen sonst schnell zu massiv.
 function ns:SelectionColor()
-    if ns:GetStyle() == "classic" then return 0.55, 0.44, 0.12, 0.55 end
+    if ns:GetStyle() == "classic" then return 0.50, 0.39, 0.10, 0.38 end
     return 0.40, 0.30, 0.60, 0.45
 end
 
