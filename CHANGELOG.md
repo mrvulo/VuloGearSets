@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.1
+
+- A custom icon no longer disappears when you update a set. Saving and overwriting
+  replaced the whole entry, dropping everything that was not gear data — including
+  the chosen icon and the creation date.
+- The compact slot picker flips to the other side when the character window sits
+  at the edge of the screen. It used to open outwards regardless and ran off-screen.
+
 ## 1.3.0
 
 - The sidebar now only shows on the **Character** tab. On Reputation, Skills or
