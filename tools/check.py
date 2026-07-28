@@ -10,8 +10,12 @@ TOC = ADDON / "VuloGearSets.toc"
 # Ordner ohne Addon-Code, die der Pruefer nicht anfassen darf.
 SKIP_DIRS = {"docs", "tools"}
 
-# Nur diese Datei darf VuloClassicUI-Globals lesen.
+# Nur diese Datei darf VuloClassicUIs SavedVariables anfassen.
+# Geprueft werden die Globals selbst, nicht das blosse Wort "VuloClassicUI":
+# Funktionsnamen wie ImportFromVuloClassicUI und Uebersetzungstexte, die das
+# Addon erwaehnen, sind keine Kopplung.
 COEXIST_FILE = "Core/Coexistence.lua"
+FOREIGN_GLOBALS = [r"\bVuloClassicUIDB\b", r"\bVuloClassicUICharDB\b"]
 
 # Symbole aus dem Vulo-Framework, die es hier nicht mehr gibt.
 FORBIDDEN = [
@@ -151,8 +155,12 @@ def check_coupling():
     for p in lua_files():
         name = rel(p)
         text = code_of(p)
-        if name != COEXIST_FILE and "VuloClassicUI" in text:
-            errors.append(f"{name}: VuloClassicUI darf nur in {COEXIST_FILE} vorkommen")
+        if name != COEXIST_FILE:
+            for g in FOREIGN_GLOBALS:
+                if re.search(g, text):
+                    errors.append(
+                        f"{name}: Zugriff auf {g.strip(chr(92) + 'b')} "
+                        f"gehoert nach {COEXIST_FILE}")
         for pattern, msg in FORBIDDEN:
             if re.search(pattern, text):
                 errors.append(f"{name}: {msg}")

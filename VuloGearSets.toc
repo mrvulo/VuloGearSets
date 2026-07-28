@@ -21,4 +21,7 @@ Core\PopupMenu.lua
 Core\Mover.lua
 UI\Widgets.lua
 UI\OptionsFrame.lua
-UI\_Demo.lua
+Modules\GearSets.lua
+Modules\SlotPicker.lua
+Core\Coexistence.lua
+Core\Init.lua
