@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- Interface version raised to 20506 (game version 2.5.6). The addon was flagged as
+  out of date on current Anniversary clients.
+
 ## 1.0.0
 
 First release. Split out of the equipment set module of VuloClassicUI and rebuilt as a
