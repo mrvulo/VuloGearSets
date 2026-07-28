@@ -11,31 +11,69 @@ local C  = ns.COLORS
 local FONT_PATH = "Interface\\AddOns\\VuloGearSets\\Media\\Fonts\\Expressway.TTF"
 UI.FONT_PATH = FONT_PATH
 
+-- Der Client indiziert Schriftdateien beim Programmstart. Ein Addon, das
+-- waehrend einer laufenden Sitzung dazukommt, bringt seine TTF deshalb erst
+-- nach einem vollstaendigen Neustart mit - /reload genuegt nicht.
+--
+-- Zweiter Kandidat: dieselbe Schrift in VuloClassicUI. Ist die installiert,
+-- hat der Client die Datei bereits geladen und wir bekommen sofort das
+-- richtige Schriftbild. Reiner Anzeige-Fallback, keine Abhaengigkeit - faellt
+-- er weg, greift nach dem naechsten Neustart wieder der eigene Pfad.
+local FONT_CANDIDATES = {
+    FONT_PATH,
+    "Interface\\AddOns\\VuloClassicUI\\Media\\Fonts\\Expressway.TTF",
+}
+
 -- Laesst sich die Schriftdatei nicht laden, rendert der Client den Text
 -- kommentarlos leer - das Fenster sieht dann aus, als fehle jede Beschriftung.
 --
--- FontString:GetFont() taugt NICHT zur Pruefung: es liefert den gesetzten Pfad
--- auch dann zurueck, wenn die Datei nie geladen wurde. Verlaesslich ist nur
--- Font:SetFont() auf einem echten Font-Objekt - das meldet per Boolean, ob es
--- geklappt hat. Einmal pruefen, Ergebnis merken.
+-- Die Pruefung laeuft bewusst FUNKTIONAL statt ueber Rueckgabewerte:
+--   FontString:GetFont() liefert den gesetzten Pfad auch dann, wenn die Datei
+--   nie geladen wurde. Font:SetFont() liefert je nach Client gar nichts.
+-- Verlaesslich ist nur: Text setzen und messen. Hat er Breite, rendert die
+-- Schrift wirklich. Einmal pruefen, Ergebnis merken.
 local _resolved
+local _probeResult
+
+local function measure(path)
+    local fs = UIParent:CreateFontString(nil, "BACKGROUND")
+    fs:SetFont(path, 12, "")
+    fs:SetText("VuloGearSets")
+    local w = fs:GetStringWidth() or 0
+    fs:Hide()
+    fs:SetText("")
+    return w
+end
 
 local function resolveFont()
     if _resolved then return _resolved end
-    local probe = CreateFont("VuloGearSetsFontProbe")
-    local ok = probe and probe:SetFont(FONT_PATH, 12, "")
-    _resolved = ok and FONT_PATH or STANDARD_TEXT_FONT
-    if not ok then
+
+    _probeResult = { candidates = {}, fallback = measure(STANDARD_TEXT_FONT) }
+    for i, path in ipairs(FONT_CANDIDATES) do
+        local w = measure(path)
+        _probeResult.candidates[i] = { path = path, width = w }
+        if w > 0 and not _resolved then
+            _resolved = path
+            _probeResult.usedIndex = i
+        end
+    end
+
+    if not _resolved then
+        _resolved = STANDARD_TEXT_FONT
         ns:Print("Expressway konnte nicht geladen werden, benutze die Standardschrift. "
-              .. "Neue Schriftdateien erkennt der Client erst nach einem vollstaendigen "
-              .. "Neustart - ein /reload genuegt nicht.")
+              .. "Details mit /vgsfont.")
+    elseif _probeResult.usedIndex > 1 then
+        ns:Print("Expressway wird aus VuloClassicUI geladen. Nach einem "
+              .. "vollstaendigen Neustart nutzt VuloGearSets die eigene Datei.")
     end
     return _resolved
 end
 
--- Nur fuer die Diagnose interessant.
+-- Nur fuer die Diagnose interessant. Zweiter Rueckgabewert heisst
+-- "Expressway laeuft", egal aus welchem der Kandidatenpfade.
 function UI.GetResolvedFont()
-    return resolveFont(), (_resolved == FONT_PATH)
+    resolveFont()
+    return _resolved, (_resolved ~= STANDARD_TEXT_FONT), _probeResult
 end
 
 function UI.Font(fs, size, flags)
