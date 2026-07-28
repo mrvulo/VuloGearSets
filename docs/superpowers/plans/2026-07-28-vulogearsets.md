@@ -24,37 +24,38 @@
 - **Nach jeder Task:** `python tools/check.py` muss fehlerfrei durchlaufen.
 - **Commits:** Deutsche Commit-Messages, kein `Co-Authored-By`, keine Fremdaddon-Namen außer VuloClassicUI.
 
-## Vorbedingung: Git
+## Ausgangszustand des Repos
 
-`C:\Users\aobiw\Desktop\Test` ist derzeit **kein** Git-Repository. Vor Task 1:
+Das Repository ist bereits eingerichtet: `C:\Users\aobiw\Desktop\Test\VuloGearSets` ist ein
+Git-Repo auf dem Branch `main`, mit einem ersten Commit, der `.gitignore`, diesen Plan, die
+Spezifikation und `Media/Fonts/Expressway.TTF` enthält.
 
-```bash
-git init "C:/Users/aobiw/Desktop/Test"
-```
-
-Ist ein Repo unerwünscht, entfallen alle Commit-Steps ersatzlos; alles andere bleibt gültig.
+**Der Repo-Root ist zugleich der Addon-Ordner** — `VuloGearSets.toc` liegt direkt im Root.
+Alle Pfadangaben in diesem Plan sind relativ dazu. `docs/` und `tools/` liegen mit im Repo;
+WoW ignoriert sie, weil sie nicht in der TOC stehen.
 
 ## Dateistruktur
 
 | Datei | Verantwortung |
 |---|---|
-| `VuloGearSets/VuloGearSets.toc` | Ladereihenfolge, SavedVariables, Metadaten |
+| `VuloGearSets.toc` | Ladereihenfolge, SavedVariables, Metadaten |
 | `Core/Namespace.lua` | `ns`, `ns.COLORS`, `Print`, `Debug`, `DeepCopy`, `ApplyDefaults` |
-| `Core/Compat.lua` | Shims für `C_Container`, `C_AddOns`, `GetItemInfo` |
+| `Core/Compat.lua` | `ns:IsAddOnLoaded` über `C_AddOns` mit Fallback |
 | `Core/Locale.lua` | `ns.L`-Metatable, `RegisterLocale`, `GetActiveLocale` |
 | `Core/Database.lua` | `InitDB`, Defaults-Merge, `GetModuleDB` — ohne Profilsystem |
 | `Core/Modules.lua` | `RegisterModule`, `IsModuleEnabled`, `ToggleModule`, `SafeEnable/Disable` |
 | `Core/Events.lua` | `RegisterEvent`, `UnregisterEvent` über einen gemeinsamen Frame |
 | `Core/PopupMenu.lua` | `ShowPopupMenu`, `HidePopupMenu` |
-| `Core/Mover.lua` | `CreateMover`, `IsMoverEditMode`, `SetMoverEditMode` für einen Frame |
+| `Core/Mover.lua` | `CreateMover`, `IsMoverEditMode`, `SetMoversEditMode` für einen Frame |
 | `Core/Coexistence.lua` | Vulo-Erkennung, Einmal-Import, Schlafmodus |
 | `Core/Init.lua` | `PLAYER_LOGIN`-Ablauf, Reihenfolge Import → Konflikt → Module |
-| `UI/Widgets.lua` | Backdrop, Shadow, Font, Button, Toggle, Slider, Dropdown, EditBox, Scroll |
+| `UI/Widgets.lua` | Backdrop, Shadow, Font, Button, Toggle, Slider, Dropdown |
 | `UI/OptionsFrame.lua` | Fenster + Renderer für die neun `GetOptions()`-Item-Typen |
 | `Locales/enUS.lua` | leer, dokumentiert nur das Muster |
-| `Locales/deDE.lua` | 116 deutsche Übersetzungen |
+| `Locales/deDE.lua` | deutsche Übersetzungen |
 | `Modules/GearSets.lua` | portiert aus `Loadouts.lua` |
 | `Modules/SlotPicker.lua` | portiert aus `SlotPicker.lua` |
+| `Media/Fonts/Expressway.TTF` | Schrift, liegt bereits im Repo |
 | `tools/check.py` | TOC-, Locale- und Kopplungsprüfung |
 | `tools/extract_locales.py` | zieht benutzte Keys aus Vulos `deDE.lua` |
 | `tools/rename_keys.py` | wendet die Umbenennungstabelle an |
@@ -67,12 +68,12 @@ Ist ein Repo unerwünscht, entfallen alle Commit-Steps ersatzlos; alles andere b
 Am Ende dieser Task lädt WoW ein leeres, fehlerfreies Addon und `check.py` prüft die Struktur.
 
 **Files:**
-- Create: `VuloGearSets/VuloGearSets.toc`
-- Create: `VuloGearSets/Core/Namespace.lua`
-- Create: `VuloGearSets/Core/Compat.lua`
-- Create: `VuloGearSets/Core/Locale.lua`
-- Create: `VuloGearSets/Locales/enUS.lua`
-- Create: `VuloGearSets/Locales/deDE.lua`
+- Create: `VuloGearSets.toc`
+- Create: `Core/Namespace.lua`
+- Create: `Core/Compat.lua`
+- Create: `Core/Locale.lua`
+- Create: `Locales/enUS.lua`
+- Create: `Locales/deDE.lua`
 - Create: `tools/check.py`
 - Create: `tools/deploy.ps1`
 
@@ -81,13 +82,14 @@ Am Ende dieser Task lädt WoW ein leeres, fehlerfreies Addon und `check.py` prü
 
 - [ ] **Step 1: Ordner anlegen**
 
+Die Ordner `Core/`, `UI/`, `Locales/`, `Modules/`, `Media/Fonts/`, `tools/` und `docs/`
+existieren bereits aus dem Repo-Setup. Gegenprobe:
+
 ```powershell
-New-Item -ItemType Directory -Force "C:\Users\aobiw\Desktop\Test\VuloGearSets\Core"
-New-Item -ItemType Directory -Force "C:\Users\aobiw\Desktop\Test\VuloGearSets\UI"
-New-Item -ItemType Directory -Force "C:\Users\aobiw\Desktop\Test\VuloGearSets\Locales"
-New-Item -ItemType Directory -Force "C:\Users\aobiw\Desktop\Test\VuloGearSets\Modules"
-New-Item -ItemType Directory -Force "C:\Users\aobiw\Desktop\Test\tools"
+Get-ChildItem "C:\Users\aobiw\Desktop\Test\VuloGearSets" -Directory | Select-Object Name
 ```
+
+Expected: `Core`, `docs`, `Locales`, `Media`, `Modules`, `tools`, `UI`
 
 - [ ] **Step 2: `tools/check.py` schreiben**
 
@@ -99,9 +101,12 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-ADDON = ROOT / "VuloGearSets"
+# Repo-Root ist zugleich der Addon-Ordner.
+ADDON = Path(__file__).resolve().parent.parent
 TOC = ADDON / "VuloGearSets.toc"
+
+# Ordner ohne Addon-Code, die der Pruefer nicht anfassen darf.
+SKIP_DIRS = {"docs", "tools"}
 
 # Nur diese Datei darf VuloClassicUI-Globals lesen.
 COEXIST_FILE = "Core/Coexistence.lua"
@@ -118,7 +123,10 @@ errors = []
 
 
 def lua_files():
-    return sorted(p for p in ADDON.rglob("*.lua"))
+    return sorted(
+        p for p in ADDON.rglob("*.lua")
+        if not set(p.relative_to(ADDON).parts) & SKIP_DIRS
+    )
 
 
 def rel(p):
@@ -195,8 +203,8 @@ def check_lua5_1():
 
 
 def main():
-    if not ADDON.exists():
-        print(f"FEHLER: {ADDON} existiert nicht")
+    if not TOC.exists():
+        print(f"FEHLER: {TOC} existiert nicht")
         return 1
     check_toc()
     check_locales()
@@ -218,13 +226,22 @@ if __name__ == "__main__":
 - [ ] **Step 3: `tools/deploy.ps1` schreiben**
 
 ```powershell
-# Kopiert VuloGearSets ins Anniversary-AddOns-Verzeichnis.
-$src = Join-Path $PSScriptRoot "..\VuloGearSets"
+# Kopiert das Addon ins Anniversary-AddOns-Verzeichnis.
+# Repo-Root ist der Addon-Ordner; .git, docs und tools bleiben draussen.
+$src = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $dst = "C:\Program Files (x86)\World of Warcraft\_anniversary_\Interface\AddOns\VuloGearSets"
 
-if (-not (Test-Path $src)) { throw "Quelle fehlt: $src" }
+if (-not (Test-Path (Join-Path $src "VuloGearSets.toc"))) {
+    throw "Keine TOC in $src - falscher Ordner?"
+}
 if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
-Copy-Item $src $dst -Recurse -Force
+New-Item -ItemType Directory -Force $dst | Out-Null
+
+Copy-Item (Join-Path $src "VuloGearSets.toc") $dst
+foreach ($d in 'Core', 'UI', 'Locales', 'Modules', 'Media') {
+    $p = Join-Path $src $d
+    if (Test-Path $p) { Copy-Item $p $dst -Recurse -Force }
+}
 Write-Output "Deployed nach $dst"
 ```
 
@@ -431,10 +448,10 @@ git commit -m "Grundgeruest fuer VuloGearSets mit Namespace, Locale und Pruefwer
 ### Task 2: Datenbank, Modulregistry und Events
 
 **Files:**
-- Create: `VuloGearSets/Core/Database.lua`
-- Create: `VuloGearSets/Core/Modules.lua`
-- Create: `VuloGearSets/Core/Events.lua`
-- Modify: `VuloGearSets/VuloGearSets.toc`
+- Create: `Core/Database.lua`
+- Create: `Core/Modules.lua`
+- Create: `Core/Events.lua`
+- Modify: `VuloGearSets.toc`
 
 **Interfaces:**
 - Consumes: `ns:ApplyDefaults`, `ns:Print`, `ns:Debug`, `ns.L` aus Task 1
@@ -664,7 +681,7 @@ Erzeugt die deutsche Übersetzungsdatei aus VuloClassicUI und stellt dabei "Load
 **Files:**
 - Create: `tools/extract_locales.py`
 - Create: `tools/rename_keys.py`
-- Modify: `VuloGearSets/Locales/deDE.lua`
+- Modify: `Locales/deDE.lua`
 
 **Interfaces:**
 - Produces: `RENAME_MAP` in `tools/rename_keys.py` — ein `dict[str, str]` von altem auf neuen englischen Key. Task 8 und 9 wenden dieselbe Tabelle auf den portierten Modulcode an.
@@ -850,9 +867,9 @@ Erscheint eine Warnung über fehlende Übersetzungen, ist der Regex an einem Key
 
 - [ ] **Step 4: Deutsche Texte auf "Ausrüstungsset" durchsehen**
 
-Die übernommenen Übersetzungen enthalten noch "Loadout". In `VuloGearSets/Locales/deDE.lua` alle Vorkommen auf der **Wertseite** ersetzen: "Loadout" → "Ausrüstungsset", "Loadouts" → "Ausrüstungssets". Die Keys (linke Seite) bleiben unangetastet — die hat `extract_locales.py` bereits umbenannt.
+Die übernommenen Übersetzungen enthalten noch "Loadout". In `Locales/deDE.lua` alle Vorkommen auf der **Wertseite** ersetzen: "Loadout" → "Ausrüstungsset", "Loadouts" → "Ausrüstungssets". Die Keys (linke Seite) bleiben unangetastet — die hat `extract_locales.py` bereits umbenannt.
 
-Run zum Auffinden: `python -c "import re,pathlib; p=pathlib.Path('VuloGearSets/Locales/deDE.lua'); [print(n,l) for n,l in enumerate(p.read_text(encoding='utf-8').splitlines(),1) if 'oadout' in l.split('] = ')[-1]]"`
+Run zum Auffinden: `python -c "import re,pathlib; p=pathlib.Path('Locales/deDE.lua'); [print(n,l) for n,l in enumerate(p.read_text(encoding='utf-8').splitlines(),1) if 'oadout' in l.split('] = ')[-1]]"`
 Expected nach der Korrektur: keine Ausgabe.
 
 - [ ] **Step 5: Die vier Framework-Meldungen ergänzen**
@@ -878,7 +895,7 @@ Um die Zwischenzeit ruhig zu halten, in `check.py` `check_locales()` vorübergeh
 - [ ] **Step 7: Commit**
 
 ```bash
-git add VuloGearSets/Locales tools
+git add Locales tools
 git commit -m "Deutsche Uebersetzungen uebernommen und auf Ausruestungsset umgestellt"
 ```
 
@@ -887,9 +904,9 @@ git commit -m "Deutsche Uebersetzungen uebernommen und auf Ausruestungsset umges
 ### Task 4: Widgets und Popup-Menü
 
 **Files:**
-- Create: `VuloGearSets/UI/Widgets.lua`
-- Create: `VuloGearSets/Core/PopupMenu.lua`
-- Modify: `VuloGearSets/VuloGearSets.toc`
+- Create: `UI/Widgets.lua`
+- Create: `Core/PopupMenu.lua`
+- Modify: `VuloGearSets.toc`
 
 **Interfaces:**
 - Consumes: `ns.COLORS`, `ns.L` aus Task 1
@@ -899,7 +916,9 @@ git commit -m "Deutsche Uebersetzungen uebernommen und auf Ausruestungsset umges
 
 Es gibt bewusst **kein** EditBox-Widget: die Optionsliste kennt keinen Eingabetyp, und die Namensabfrage beim Speichern läuft über Blizzards `StaticPopup`.
 
-**Hinweis zur Schrift:** VuloClassicUI benutzt in seinen Widgets eine mitgelieferte Schrift (`Media/Fonts/Expressway.TTF`) und Masken-Texturen für den Pill-Toggle. VuloGearSets verwendet stattdessen `STANDARD_TEXT_FONT` und einfache Rechteck-Toggles, damit kein `Media/`-Verzeichnis nötig ist. Das ist eine bewusste Abweichung: Farben und Layout stimmen überein, die Schrift ist die des Clients.
+**Hinweis zur Schrift:** VuloGearSets liefert `Media/Fonts/Expressway.TTF` mit, dieselbe Schrift wie VuloClassicUI — sie liegt bereits im Repo. `UI.Font` setzt sie mit einem Rückfall auf `STANDARD_TEXT_FONT`, falls `SetFont` fehlschlägt (fehlende oder beschädigte Datei würde sonst unsichtbaren Text erzeugen).
+
+Die Masken-Texturen für den Pill-Toggle werden **nicht** übernommen; der Toggle bleibt ein einfaches Kästchen mit Füllung. Wer auch die Pill-Optik will, kopiert zusätzlich `Media/Masks/circle_mask.tga` und `csquare_mask.tga` und übernimmt den Toggle-Code aus Vulos `UI/Widgets.lua`.
 
 - [ ] **Step 1: `UI/Widgets.lua` schreiben**
 
@@ -914,8 +933,15 @@ ns.UI = ns.UI or {}
 local UI = ns.UI
 local C  = ns.COLORS
 
+-- Dieselbe Schrift wie VuloClassicUI. Schlaegt SetFont fehl (Datei fehlt
+-- oder ist beschaedigt), bliebe der Text sonst unsichtbar -> Rueckfall.
+local FONT_PATH = "Interface\\AddOns\\VuloGearSets\\Media\\Fonts\\Expressway.TTF"
+UI.FONT_PATH = FONT_PATH
+
 function UI.Font(fs, size, flags)
-    fs:SetFont(STANDARD_TEXT_FONT, size or 12, flags or "")
+    if not fs:SetFont(FONT_PATH, size or 12, flags or "") then
+        fs:SetFont(STANDARD_TEXT_FONT, size or 12, flags or "")
+    end
     return fs
 end
 
@@ -1117,7 +1143,7 @@ Die drei Framework-Referenzen (`ns.COLORS.borderDark`, `ns.COLORS.accent`, `ns.U
 
 - [ ] **Step 3: Prüfen, dass keine VuloClassicUI-Reste übrig sind**
 
-Run: `python -c "import pathlib; t=pathlib.Path('VuloGearSets/Core/PopupMenu.lua').read_text(encoding='utf-8'); print('TREFFER' if 'VuloClassicUI' in t else 'sauber')"`
+Run: `python -c "import pathlib; t=pathlib.Path('Core/PopupMenu.lua').read_text(encoding='utf-8'); print('TREFFER' if 'VuloClassicUI' in t else 'sauber')"`
 Expected: `sauber`
 
 - [ ] **Step 4: TOC ergänzen**
@@ -1168,7 +1194,7 @@ Dann `/reload` und `/vgsdemo`. Erwartet: dunkles Fenster mit Schatten, Haken lä
 
 Den in Step 6 angehängten Block (`ns:_WidgetDemo`, `SLASH_VGSDEMO1`, `SlashCmdList["VGSDEMO"]`) aus `UI/Widgets.lua` löschen.
 
-Run: `python -c "import pathlib; t=pathlib.Path('VuloGearSets/UI/Widgets.lua').read_text(encoding='utf-8'); print('RESTE' if '_WidgetDemo' in t or 'VGSDEMO' in t else 'sauber')"`
+Run: `python -c "import pathlib; t=pathlib.Path('UI/Widgets.lua').read_text(encoding='utf-8'); print('RESTE' if '_WidgetDemo' in t or 'VGSDEMO' in t else 'sauber')"`
 Expected: `sauber`
 
 - [ ] **Step 8: Commit**
@@ -1185,8 +1211,8 @@ git commit -m "Widgets und Popup-Menue ergaenzt"
 Rendert die deklarative Item-Liste aus `mod:GetOptions()`. Die Liste benutzt exakt neun Typen und siebzehn Felder — mehr muss der Renderer nicht können.
 
 **Files:**
-- Create: `VuloGearSets/UI/OptionsFrame.lua`
-- Modify: `VuloGearSets/VuloGearSets.toc`
+- Create: `UI/OptionsFrame.lua`
+- Modify: `VuloGearSets.toc`
 
 **Interfaces:**
 - Consumes: `ns.UI:CreateBackdrop/CreateShadow/CreateButton/CreateToggle/CreateSlider/CreateDropdown`, `ns.UI.Font`, `ns.COLORS`, `ns.L`, `ns.modules`
@@ -1498,7 +1524,7 @@ Dann `/reload` und `/vgsopt`. Erwartet: Fenster erscheint mittig, ist verschiebb
 
 Den in Step 4 angehängten Block löschen.
 
-Run: `python -c "import pathlib; t=pathlib.Path('VuloGearSets/UI/OptionsFrame.lua').read_text(encoding='utf-8'); print('RESTE' if 'VGSOPT' in t else 'sauber')"`
+Run: `python -c "import pathlib; t=pathlib.Path('UI/OptionsFrame.lua').read_text(encoding='utf-8'); print('RESTE' if 'VGSOPT' in t else 'sauber')"`
 Expected: `sauber`
 
 - [ ] **Step 6: Commit**
@@ -1515,8 +1541,8 @@ git commit -m "Optionsfenster mit Renderer fuer die Modulseite ergaenzt"
 `GearSets.lua` ruft `ns:CreateMover` und `ns:IsMoverEditMode` auf. Vulos Fassung kann Layout-Serialisierung, benannte Profile und Gruppen-Drag; hier reicht ein einzelner verschiebbarer Frame.
 
 **Files:**
-- Create: `VuloGearSets/Core/Mover.lua`
-- Modify: `VuloGearSets/VuloGearSets.toc`
+- Create: `Core/Mover.lua`
+- Modify: `VuloGearSets.toc`
 
 **Interfaces:**
 - Consumes: `ns.COLORS`, `ns.L`, `ns.UI.Font`
@@ -1669,7 +1695,7 @@ end
 
 - [ ] **Step 2: Die drei neuen Locale-Keys ergänzen**
 
-In `VuloGearSets/Locales/deDE.lua`:
+In `Locales/deDE.lua`:
 
 ```lua
     ["Edit mode enabled. Drag the purple box, arrow keys nudge, right-click resets."] = "Bearbeitungsmodus aktiv. Ziehe das lila Feld, Pfeiltasten verschieben pixelweise, Rechtsklick setzt zurueck.",
@@ -1704,9 +1730,9 @@ git commit -m "Mover fuer die Seitenleiste ergaenzt"
 Der Kern. Die 1823 Zeichen umfassende Datei wird kopiert und an genau den unten aufgezählten Stellen geändert. Alles andere bleibt Zeile für Zeile identisch.
 
 **Files:**
-- Create: `VuloGearSets/Modules/GearSets.lua` (Kopie von `Loadouts.lua`)
-- Modify: `VuloGearSets/VuloGearSets.toc`
-- Modify: `VuloGearSets/Locales/deDE.lua`
+- Create: `Modules/GearSets.lua` (Kopie von `Loadouts.lua`)
+- Modify: `VuloGearSets.toc`
+- Modify: `Locales/deDE.lua`
 
 **Interfaces:**
 - Consumes: alles aus Task 1–6
@@ -1721,8 +1747,8 @@ Copy-Item "C:\Users\aobiw\Desktop\entpackte addons\VuloClassicUI\Modules\Loadout
 
 - [ ] **Step 2: Locale-Keys umbenennen**
 
-Run: `python tools/rename_keys.py VuloGearSets/Modules/GearSets.lua`
-Expected: `VuloGearSets/Modules/GearSets.lua: 31 Ersetzungen` (die Zahl darf abweichen, wenn ein Key mehrfach vorkommt — sie darf nur nicht 0 sein)
+Run: `python tools/rename_keys.py Modules/GearSets.lua`
+Expected: `Modules/GearSets.lua: 31 Ersetzungen` (die Zahl darf abweichen, wenn ein Key mehrfach vorkommt — sie darf nur nicht 0 sein)
 
 - [ ] **Step 3: Modulkopf und Registrierung ändern**
 
@@ -1862,7 +1888,7 @@ Modules\GearSets.lua
 
 - [ ] **Step 13: Locale-Datei nachziehen**
 
-In `VuloGearSets/Locales/deDE.lua` den in Step 7 neu eingeführten Key ergänzen:
+In `Locales/deDE.lua` den in Step 7 neu eingeführten Key ergänzen:
 
 ```lua
     ["Usage: /gearset equip <name> | save <name> | delete <name> | list | config | unlock"] = "Verwendung: /gearset equip <Name> | save <Name> | delete <Name> | list | config | unlock",
@@ -1907,8 +1933,8 @@ git commit -m "Modul fuer Ausruestungssets aus VuloClassicUI portiert"
 ### Task 8: SlotPicker portieren
 
 **Files:**
-- Create: `VuloGearSets/Modules/SlotPicker.lua`
-- Modify: `VuloGearSets/VuloGearSets.toc`
+- Create: `Modules/SlotPicker.lua`
+- Modify: `VuloGearSets.toc`
 
 **Interfaces:**
 - Consumes: `ns:EquipBagItemToSlot` aus Task 7
@@ -1923,7 +1949,7 @@ Copy-Item "C:\Users\aobiw\Desktop\entpackte addons\VuloClassicUI\Modules\SlotPic
 
 - [ ] **Step 2: Locale-Keys umbenennen**
 
-Run: `python tools/rename_keys.py VuloGearSets/Modules/SlotPicker.lua`
+Run: `python tools/rename_keys.py Modules/SlotPicker.lua`
 Expected: eine kleine Zahl oder 0 — SlotPicker spricht kaum von Loadouts
 
 - [ ] **Step 3: Kopfkommentar anpassen**
@@ -1973,10 +1999,10 @@ git commit -m "Slot-Picker portiert"
 ### Task 9: Koexistenz, Import und Start
 
 **Files:**
-- Create: `VuloGearSets/Core/Coexistence.lua`
-- Create: `VuloGearSets/Core/Init.lua`
-- Modify: `VuloGearSets/VuloGearSets.toc`
-- Modify: `VuloGearSets/Locales/deDE.lua`
+- Create: `Core/Coexistence.lua`
+- Create: `Core/Init.lua`
+- Modify: `VuloGearSets.toc`
+- Modify: `Locales/deDE.lua`
 
 **Interfaces:**
 - Consumes: `ns:InitDB`, `ns:GetCharDB`, `ns:EnableModules`, `ns:DeepCopy`, `ns:IsAddOnLoaded`, `ns:Print`, `ns.L`
@@ -2113,11 +2139,11 @@ _G.SlashCmdList["VGSSTATUS"] = statusHandler
 Task 7 Step 6 hat `/gearset` beim Modul gelassen und `/vgs` bewusst nicht vergeben. Gegenprobe:
 
 Run: `python -c "import pathlib,re; ps=list(pathlib.Path('VuloGearSets').rglob('*.lua')); hits=[(p.as_posix(),n) for p in ps for n,l in enumerate(p.read_text(encoding='utf-8').splitlines(),1) if '\"/vgs\"' in l]; print(hits)"`
-Expected: genau ein Treffer, in `VuloGearSets/Core/Init.lua`
+Expected: genau ein Treffer, in `Core/Init.lua`
 
 - [ ] **Step 4: Die drei neuen Locale-Keys ergänzen**
 
-In `VuloGearSets/Locales/deDE.lua`:
+In `Locales/deDE.lua`:
 
 ```lua
     ["Imported %d gear set(s) from VuloClassicUI onto this character."] = "%d Ausruestungsset(s) aus VuloClassicUI auf diesen Charakter uebernommen.",
@@ -2172,8 +2198,8 @@ git commit -m "Koexistenz mit VuloClassicUI, Einmal-Import und Startablauf ergae
 ### Task 10: Dokumentation und Abnahme
 
 **Files:**
-- Create: `VuloGearSets/README.md`
-- Create: `VuloGearSets/CHANGELOG.md`
+- Create: `README.md`
+- Create: `CHANGELOG.md`
 
 - [ ] **Step 1: `README.md` schreiben**
 
@@ -2215,6 +2241,6 @@ git commit -m "Dokumentation ergaenzt und Abnahme durchgefuehrt"
 
 ## Was dieser Plan bewusst offen lässt
 
-- **Eigene Schrift.** Das Original benutzt Expressway; VuloGearSets nimmt die Client-Schrift, damit kein `Media/`-Verzeichnis nötig ist. Wer die Optik exakt angleichen will, kopiert `Media/Fonts/Expressway.TTF` mit und ersetzt `STANDARD_TEXT_FONT` in `UI/Widgets.lua` — die Lizenzlage der Schrift wäre vorher zu klären.
+- **Pill-Toggle.** Die Schrift ist übernommen, die Masken-Texturen des runden Schalters nicht. Wer auch die will, kopiert `Media/Masks/circle_mask.tga` und `csquare_mask.tga` aus VuloClassicUI und übernimmt den Toggle-Code aus dessen `UI/Widgets.lua`.
 - **Weitere Sprachen.** Die Struktur trägt beliebige Locales; es sind bewusst nur enUS und deDE eingeplant.
 - **Verteilung.** Kein CurseForge-/Wago-Paket, keine `.pkgmeta`, keine Release-Automatisierung.

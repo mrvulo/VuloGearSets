@@ -45,16 +45,22 @@ Zwei Befunde verkleinern den Aufwand erheblich:
    (aufklappbar), `spacer`. Ein Renderer für genau diese Typen ersetzt 72 KB
    `Widgets.lua` + `OptionsBuilder.lua`, und die Optionsseite bleibt unverändert.
 2. Beide Module laden **ausschließlich Blizzard-interne Texturen**. Es gibt keine einzige
-   Referenz auf `Interface\AddOns\VuloClassicUI\Media\`. Ein `Media/`-Verzeichnis entfällt.
+   Referenz auf `Interface\AddOns\VuloClassicUI\Media\`. Mitgeliefert werden muss deshalb
+   nur die Schrift, die die Widgets benutzen — keine Icons, keine Rahmen.
 
 ## Struktur
 
+Der Repo-Root ist zugleich der Addon-Ordner: `VuloGearSets.toc` liegt direkt im Root, damit
+sich das Repository ohne Zwischenschritt ins `Interface\AddOns`-Verzeichnis bringen lässt.
+`docs/` und `tools/` liegen mit im Repo und werden vom Auslieferungsskript ausgelassen.
+
 ```
-VuloGearSets/
+VuloGearSets/                     = Git-Repo-Root = Addon-Ordner
+├─ .gitignore
 ├─ VuloGearSets.toc                Interface 20505
 ├─ Core/
 │  ├─ Namespace.lua      ~80    ns, COLORS, Print, Debug, DeepCopy, ApplyDefaults
-│  ├─ Compat.lua         ~60    C_Container / C_AddOns / GetItemInfo-Shims
+│  ├─ Compat.lua         ~30    ns:IsAddOnLoaded über C_AddOns mit Fallback
 │  ├─ Locale.lua         ~40    L-Metatable, fällt auf den Key zurück
 │  ├─ Database.lua       ~90    DB-Init + Defaults-Merge, kein Profilsystem
 │  ├─ Modules.lua        ~80    RegisterModule / IsModuleEnabled / ToggleModule
@@ -70,13 +76,17 @@ VuloGearSets/
 ├─ Locales/
 │  ├─ enUS.lua           ~15   leer, Keys sind der englische Text
 │  └─ deDE.lua           ~130  116 Übersetzungen, aus Vulo extrahiert
-├─ tools/
-│  ├─ extract_locales.py        zieht die benutzten Keys aus Vulos deDE.lua
-│  ├─ rename_keys.py            Loadout → Gear Set in Code und Übersetzung
-│  └─ check.py                  TOC-, Locale- und Kopplungsprüfung
 ├─ Modules/
 │  ├─ GearSets.lua       ~1800  aus Loadouts.lua
 │  └─ SlotPicker.lua      ~365  unverändert
+├─ Media/
+│  └─ Fonts/Expressway.TTF      Schrift, wie in VuloClassicUI
+├─ tools/                       nicht Teil der Auslieferung
+│  ├─ extract_locales.py        zieht die benutzten Keys aus Vulos deDE.lua
+│  ├─ rename_keys.py            Loadout → Gear Set in Code und Übersetzung
+│  ├─ check.py                  TOC-, Locale- und Kopplungsprüfung
+│  └─ deploy.ps1                kopiert das Addon ins Spielverzeichnis
+├─ docs/superpowers/            Spezifikation und Umsetzungsplan
 ├─ README.md
 └─ CHANGELOG.md
 ```
@@ -260,10 +270,14 @@ je eine Funktion.
 Die Setter werden als `set(nil, value)` aufgerufen. Diese Signatur stammt aus Vulos
 OptionsBuilder und muss beibehalten werden, weil `GetOptions()` sie so schreibt.
 
-Optik: dunkler Hintergrund, lila Akzent aus `ns.COLORS.accent` (0.608, 0.424, 1) — dieselbe
-Farbe wie in Vulo, damit die beiden Addons zusammenpassen. Für Schrift wird
-`STANDARD_TEXT_FONT` benutzt statt der in VuloClassicUI mitgelieferten Expressway, damit
-kein `Media/`-Verzeichnis nötig ist.
+Optik: dunkler Hintergrund, lila Akzent aus `ns.COLORS.accent` (0.608, 0.424, 1) und
+`Media/Fonts/Expressway.TTF` als Schrift — alles wie in VuloClassicUI, damit die beiden
+Addons nebeneinander stimmig aussehen. `UI.Font` fällt auf `STANDARD_TEXT_FONT` zurück,
+falls `SetFont` fehlschlägt; ohne diesen Rückfall wäre der Text bei fehlender Schriftdatei
+unsichtbar statt nur anders.
+
+Nicht übernommen werden die Masken-Texturen des runden Pill-Toggles. Der Schalter ist ein
+Kästchen mit Füllung — funktional gleichwertig, eine Textur weniger im Paket.
 
 ## Slash-Commands
 
