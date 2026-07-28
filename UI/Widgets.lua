@@ -11,17 +11,18 @@ local C  = ns.COLORS
 local FONT_PATH = "Interface\\AddOns\\VuloGearSets\\Media\\Fonts\\Expressway.TTF"
 UI.FONT_PATH = FONT_PATH
 
--- Der Client indiziert Schriftdateien beim Programmstart. Ein Addon, das
--- waehrend einer laufenden Sitzung dazukommt, bringt seine TTF deshalb erst
--- nach einem vollstaendigen Neustart mit - /reload genuegt nicht.
+-- Gemessen auf dem Anniversary-Client: Schriftdateien aus Addon-Ordnern
+-- werden NICHT geladen - weder unsere noch dieselbe Datei aus Details oder
+-- VuloClassicUI (Textbreite jeweils 0). Client-interne Schriften laden
+-- dagegen problemlos. Pruefen mit /vgsfont.
 --
--- Zweiter Kandidat: dieselbe Schrift in VuloClassicUI. Ist die installiert,
--- hat der Client die Datei bereits geladen und wir bekommen sofort das
--- richtige Schriftbild. Reiner Anzeige-Fallback, keine Abhaengigkeit - faellt
--- er weg, greift nach dem naechsten Neustart wieder der eigene Pfad.
+-- Deshalb der Reihe nach:
+--   1. die eigene Expressway - falls ein Client sie doch annimmt
+--   2. Arial Narrow, client-intern und im Schnitt nah an Expressway
+--   3. die Standardschrift als Notnagel
 local FONT_CANDIDATES = {
     FONT_PATH,
-    "Interface\\AddOns\\VuloClassicUI\\Media\\Fonts\\Expressway.TTF",
+    "Fonts\\ARIALN.TTF",
 }
 
 -- Laesst sich die Schriftdatei nicht laden, rendert der Client den Text
@@ -60,12 +61,10 @@ local function resolveFont()
 
     if not _resolved then
         _resolved = STANDARD_TEXT_FONT
-        ns:Print("Expressway konnte nicht geladen werden, benutze die Standardschrift. "
-              .. "Details mit /vgsfont.")
-    elseif _probeResult.usedIndex > 1 then
-        ns:Print("Expressway wird aus VuloClassicUI geladen. Nach einem "
-              .. "vollstaendigen Neustart nutzt VuloGearSets die eigene Datei.")
     end
+    -- Bewusst keine Chatmeldung: dass dieser Client keine Addon-Schriften
+    -- laedt, ist nichts, was der Nutzer abstellen koennte. Wer es wissen
+    -- will, ruft /vgsfont auf.
     return _resolved
 end
 
