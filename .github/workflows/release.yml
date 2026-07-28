@@ -6,8 +6,8 @@ on:
   push:
     tags:
       - 'v*'
-  # Zum Ausprobieren ohne Tag: Actions -> Release -> Run workflow.
-  # Ohne Tag laedt der Packager nichts hoch, baut aber das Paket.
+  # Probelauf: Actions -> Release -> Run workflow. Baut nur das Paket,
+  # laedt nichts hoch (siehe -d weiter unten).
   workflow_dispatch:
 
 jobs:
@@ -23,6 +23,12 @@ jobs:
 
       - name: Paket bauen und veroeffentlichen
         uses: BigWigsMods/packager@master
+        with:
+          # Ohne Tag baut der Packager eine Alpha und laedt sie hoch, sobald
+          # Tokens da sind. Beim manuellen Lauf deshalb -d setzen: bauen,
+          # aber nicht veroeffentlichen. Nur ein Tag loest einen echten
+          # Release aus.
+          args: ${{ github.ref_type == 'tag' && ' ' || '-d' }}
         env:
           GITHUB_OAUTH:    ${{ secrets.GITHUB_TOKEN }}
           CF_API_KEY:      ${{ secrets.CF_API_KEY }}

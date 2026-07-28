@@ -74,8 +74,9 @@ heraus.
 Die Versionsnummer zieht der Packager aus dem Tag, nicht aus der TOC. Beide sollten
 trotzdem übereinstimmen.
 
-Über *Actions → Release → Run workflow* lässt sich der Bau ohne Tag testen — dabei wird
-nichts hochgeladen.
+Über *Actions → Release → Run workflow* lässt sich der Bau testen. Der Workflow
+übergibt dem Packager dabei `-d`, sodass nur gebaut und nichts hochgeladen wird —
+ohne dieses Flag würde er auch ohne Tag eine Alpha veröffentlichen.
 
 ## Client-Eigenheiten
 
