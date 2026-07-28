@@ -186,13 +186,19 @@ local function saveAs(name, slotList)
         ns:Print(L["Please provide a name for the gear set."])
         return
     end
-    LO()[name] = {
-        slots     = captureCurrentEquipment(slotList),
-        slotMask  = copySlotList(slotList or EQUIP_SLOTS),
-        createdAt = time(),
-    }
+    -- Vorhandenen Eintrag AKTUALISIEREN statt ersetzen. Sonst gehen alle
+    -- Felder verloren, die nicht hier stehen - allen voran das selbst
+    -- gewaehlte Symbol (iconOverride).
+    local set = LO()[name]
+    if not set then
+        set = { createdAt = time() }
+        LO()[name] = set
+    end
+    set.slots    = captureCurrentEquipment(slotList)
+    set.slotMask = copySlotList(slotList or EQUIP_SLOTS)
+
     ns:Print(string.format(L["Gear set '%s' saved (%d items)."],
-        name, countSlots(LO()[name])))
+        name, countSlots(set)))
 end
 
 -- Pending slot list for the StaticPopup (popups have no parameter passing on Show)
@@ -219,11 +225,10 @@ local function overwriteLoadout(name)
         for s in pairs(loadout.slots or {}) do table.insert(slotList, s) end
     end
     if #slotList == 0 then slotList = EQUIP_SLOTS end  -- ultimate fallback: all slots
-    LO()[name] = {
-        slots     = captureCurrentEquipment(slotList),
-        slotMask  = copySlotList(slotList),
-        createdAt = time(),
-    }
+    -- Nur Ausruestung und Maske erneuern. Symbol, Erstellungsdatum und
+    -- alles weitere bleiben am Eintrag haengen.
+    loadout.slots    = captureCurrentEquipment(slotList)
+    loadout.slotMask = copySlotList(slotList)
     ns:Print(string.format(L["Gear set '%s' updated with current gear."], name))
 end
 

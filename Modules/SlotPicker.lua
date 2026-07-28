@@ -321,6 +321,20 @@ local function showSlotPicker(slotID, anchorBtn)
         local sx = anchorBtn:GetCenter()
         local cx = CharacterFrame and CharacterFrame:GetCenter()
         if sx and cx then toLeft = sx < cx end
+
+        -- Klebt das Charakterfenster am Bildschirmrand, ist auf der
+        -- bevorzugten Seite kein Platz. Dann zur anderen Seite kippen,
+        -- statt aus dem Bild zu laufen.
+        local need    = (popup:GetWidth() or 0) + 12
+        local edgeL   = anchorBtn:GetLeft()  or 0
+        local edgeR   = anchorBtn:GetRight() or 0
+        local screenR = UIParent:GetRight()  or 0
+        if toLeft and edgeL < need then
+            toLeft = false
+        elseif not toLeft and (screenR - edgeR) < need then
+            toLeft = true
+        end
+
         if toLeft then
             popup:SetPoint("RIGHT", anchorBtn, "LEFT", -6, 0)
         else
