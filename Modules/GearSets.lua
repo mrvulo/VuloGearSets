@@ -887,7 +887,7 @@ local function getIconPickerButton(idx)
     b.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     b.hl = b:CreateTexture(nil, "HIGHLIGHT")
     b.hl:SetAllPoints(b)
-    b.hl:SetColorTexture(0.4, 0.3, 0.6, 0.4)
+    b.hl:SetColorTexture(ns:HoverColor())
     b:RegisterForClicks("LeftButtonUp")
     _iconBtns[idx] = b
     return b

@@ -44,13 +44,12 @@ local function getMenuButton(idx)
     btn = CreateFrame("Button", nil, _menuFrame)
     btn:SetHeight(20)
 
-    local ac = (ns.COLORS and ns.COLORS.accent) or { r = 0.608, g = 0.424, b = 1 }
-
     -- Check indicator (left): small accent square, matches the dropdown widget
+    -- Die Farbe setzt ShowPopupMenu, damit ein Stilwechsel auch bereits
+    -- erzeugte Knoepfe erreicht - sie werden wiederverwendet.
     btn.check = btn:CreateTexture(nil, "OVERLAY")
     btn.check:SetSize(6, 6)
     btn.check:SetPoint("LEFT", btn, "LEFT", 8, 0)
-    btn.check:SetColorTexture(ac.r, ac.g, ac.b, 1)
     btn.check:Hide()
 
     -- Label
@@ -60,10 +59,9 @@ local function getMenuButton(idx)
     btn.text:SetPoint("RIGHT", btn, "RIGHT", -10, 0)
     btn.text:SetJustifyH("LEFT")
 
-    -- Hover highlight
+    -- Hover highlight, Farbe ebenfalls in ShowPopupMenu
     btn.hl = btn:CreateTexture(nil, "BACKGROUND")
     btn.hl:SetAllPoints(btn)
-    btn.hl:SetColorTexture(ac.r, ac.g, ac.b, 0.22)
     btn.hl:Hide()
 
     btn:SetScript("OnEnter", function(self)
@@ -88,6 +86,10 @@ function ns:ShowPopupMenu(entries, anchor)
         btn:Show()
         btn.check:Hide()
         btn._clickable = false
+        -- Farben bei jedem Oeffnen setzen: die Knoepfe werden
+        -- wiederverwendet und muessen einem Stilwechsel folgen.
+        btn.check:SetColorTexture(ns:AccentColor())
+        btn.hl:SetColorTexture(ns:HoverColor())
 
         if entry.separator then
             btn:SetHeight(6)
@@ -97,8 +99,7 @@ function ns:ShowPopupMenu(entries, anchor)
         elseif entry.title then
             btn:SetHeight(20)
             btn.text:SetText(entry.text or "")
-            local ac = (ns.COLORS and ns.COLORS.accent) or { r = 0.608, g = 0.424, b = 1 }
-            btn.text:SetTextColor(ac.r, ac.g, ac.b)
+            btn.text:SetTextColor(ns:AccentColor())
             btn:EnableMouse(false)
             btn:SetScript("OnClick", nil)
         else
