@@ -5,7 +5,7 @@
 local addonName, ns = ...
 
 ns.ADDON_NAME  = addonName
-ns.VERSION     = "1.0.0"
+ns.VERSION     = "1.1.0"
 ns.modules     = {}
 ns.moduleOrder = {}
 
@@ -37,6 +37,16 @@ function ns:Debug(fmt, ...)
     local db = _G.VuloGearSetsDB
     if not (db and db.debug) then return end
     ns:Print("|cff888888[debug]|r " .. tostring(fmt), ...)
+end
+
+-- Das Eingabefeld eines StaticPopup heisst je nach Client anders: im neuen
+-- GameDialog self.EditBox, im alten StaticPopup self.editBox, in ganz alten
+-- Fassungen nur global unter <popupName>EditBox. Alle drei abfragen, sonst
+-- bricht jeder Dialog mit Eingabefeld auf dem falschen Client ab.
+function ns.PopupEditBox(popup)
+    if not popup then return nil end
+    return popup.EditBox or popup.editBox
+        or (popup.GetName and _G[(popup:GetName() or "") .. "EditBox"])
 end
 
 function ns:DeepCopy(src)

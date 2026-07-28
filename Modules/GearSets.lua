@@ -316,11 +316,7 @@ StaticPopupDialogs["VGS_GEARSET_SAVE"] = {
     hasEditBox = true,
     maxLetters = 32,
     OnAccept = function(self)
-        -- Das Eingabefeld heisst je nach Client self.editBox (altes
-        -- StaticPopup) oder self.EditBox (neues GameDialog). Ohne beide
-        -- Schreibweisen schlaegt das Speichern mit einem Lua-Fehler fehl.
-        local eb = self.editBox or self.EditBox
-                or (self.GetEditBox and self:GetEditBox())
+        local eb = ns.PopupEditBox(self)
         if not eb then
             ns:Print(L["Could not read the name field on this client."])
             return

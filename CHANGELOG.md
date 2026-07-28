@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+- Discord button in the settings window. Clicking it opens a dialog with the invite
+  link preselected, ready to copy with Ctrl+C — the client cannot open a browser.
+- The settings window now has a footer showing the addon version.
+
 ## 1.0.1
 
 - Interface version raised to 20506 (game version 2.5.6). The addon was flagged as

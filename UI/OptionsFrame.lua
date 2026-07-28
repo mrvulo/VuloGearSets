@@ -16,6 +16,9 @@ local C  = ns.COLORS
 local WIDTH, HEIGHT = 460, 560
 local PAD           = 16
 local CONTENT_W     = WIDTH - PAD * 2 - 20   -- 20px fuer die Scrollleiste
+local FOOTER_H      = 26                     -- Leiste unten fuer den Discord-Knopf
+
+local DISCORD_URL = "https://discord.gg/P5dTSB6wC"
 
 local frame, content
 local renderItems   -- vorwaerts deklariert: section/group rufen rekursiv auf
@@ -179,6 +182,62 @@ renderItems = function(parent, items, y, width)
 end
 
 -- =========================================================
+-- Link zum Kopieren anbieten
+--
+-- Der Client kann keine URL im Browser oeffnen. Stattdessen ein Dialog
+-- mit vorselektiertem Text, den man mit Strg+C mitnimmt.
+-- =========================================================
+StaticPopupDialogs["VGS_COPY_URL"] = StaticPopupDialogs["VGS_COPY_URL"] or {
+    text = L["Copy the link with Ctrl+C:"],
+    button1 = CLOSE or "Close",
+    hasEditBox = true,
+    editBoxWidth = 260,
+    OnShow = function(self)
+        local eb = ns.PopupEditBox(self)
+        if not eb then return end
+        eb:SetText(self.data or "")
+        eb:HighlightText()
+        eb:SetFocus()
+    end,
+    -- Eingaben verwerfen: der Text soll unveraendert kopierbar bleiben.
+    EditBoxOnTextChanged = function(self, data)
+        if self:GetText() ~= (data or "") then
+            self:SetText(data or "")
+            self:HighlightText()
+        end
+    end,
+    EditBoxOnEscapePressed = function() StaticPopup_Hide("VGS_COPY_URL") end,
+    EditBoxOnEnterPressed  = function() StaticPopup_Hide("VGS_COPY_URL") end,
+    timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+}
+
+local function createSocialButton(parent, iconFile, label, url)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(20, 20)
+    local t = b:CreateTexture(nil, "ARTWORK")
+    t:SetAllPoints(b)
+    t:SetTexture("Interface\\AddOns\\VuloGearSets\\Media\\Icons\\" .. iconFile)
+    t:SetVertexColor(0.85, 0.85, 0.85, 0.9)
+    b:SetScript("OnEnter", function(self)
+        t:SetVertexColor(1, 1, 1, 1)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(label, 1, 1, 1)
+        GameTooltip:AddLine(L["Click: copy link"], 0.7, 0.7, 0.7)
+        GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function()
+        t:SetVertexColor(0.85, 0.85, 0.85, 0.9)
+        GameTooltip:Hide()
+    end)
+    b:SetScript("OnClick", function()
+        local dlg = StaticPopup_Show("VGS_COPY_URL", nil, nil, url)
+        -- data kommt je nach Client nicht als Argument durch.
+        if dlg then dlg.data = url end
+    end)
+    return b
+end
+
+-- =========================================================
 -- Fenster
 -- =========================================================
 local function createFrame()
@@ -208,7 +267,23 @@ local function createFrame()
     local scroll = CreateFrame("ScrollFrame", "VuloGearSetsOptionsScroll", frame,
                                "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT",     PAD, -PAD - 30)
-    scroll:SetPoint("BOTTOMRIGHT", -PAD - 20, PAD)
+    scroll:SetPoint("BOTTOMRIGHT", -PAD - 20, PAD + FOOTER_H)
+
+    -- Fusszeile mit Trennlinie
+    local sep = frame:CreateTexture(nil, "ARTWORK")
+    sep:SetColorTexture(C.border.r, C.border.g, C.border.b, 1)
+    sep:SetHeight(1)
+    sep:SetPoint("BOTTOMLEFT",  PAD, PAD + FOOTER_H - 4)
+    sep:SetPoint("BOTTOMRIGHT", -PAD, PAD + FOOTER_H - 4)
+
+    local discord = createSocialButton(frame, "DiscordV.tga", "Discord", DISCORD_URL)
+    discord:SetPoint("BOTTOMLEFT", PAD, PAD)
+
+    local ver = frame:CreateFontString(nil, "OVERLAY")
+    UI.Font(ver, 11)
+    ver:SetPoint("BOTTOMRIGHT", -PAD, PAD + 4)
+    ver:SetText("v" .. (ns.VERSION or "?"))
+    ver:SetTextColor(C.textDim.r, C.textDim.g, C.textDim.b)
 
     content = CreateFrame("Frame", nil, scroll)
     content:SetSize(CONTENT_W, 10)
