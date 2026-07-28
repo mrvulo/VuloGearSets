@@ -1,0 +1,15 @@
+## Interface: 20505
+## Title: |cff9b6cffVuloGearSets|r
+## Notes: Equipment set manager for TBC Classic Anniversary
+## Author: Vulo
+## Version: 1.0.0
+## SavedVariables: VuloGearSetsDB
+## SavedVariablesPerCharacter: VuloGearSetsCharDB
+## IconTexture: Interface\Icons\INV_Chest_Plate06
+## Category: VuloUI
+
+Core\Namespace.lua
+Core\Compat.lua
+Core\Locale.lua
+Locales\enUS.lua
+Locales\deDE.lua
