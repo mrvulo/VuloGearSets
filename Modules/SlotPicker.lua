@@ -1,7 +1,8 @@
 -- =========================================================
 -- VuloGearSets / Modules / SlotPicker
--- Shift+Right-click on a character equipment slot → popup with all
--- compatible items from your bags. Click an item to equip it.
+-- Ueberfahren eines Ausruestungsslots zeigt die passenden Teile aus den
+-- Taschen kompakt daneben; der eingestellte Klick oeffnet das grosse
+-- Fenster mit allen. Klick auf ein Teil legt es an.
 --
 -- Equipping uses UseContainerItem (works out-of-combat in Anniversary,
 -- same approach as the gear set module).
@@ -15,7 +16,7 @@ local L = ns.L
 local mod = ns:RegisterModule("slotpicker", {
     name        = "Slot Picker",
     group       = "_hidden",
-    description = "Shift+Right-click an equipment slot to show all compatible items from your bags. Click to equip.",
+    description = "Hover an equipment slot to see matching items from your bags, or click it for the full list. Click an item to equip it.",
     defaults = {
         enabled  = true,
         -- Steuert nur den KLICK-Weg. Das Ueberfahren zeigt die kompakte

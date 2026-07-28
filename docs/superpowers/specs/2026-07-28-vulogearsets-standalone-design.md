@@ -140,10 +140,31 @@ damit Logik-Fixes zwischen beiden Addons weiter übertragbar bleiben:
 4. `ns.UI:ToggleMainFrame` (`Loadouts.lua:485`) → `ns:ToggleOptions`
 5. `mod.ImportLegacy` wird durch den neuen Import aus `Coexistence.lua` ersetzt
 6. Locale-Keys von "Loadout" auf "Gear Set" umbenannt (siehe unten)
+7. Alle globalen Namen mit `VCUI_`-Präfix auf `VGS_` umgestellt — nicht nur
+   Frame-Namen, sondern auch die Schlüssel in `StaticPopupDialogs`. Das ist ein
+   globaler Namensraum: liefen beide Addons, überschriebe das zuletzt geladene die
+   Speichern- und Löschen-Dialoge des anderen.
 
-`SlotPicker.lua` wird unverändert übernommen. Es registriert sich weiterhin unter dem Key
-`slotpicker` in der Gruppe `_hidden`, weil seine Einstellungen in der GearSets-Optionsseite
-liegen.
+`SlotPicker.lua` wird bis auf die Namensanpassungen übernommen und um einen Hover-Modus
+erweitert (siehe unten). Es registriert sich weiterhin unter dem Key `slotpicker` in der
+Gruppe `_hidden`, weil seine Einstellungen in der GearSets-Optionsseite liegen.
+
+### Slot-Auswahl: Überfahren und Klick nebeneinander
+
+Im Original öffnet nur ein Klick die Auswahl. Ergänzt wurde das Überfahren, das **immer**
+aktiv ist und unabhängig von der Klick-Einstellung läuft:
+
+- Überfahren zeigt nach 0,25 s eine kompakte Liste direkt am Slot — ohne Titelleiste und
+  Schließen-Knopf, Breite nach Anzahl der Teile, zur Fensteraußenseite hin, damit das
+  Charaktermodell frei bleibt. Ohne passende Teile bleibt sie aus.
+- Geschlossen wird mit 0,45 s Nachlauf, solange die Maus weder auf dem Slot noch auf der
+  Liste liegt. Die Timer laufen über Generationszähler statt Abbrüche, weil
+  `C_Timer.NewTimer` nicht auf jedem Client existiert.
+- Der eingestellte Klick öffnet weiterhin das große Fenster.
+
+Beide Wege teilen sich einen Frame, deshalb merkt er sich, wie er geöffnet wurde: Der
+Hover-Timer schließt nur die kompakte Anzeige, und ein per Klick geöffnetes Fenster wird
+beim Überfahren anderer Slots nicht überschrieben.
 
 ### Core/PopupMenu.lua
 
@@ -263,11 +284,19 @@ je eine Funktion.
 Die Setter werden als `set(nil, value)` aufgerufen. Diese Signatur stammt aus Vulos
 OptionsBuilder und muss beibehalten werden, weil `GetOptions()` sie so schreibt.
 
-Optik: dunkler Hintergrund, lila Akzent aus `ns.COLORS.accent` (0.608, 0.424, 1) und
-`Media/Fonts/Expressway.TTF` als Schrift — alles wie in VuloClassicUI, damit die beiden
-Addons nebeneinander stimmig aussehen. `UI.Font` fällt auf `STANDARD_TEXT_FONT` zurück,
-falls `SetFont` fehlschlägt; ohne diesen Rückfall wäre der Text bei fehlender Schriftdatei
-unsichtbar statt nur anders.
+Optik: dunkler Hintergrund, lila Akzent aus `ns.COLORS.accent` (0.608, 0.424, 1).
+
+**Schrift — nachträglich korrigiert.** Geplant war `Media/Fonts/Expressway.TTF` wie in
+VuloClassicUI. Auf dem Anniversary-Client lädt der Client jedoch **keine** Schriftdateien
+aus Addon-Ordnern: gemessen wurde eine Textbreite von 0 für unsere Datei, für dieselbe
+Datei aus Details und für die aus VuloClassicUI — bei bitgleichem Inhalt (identischer
+SHA-256). Client-interne Schriften laden dagegen problemlos.
+
+Die Auflösung läuft deshalb über eine Kandidatenliste: erst Expressway, dann
+`Fonts\ARIALN.TTF` als client-interner Ersatz mit ähnlich schmalem Schnitt, dann
+`STANDARD_TEXT_FONT`. Geprüft wird **funktional** — Text setzen und Breite messen —, weil
+weder `FontString:GetFont()` noch der Rückgabewert von `Font:SetFont()` verlässlich
+anzeigen, ob eine Datei wirklich gerendert wird.
 
 Nicht übernommen werden die Masken-Texturen des runden Pill-Toggles. Der Schalter ist ein
 Kästchen mit Füllung — funktional gleichwertig, eine Textur weniger im Paket.

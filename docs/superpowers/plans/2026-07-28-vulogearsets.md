@@ -1,5 +1,12 @@
 # VuloGearSets Implementation Plan
 
+> **Stand 2026-07-28: Tasks 1-10 abgeschlossen.** Der Plan bleibt als Protokoll
+> stehen. Abweichungen gegenüber der Planung, jeweils in der Spec begründet:
+> die Schrift (der Client lädt keine Addon-Schriften, deshalb Arial Narrow),
+> der Hover-Modus der Slot-Auswahl (nachträglich ergänzt), der entfallene
+> Schlafmodus, und acht globale `VCUI_`-Namen, die beim Portieren zunächst
+> stehen blieben. Offen sind nur noch die Abnahmetests im Spiel.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Das Ausrüstungsset-Modul aus VuloClassicUI als eigenständiges Addon `VuloGearSets` ausliefern, das ohne VuloClassicUI läuft, eine eigene Optionsoberfläche mitbringt und bestehende Sets beim ersten Start übernimmt.
