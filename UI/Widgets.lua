@@ -129,6 +129,14 @@ local function setBlizzTextures(b, shown)
 end
 
 local function styleButton(b, style, hovered)
+    -- Der Dropdown-Pfeil haengt am Knopf und folgt derselben Farbe.
+    if b.arrow then
+        if style == "classic" then
+            b.arrow:SetVertexColor(1, 0.82, 0)
+        else
+            b.arrow:SetVertexColor(C.textDim.r, C.textDim.g, C.textDim.b)
+        end
+    end
     if style == "classic" then
         setBlizzTextures(b, true)
         if b.bg then b.bg:Hide() end
@@ -279,11 +287,14 @@ function UI:CreateDropdown(parent, label, values)
     f.button.text:SetPoint("RIGHT", -20, 0)
     f.button.text:SetJustifyH("LEFT")
 
-    local arrow = f.button:CreateFontString(nil, "OVERLAY")
-    UI.Font(arrow, 12)
-    arrow:SetPoint("RIGHT", -8, 0)
-    arrow:SetText("v")
-    arrow:SetTextColor(C.textDim.r, C.textDim.g, C.textDim.b)
+    -- Pfeilsymbol statt eines getippten "v". Die Grafik ist weiss und
+    -- wird eingefaerbt; die Farbe setzt styleButton ueber b.arrow mit.
+    local arrow = f.button:CreateTexture(nil, "OVERLAY")
+    arrow:SetTexture("Interface\\AddOns\\VuloGearSets\\Media\\Icons\\arrow_down")
+    arrow:SetSize(11, 11)
+    arrow:SetPoint("RIGHT", -7, 0)
+    f.button.arrow = arrow
+    f.arrow = arrow
 
     function f:SetValue(v)
         self._value = v
