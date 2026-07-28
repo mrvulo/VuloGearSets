@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0
+
+- The sidebar now only shows on the **Character** tab. On Reputation, Skills or
+  PvP an equipment sidebar has no context, so it stays out of the way and comes
+  back when you switch to Character again.
+
 ## 1.2.1
 
 Polish for the Classic style, which uses a much wider frame than the modern one.
