@@ -895,16 +895,7 @@ local function showIconPicker(loadoutName, anchor)
         _iconPicker:Hide()
         _iconPicker:EnableMouse(true)
         _iconPicker:SetClampedToScreen(true)
-        if _iconPicker.SetBackdrop then
-            _iconPicker:SetBackdrop({
-                bgFile   = "Interface\\Buttons\\WHITE8X8",
-                edgeFile = "Interface\\Buttons\\WHITE8X8",
-                edgeSize = 1,
-                insets   = { left = 1, right = 1, top = 1, bottom = 1 },
-            })
-            _iconPicker:SetBackdropColor(0.05, 0.05, 0.08, 0.97)
-            _iconPicker:SetBackdropBorderColor(0.4, 0.3, 0.6, 1)
-        end
+        ns.UI:SkinFrame(_iconPicker, "window")
         tinsert(UISpecialFrames, "VGS_GearSetIconPicker")
         _iconPicker.title = _iconPicker:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         _iconPicker.title:SetPoint("TOPLEFT", _iconPicker, "TOPLEFT", 8, -6)
@@ -1381,16 +1372,7 @@ local function createSidebar()
             mod.db.sidebarTopOffset or 0, mod.db.sidebarBottomOffset or 0))
     end
 
-    if sidebar.SetBackdrop then
-        sidebar:SetBackdrop({
-            bgFile   = "Interface\\Buttons\\WHITE8X8",
-            edgeFile = "Interface\\Buttons\\WHITE8X8",
-            edgeSize = 1,
-            insets   = { left = 1, right = 1, top = 1, bottom = 1 },
-        })
-        sidebar:SetBackdropColor(0.05, 0.05, 0.08, 0.95)
-        sidebar:SetBackdropBorderColor(0.4, 0.3, 0.6, 1)
-    end
+    ns.UI:SkinFrame(sidebar, "window")
 
     -- Action buttons (top row)
     local equipBtn = CreateFrame("Button", nil, sidebar, "UIPanelButtonTemplate")
@@ -1629,6 +1611,12 @@ function mod:GetOptions()
         { type = "toggle", label = L["Confirm before deleting a gear set"],
           get = function() return mod.db.confirmDelete ~= false end,
           set = function(_, v) mod.db.confirmDelete = v end },
+
+        { type = "dropdown", label = L["Window style"],
+          tooltip = L["Modern uses the dark look with a purple accent. Classic uses Blizzard's dialog frame so the windows match the default interface."],
+          values = ns.STYLES,
+          get = function() return ns:GetStyle() end,
+          set = function(_, v) ns:SetStyle(v) end },
 
         { type = "spacer", height = 6 },
         { type = "header", text = L["Character Frame Sidebar"] },

@@ -141,16 +141,7 @@ local function createPopup()
     popup:EnableMouse(true)
     popup:SetClampedToScreen(true)
     popup:SetMovable(true)
-    if popup.SetBackdrop then
-        popup:SetBackdrop({
-            bgFile   = "Interface\\Buttons\\WHITE8X8",
-            edgeFile = "Interface\\Buttons\\WHITE8X8",
-            edgeSize = 1,
-            insets   = { left = 1, right = 1, top = 1, bottom = 1 },
-        })
-        popup:SetBackdropColor(0.05, 0.05, 0.08, 0.95)
-        popup:SetBackdropBorderColor(0.4, 0.3, 0.6, 1)
-    end
+    ns.UI:SkinFrame(popup, "window")
     tinsert(UISpecialFrames, "VGS_SlotPickerPopup")
 
     -- Draggable via title bar

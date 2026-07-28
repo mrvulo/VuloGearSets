@@ -241,7 +241,8 @@ end
 -- Fenster
 -- =========================================================
 local function createFrame()
-    frame = CreateFrame("Frame", "VuloGearSetsOptions", UIParent)
+    frame = CreateFrame("Frame", "VuloGearSetsOptions", UIParent,
+        BackdropTemplateMixin and "BackdropTemplate")
     frame:SetSize(WIDTH, HEIGHT)
     frame:SetPoint("CENTER")
     frame:SetFrameStrata("DIALOG")

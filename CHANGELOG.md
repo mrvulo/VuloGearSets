@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0
+
+- Window style option. **Modern** keeps the dark look with the purple accent,
+  **Classic** switches every window to Blizzard's dialog frame so they sit
+  naturally next to the default interface. Buttons follow the style as well.
+- The style can be changed at any time; no reload required.
+
 ## 1.1.0
 
 - Discord button in the settings window. Clicking it opens a dialog with the invite

@@ -29,17 +29,8 @@ local function createMenuFrame()
     _menuFrame:Hide()
     _menuFrame:EnableMouse(true)
     _menuFrame:SetClampedToScreen(true)
-    if _menuFrame.SetBackdrop then
-        _menuFrame:SetBackdrop({
-            bgFile   = "Interface\\Buttons\\WHITE8X8",
-            edgeFile = "Interface\\Buttons\\WHITE8X8",
-            edgeSize = 1,
-            insets   = { left = 1, right = 1, top = 1, bottom = 1 },
-        })
-        _menuFrame:SetBackdropColor(0.06, 0.06, 0.08, 0.98)
-        local bd = (ns.COLORS and ns.COLORS.borderDark) or { r = 0.02, g = 0.02, b = 0.03 }
-        _menuFrame:SetBackdropBorderColor(bd.r, bd.g, bd.b, 1)
-    end
+    -- Menue nutzt den Flaechen-Rahmen: es steht in einem Fenster, nicht daneben.
+    if ns.UI and ns.UI.SkinFrame then ns.UI:SkinFrame(_menuFrame, "pane") end
     -- Soft drop shadow (UI helpers exist by the time a menu is first opened)
     if ns.UI and ns.UI.CreateShadow then ns.UI:CreateShadow(_menuFrame) end
     -- ESC closes

@@ -105,35 +105,61 @@ function UI:CreateShadow(frame)
     end
 end
 
--- Dunkler Grund mit 1px-Rand.
-function UI:CreateBackdrop(frame, bg)
-    bg = bg or C.bg
-    UI.SetColorBG(frame, bg.r, bg.g, bg.b, 0.95)
-    local edges = {
-        { "TOPLEFT",  "TOPRIGHT",    "h" },
-        { "BOTTOMLEFT", "BOTTOMRIGHT", "h" },
-        { "TOPLEFT",  "BOTTOMLEFT",  "v" },
-        { "TOPRIGHT", "BOTTOMRIGHT", "v" },
-    }
-    for _, e in ipairs(edges) do
-        local t = frame:CreateTexture(nil, "BORDER")
-        t:SetColorTexture(C.border.r, C.border.g, C.border.b, 1)
-        t:SetPoint(e[1]); t:SetPoint(e[2])
-        if e[3] == "h" then t:SetHeight(1) else t:SetWidth(1) end
+-- Hintergrund und Rand. Das Aussehen bestimmt Core/Skin.lua, damit sich
+-- der Stil zur Laufzeit umschalten laesst.
+function UI:CreateBackdrop(frame, kind)
+    return UI:SkinFrame(frame, kind or "window")
+end
+
+-- Knoepfe kennen beide Stile. Im Classic-Stil kommen Blizzards
+-- Knopftexturen zum Einsatz, sonst eine schlichte Flaeche.
+local buttons = setmetatable({}, { __mode = "k" })   -- schwach: Knoepfe duerfen sterben
+
+local BTN_UP        = "Interface\\Buttons\\UI-Panel-Button-Up"
+local BTN_HIGHLIGHT = "Interface\\Buttons\\UI-Panel-Button-Highlight"
+-- Blizzards Knopfgrafik enthaelt rechts und unten leeren Rand.
+local BTN_COORDS    = { 0, 0.625, 0, 0.6875 }
+
+local function styleButton(b, style, hovered)
+    if style == "classic" then
+        b.bg:SetColorTexture(1, 1, 1, 0)   -- Farbe zuruecknehmen
+        b.bg:SetTexture(hovered and BTN_HIGHLIGHT or BTN_UP)
+        b.bg:SetTexCoord(unpack(BTN_COORDS))
+        b.bg:SetVertexColor(1, 1, 1, 1)
+        b.text:SetTextColor(1, 0.82, 0)    -- Blizzard-Gold
+    else
+        b.bg:SetTexture(nil)
+        b.bg:SetTexCoord(0, 1, 0, 1)
+        if hovered then
+            b.bg:SetColorTexture(C.accent.r * 0.5, C.accent.g * 0.5, C.accent.b * 0.5, 1)
+        else
+            b.bg:SetColorTexture(C.bgLight.r, C.bgLight.g, C.bgLight.b, 1)
+        end
+        b.text:SetTextColor(C.text.r, C.text.g, C.text.b)
+    end
+end
+
+-- Von ns:RefreshStyle gerufen, wenn der Stil wechselt.
+function UI.RestyleButtons(style)
+    for b in pairs(buttons) do
+        if b.bg and b.text then styleButton(b, style, false) end
     end
 end
 
 function UI:CreateButton(parent, text, width, height)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(width or 120, height or 22)
-    b.bg = UI.SetColorBG(b, C.bgLight.r, C.bgLight.g, C.bgLight.b, 1)
+    b.bg = b:CreateTexture(nil, "BACKGROUND")
+    b.bg:SetAllPoints(b)
     b.text = b:CreateFontString(nil, "OVERLAY")
     UI.Font(b.text, 12)
     b.text:SetPoint("CENTER")
     b.text:SetText(text or "")
-    b.text:SetTextColor(C.text.r, C.text.g, C.text.b)
+    buttons[b] = true
+    styleButton(b, ns:GetStyle(), false)
+
     b:SetScript("OnEnter", function(self)
-        self.bg:SetColorTexture(C.accent.r * 0.5, C.accent.g * 0.5, C.accent.b * 0.5, 1)
+        styleButton(self, ns:GetStyle(), true)
         if self._tooltip then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetText(self._tooltip, 1, 1, 1, 1, true)
@@ -141,7 +167,7 @@ function UI:CreateButton(parent, text, width, height)
         end
     end)
     b:SetScript("OnLeave", function(self)
-        self.bg:SetColorTexture(C.bgLight.r, C.bgLight.g, C.bgLight.b, 1)
+        styleButton(self, ns:GetStyle(), false)
         GameTooltip:Hide()
     end)
     function b:SetOnClick(fn)
