@@ -295,6 +295,9 @@ function UI:CreateDropdown(parent, label, values)
     arrow:SetPoint("RIGHT", -7, 0)
     f.button.arrow = arrow
     f.arrow = arrow
+    -- Nochmal einfaerben: der Knopf wurde gestylt, als es den Pfeil noch
+    -- nicht gab - er waere sonst weiss bis zum ersten Ueberfahren.
+    styleButton(f.button, ns:GetStyle(), false)
 
     function f:SetValue(v)
         self._value = v
