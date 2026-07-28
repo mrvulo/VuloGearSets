@@ -230,7 +230,19 @@ function ns:RefreshOptions()
 
     local mod = ns.modules and ns.modules.gearsets
     if not (mod and mod.GetOptions) then return end
-    local height = renderItems(content, mod:GetOptions(), -PAD, CONTENT_W - PAD * 2)
+
+    local items = mod:GetOptions()
+    -- Die Modulseite beginnt mit einer Ueberschrift, die den Modulnamen
+    -- wiederholt. Im Original war sie noetig, weil die Seite in einem Rahmen
+    -- mit Navigationsleiste lag; hier traegt das Fenster den Namen bereits.
+    -- Kopie statt Original aendern, damit die Modulseite unangetastet bleibt.
+    if items[1] and items[1].type == "header" and items[1].text == L["Gear Sets"] then
+        local trimmed = {}
+        for i = 2, #items do trimmed[i - 1] = items[i] end
+        items = trimmed
+    end
+
+    local height = renderItems(content, items, -PAD, CONTENT_W - PAD * 2)
     content:SetHeight(math.max(height + PAD * 2, 10))
 end
 
