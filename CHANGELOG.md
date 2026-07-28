@@ -6,6 +6,8 @@
   **Classic** switches every window to Blizzard's dialog frame so they sit
   naturally next to the default interface. Buttons follow the style as well.
 - The style can be changed at any time; no reload required.
+- Dropdowns now use an arrow icon instead of a typed letter, and it follows the
+  style like everything else.
 
 ## 1.1.0
 
