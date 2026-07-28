@@ -129,9 +129,21 @@ def defined_locale_keys():
 def check_locales():
     used = used_locale_keys()
     defined = defined_locale_keys()
+
+    # Ein benutzter Key ohne Uebersetzung ist immer ein Fehler.
     for k in sorted(used - defined):
         errors.append(f"Key ohne deutsche Uebersetzung: {k!r}")
-    for k in sorted(defined - used):
+
+    orphans = sorted(defined - used)
+    if not orphans:
+        return
+    # Solange die portierten Module fehlen, greift die Locale-Datei ihnen vor -
+    # dann sind verwaiste Keys erwartbar und werden nur gezaehlt.
+    if not (ADDON / "Modules" / "GearSets.lua").exists():
+        print(f"Hinweis: {len(orphans)} Keys noch ungenutzt "
+              f"(Modules/GearSets.lua fehlt - erwartet bis zur Portierung)")
+        return
+    for k in orphans:
         errors.append(f"Verwaister Key in deDE.lua: {k!r}")
 
 
