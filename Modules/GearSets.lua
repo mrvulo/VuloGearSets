@@ -175,6 +175,44 @@ end
 -- Verglichen wird die Item-ID, nicht der Link: derselbe Gegenstand hat je
 -- nach Verzauberung oder Sockel unterschiedliche Links.
 -- =========================================================
+-- Ausruestung und Taschen einmal indizieren statt jedes Teil einzeln
+-- abzufragen. Bei mehreren Sets mit je bis zu 17 Teilen macht das den
+-- Unterschied. Der Index gilt nur fuer diesen Frame - Taschen und
+-- Ausruestung koennen sich unmittelbar danach aendern.
+local availIndex
+local function buildAvailIndex()
+    local idx = {}
+    for _, s in ipairs(EQUIP_SLOTS) do
+        local l = GetInventoryItemLink("player", s)
+        local id = l and getItemIDFromLink(l)
+        if id then idx[id] = "equipped" end
+    end
+    if GetContainerItemID and GetContainerNumSlots then
+        for bag = 0, (NUM_BAG_SLOTS or 4) do
+            for slot = 1, (GetContainerNumSlots(bag) or 0) do
+                local id = GetContainerItemID(bag, slot)
+                if id and not idx[id] then idx[id] = "bags" end
+            end
+        end
+    end
+    return idx
+end
+
+local function itemAvailability(id)
+    if not id then return nil end
+    if not availIndex then
+        availIndex = buildAvailIndex()
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, function() availIndex = nil end)
+        end
+    end
+    local a = availIndex[id]
+    if a then return a end
+    -- Die Bank kennt der Client nur, wenn sie schon einmal offen war.
+    if GetItemCount and GetItemCount(id, true) > 0 then return "bank" end
+    return nil
+end
+
 local function getSetStatus(name)
     local set = LO()[name]
     if not set or not set.slots then return nil end
@@ -188,11 +226,12 @@ local function getSetStatus(name)
         local itemName = (link:match("|h%[(.-)%]|h")) or link
         local entry = { slot = slot, name = itemName, link = link }
 
-        if id and getItemIDFromLink(GetInventoryItemLink("player", slot)) == id then
+        local where = itemAvailability(id)
+        if where == "equipped" then
             table.insert(worn, entry)
-        elseif id and GetItemCount and GetItemCount(id) > 0 then
+        elseif where == "bags" then
             table.insert(inBags, entry)
-        elseif id and GetItemCount and GetItemCount(id, true) > 0 then
+        elseif where == "bank" then
             table.insert(inBank, entry)
         else
             table.insert(missing, entry)
