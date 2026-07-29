@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.1
+
+- Fixed an ADDON_ACTION_BLOCKED error on login. The sidebar mover enabled keyboard
+  input permanently and called the protected `SetPropagateKeyboardInput`, which
+  Blizzard blocks while in combat. Keyboard input is now only enabled in edit mode,
+  edit mode refuses to start in combat, and it ends by itself when combat begins.
+
 ## 1.4.0
 
 - Status marker next to each gear set: **green** when the set is fully worn,

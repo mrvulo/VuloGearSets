@@ -23,8 +23,22 @@ function ns:IsMoverEditMode()
 end
 
 function ns:SetMoversEditMode(state)
-    editMode = state and true or false
+    state = state and true or false
+    -- Der Bearbeiten-Modus schaltet die Tastatur ein, und das geht ueber
+    -- eine geschuetzte Funktion, die im Kampf gesperrt ist.
+    if state and InCombatLockdown and InCombatLockdown() then
+        ns:Print(L["Not possible in combat."])
+        return
+    end
+
+    editMode = state
     for _, mover in ipairs(movers) do
+        mover:EnableKeyboard(editMode)
+        if editMode then
+            -- Andere Tasten durchreichen, sonst schluckt der Frame auch
+            -- Bewegungstasten. Hier gefahrlos: wir sind nicht im Kampf.
+            mover:SetPropagateKeyboardInput(true)
+        end
         -- Nur zeigen, wenn der Zielframe selbst sichtbar ist.
         if editMode and mover.target:IsShown() then mover:Show() else mover:Hide() end
     end
@@ -32,6 +46,14 @@ function ns:SetMoversEditMode(state)
         and L["Edit mode enabled. Drag the purple box, arrow keys nudge, right-click resets."]
         or  L["Edit mode disabled."])
 end
+
+-- Beginnt ein Kampf, endet der Bearbeiten-Modus von selbst - sonst
+-- liefe die Tastatursteuerung in gesperrte Aufrufe.
+local combatWatch = CreateFrame("Frame")
+combatWatch:RegisterEvent("PLAYER_REGEN_DISABLED")
+combatWatch:SetScript("OnEvent", function()
+    if editMode then ns:SetMoversEditMode(false) end
+end)
 
 function ns:CreateMover(target, opts)
     opts = opts or {}
@@ -97,10 +119,18 @@ function ns:CreateMover(target, opts)
         ns:Print(L["Sidebar position reset."])
     end)
 
-    mover:EnableKeyboard(true)
-    mover:SetPropagateKeyboardInput(true)
+    -- Tastatur bleibt AUS, bis der Bearbeiten-Modus sie einschaltet.
+    -- SetPropagateKeyboardInput ist eine geschuetzte Funktion: ruft ein
+    -- Addon sie im Kampf auf, blockiert Blizzard den Aufruf und meldet
+    -- ADDON_ACTION_BLOCKED. Ausserhalb des Bearbeiten-Modus brauchen wir
+    -- sie gar nicht - also fassen wir sie dort auch nicht an.
+    mover:EnableKeyboard(false)
     mover:SetScript("OnKeyDown", function(self, key)
-        if not editMode then self:SetPropagateKeyboardInput(true); return end
+        if not editMode then return end
+        -- Auch hier absichern: der Kampf kann waehrend des Bearbeitens
+        -- beginnen, bevor der Modus automatisch endet.
+        if InCombatLockdown and InCombatLockdown() then return end
+
         local step = IsShiftKeyDown() and 5 or 1
         local dx, dy = 0, 0
         if     key == "UP"    then dy =  step
