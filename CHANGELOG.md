@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0
+
+- Support for **Classic Era and Season of Discovery** (interface 11509). The addon
+  now ships a second TOC for that client; everything else is shared.
+- Dual spec settings only appear where dual spec exists. On Classic Era they are
+  hidden, and the two-second poll that watched for spec changes no longer runs
+  there at all.
+
 ## 1.4.1
 
 - Fixed an ADDON_ACTION_BLOCKED error on login. The sidebar mover enabled keyboard

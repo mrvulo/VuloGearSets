@@ -7,6 +7,11 @@ from pathlib import Path
 ADDON = Path(__file__).resolve().parent.parent
 TOC = ADDON / "VuloGearSets.toc"
 
+
+def all_tocs():
+    """Basis-TOC plus die Varianten je Spielversion (_Vanilla, _TBC, ...)."""
+    return sorted(ADDON.glob("VuloGearSets*.toc"))
+
 # Ordner ohne Addon-Code, die der Pruefer nicht anfassen darf.
 SKIP_DIRS = {"docs", "tools"}
 
@@ -130,22 +135,49 @@ def strip_strings(text):
     return "".join(out)
 
 
+def toc_files(toc):
+    out = []
+    for line in toc.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        out.append(line.replace("\\", "/"))
+    return out
+
+
+def toc_field(toc, name):
+    for line in toc.read_text(encoding="utf-8").splitlines():
+        if line.strip().lower().startswith(f"## {name.lower()}:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
 def check_toc():
     if not TOC.exists():
         errors.append(f"TOC fehlt: {TOC}")
         return
-    listed = []
-    for line in TOC.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        listed.append(line.replace("\\", "/"))
     on_disk = {rel(p) for p in lua_files()}
-    for entry in listed:
-        if entry not in on_disk:
-            errors.append(f"TOC listet nicht vorhandene Datei: {entry}")
-    for f in sorted(on_disk - set(listed)):
-        errors.append(f"Datei nicht in der TOC gelistet: {f}")
+
+    for toc in all_tocs():
+        listed = toc_files(toc)
+        for entry in listed:
+            if entry not in on_disk:
+                errors.append(f"{toc.name} listet nicht vorhandene Datei: {entry}")
+        for f in sorted(on_disk - set(listed)):
+            errors.append(f"{toc.name}: Datei nicht gelistet: {f}")
+
+    # Die Varianten muessen dieselben Dateien laden und dieselbe Version
+    # tragen - sonst faellt eine Spielversion still zurueck.
+    base_files = toc_files(TOC)
+    base_ver = toc_field(TOC, "Version")
+    for toc in all_tocs():
+        if toc == TOC:
+            continue
+        if toc_files(toc) != base_files:
+            errors.append(f"{toc.name}: Dateiliste weicht von {TOC.name} ab")
+        v = toc_field(toc, "Version")
+        if v != base_ver:
+            errors.append(f"{toc.name}: Version {v} statt {base_ver}")
 
 
 def used_locale_keys():

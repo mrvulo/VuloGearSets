@@ -78,6 +78,23 @@ trotzdem übereinstimmen.
 übergibt dem Packager dabei `-d`, sodass nur gebaut und nichts hochgeladen wird —
 ohne dieses Flag würde er auch ohne Tag eine Alpha veröffentlichen.
 
+## Spielversionen
+
+Zwei TOCs, dieselben Lua-Dateien:
+
+| Datei | Client | Interface |
+|---|---|---|
+| `VuloGearSets.toc` | TBC Classic Anniversary | 20506 |
+| `VuloGearSets_Vanilla.toc` | Classic Era, Season of Discovery | 11509 |
+
+`tools/check.py` haelt beide synchron: gleiche Dateiliste, gleiche Version. Eine
+Datei nur in einer TOC zu ergaenzen faellt sonst erst im Spiel auf, und zwar nur
+auf einer der beiden Versionen.
+
+Was sich zwischen den Versionen unterscheidet, faengt der Code selbst ab:
+Dual-Spec-Funktionen werden ueber `GetNumTalentGroups` erkannt und samt ihrer
+Einstellungen ausgeblendet, wo es sie nicht gibt.
+
 ## Client-Eigenheiten
 
 Zwei Dinge, über die man auf dem Anniversary-Client stolpert:

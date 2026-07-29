@@ -836,6 +836,9 @@ end
 local _specPoller
 local function startSpecPolling()
     if _specPoller or not (C_Timer and C_Timer.NewTicker) then return end
+    -- Ohne zweite Talentgruppe kann sich nichts aendern: in Classic Era
+    -- liefe der Ticker alle zwei Sekunden fuer nichts.
+    if getNumSpecGroups() < 2 then return end
     _specPoller = C_Timer.NewTicker(2, function()
         if not mod._enabled or not mod.db or not mod.db.specSwitchEnabled then return end
         if InCombatLockdown() then return end
@@ -1916,22 +1919,27 @@ function mod:GetOptions()
           end },
 
         { type = "spacer", height = 6 },
-        { type = "header", text = L["Auto-Switch on Dual Spec"] },
-        { type = "toggle", label = L["Enable spec auto-switching"],
-          tooltip = L["Automatically equips a gear set when you switch between Spec 1 and Spec 2 (dual spec). Bind each gear set to a spec below. Requires dual spec to be active."],
-          get = function() return mod.db.specSwitchEnabled ~= false end,
-          set = function(_, v) mod.db.specSwitchEnabled = v end },
-
-        { type = "spacer", height = 6 },
         { type = "header", text = L["Auto-Switch on Stance/Form"] },
         { type = "toggle", label = L["Enable auto-switching"],
           tooltip = L["Automatically equips a gear set when your stance/form changes (warrior stances, druid forms). Out-of-combat only — if a stance change happens in combat, the swap is deferred until combat ends."],
           get = function() return mod.db.autoSwitchEnabled ~= false end,
           set = function(_, v) mod.db.autoSwitchEnabled = v end },
-
-        { type = "spacer", height = 8 },
-        { type = "header", text = L["Saved Gear Sets"] },
     }
+
+    -- Dual-Spec gibt es in Classic Era gar nicht und in TBC erst nach dem
+    -- Kauf. Ohne zweite Talentgruppe waere die Einstellung wirkungslos,
+    -- deshalb erscheint sie dort nicht.
+    if getNumSpecGroups() >= 2 then
+        table.insert(items, { type = "spacer", height = 6 })
+        table.insert(items, { type = "header", text = L["Auto-Switch on Dual Spec"] })
+        table.insert(items, { type = "toggle", label = L["Enable spec auto-switching"],
+            tooltip = L["Automatically equips a gear set when you switch between Spec 1 and Spec 2 (dual spec). Bind each gear set to a spec below. Requires dual spec to be active."],
+            get = function() return mod.db.specSwitchEnabled ~= false end,
+            set = function(_, v) mod.db.specSwitchEnabled = v end })
+    end
+
+    table.insert(items, { type = "spacer", height = 8 })
+    table.insert(items, { type = "header", text = L["Saved Gear Sets"] })
 
     local names = sortedLoadoutNames()
     if #names == 0 then

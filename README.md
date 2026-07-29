@@ -1,6 +1,7 @@
 # VuloGearSets
 
-Equipment set manager for WoW TBC Classic Anniversary (Interface 20506).
+Equipment set manager for WoW TBC Classic Anniversary (interface 20506) and
+Classic Era / Season of Discovery (interface 11509).
 
 Save your current equipment as named gear sets and switch between them with a single
 click. Runs on its own, no other addons required.
