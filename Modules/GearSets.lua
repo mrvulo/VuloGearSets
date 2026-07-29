@@ -1386,6 +1386,19 @@ local function renderItemRow(row, loadoutName)
     for _, s in ipairs(displaySlots) do table.insert(sortedSlots, s) end
     table.sort(sortedSlots)
 
+    -- Spaltenzahl aus der tatsaechlichen Zeilenbreite statt fest sechs.
+    -- Im Classic-Stil ist die Liste schmaler (breiterer Rahmen plus
+    -- Scrollbalken); sechs feste Spalten ragten dort ueber die Zeile
+    -- hinaus, und der Scrollbereich schneidet Ueberstehendes jetzt
+    -- wirklich ab - die letzte Spalte war halb weg. Setzt voraus, dass
+    -- die Zeile beim Rendern bereits verankert ist (macht refreshSidebar).
+    local cols = ITEM_COLS
+    local w = row:GetWidth() or 0
+    if w > 0 then
+        cols = math.max(1, math.min(ITEM_COLS,
+            math.floor((w + ITEM_PAD) / (ITEM_SIZE + ITEM_PAD))))
+    end
+
     for i, slot in ipairs(sortedSlots) do
         local b = getItemButton(row, i)
         local link = loadout.slots and loadout.slots[slot]
@@ -1407,8 +1420,8 @@ local function renderItemRow(row, loadoutName)
             b.iconTex:SetVertexColor(0.6, 0.6, 0.6)
         end
 
-        local col = (i - 1) % ITEM_COLS
-        local rowIdx = math.floor((i - 1) / ITEM_COLS)
+        local col = (i - 1) % cols
+        local rowIdx = math.floor((i - 1) / cols)
         b:ClearAllPoints()
         b:SetPoint("TOPLEFT", row, "TOPLEFT",
             col * (ITEM_SIZE + ITEM_PAD),
@@ -1416,7 +1429,7 @@ local function renderItemRow(row, loadoutName)
         b:Show()
     end
 
-    local rows = math.max(1, math.ceil(#sortedSlots / ITEM_COLS))
+    local rows = math.max(1, math.ceil(#sortedSlots / cols))
     row:SetHeight(rows * (ITEM_SIZE + ITEM_PAD) + 2)
 end
 
@@ -1490,13 +1503,15 @@ refreshSidebar = function()
         btn:Show()
         y = y - 33
 
-        -- If expanded, render the item icons below this row
+        -- If expanded, render the item icons below this row.
+        -- ERST verankern, DANN rendern: renderItemRow liest die Zeilenbreite,
+        -- um die Spaltenzahl zu bestimmen - vor dem Verankern waere sie 0.
         if sidebarExpanded == name then
             local row = getItemRow(list, i)
-            renderItemRow(row, name)
             row:ClearAllPoints()
             row:SetPoint("TOPLEFT",  list, "TOPLEFT",  2, y)
             row:SetPoint("TOPRIGHT", list, "TOPRIGHT", -2, y)
+            renderItemRow(row, name)
             row:Show()
             y = y - row:GetHeight() - 4
         end

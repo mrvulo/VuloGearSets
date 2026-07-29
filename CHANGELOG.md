@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.1
+
+- Classic style: the expanded item grid no longer loses its last column. The new
+  scroll area clips at the frame edge, and with Blizzard's wider dialog border the
+  sidebar list is narrower than six fixed columns — the grid now fits its column
+  count to the actual row width.
+
 ## 1.6.0
 
 - The sidebar set list **scrolls**. Rows used to run past the frame and under the
