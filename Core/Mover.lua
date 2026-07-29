@@ -3,7 +3,7 @@
 -- Ein verschiebbarer Frame, kein Layoutsystem.
 --
 -- Vertrag (identisch zum Original, damit das Modul unveraendert bleibt):
---   ns:CreateMover(target, { key, label, db, width, height, applyPos })
+--   ns:CreateMover(target, { label, db, width, height, applyPos })
 --   Die Position lebt in opts.db.x / opts.db.y, nicht im Mover.
 --   Nach jeder Aenderung wird opts.applyPos(mover) gerufen.
 --
@@ -67,7 +67,6 @@ function ns:CreateMover(target, opts)
     local mover = CreateFrame("Frame", nil, target)
     mover.target = target
     mover.opts   = opts
-    mover.key    = opts.key
     mover:SetPoint("CENTER", target, "CENTER", 0, 0)
     mover:SetSize(opts.width or 200, opts.height or 40)
     mover:SetFrameStrata("HIGH")

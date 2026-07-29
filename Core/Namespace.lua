@@ -2,10 +2,9 @@
 -- VuloGearSets / Core / Namespace
 -- Basis-Namespace, Farben und die Helfer, die ueberall gebraucht werden.
 -- =========================================================
-local addonName, ns = ...
+local _, ns = ...
 
-ns.ADDON_NAME  = addonName
-ns.VERSION     = "1.5.0"
+ns.VERSION     = "1.6.0"
 ns.modules     = {}
 ns.moduleOrder = {}
 

@@ -130,9 +130,21 @@ renderers.group = function(parent, item, y, width)
     return maxH
 end
 
--- Aufklappbarer Block. Der Zustand wird in item.collapsed zurueckgeschrieben,
--- damit er ein Neuzeichnen ueberlebt.
+-- Aufklappbarer Block.
+--
+-- Der Zustand darf NICHT in item.collapsed liegen: mod:GetOptions() baut die
+-- Liste bei jedem Neuzeichnen frisch auf, der geschriebene Wert waere sofort
+-- wieder weg und der Kopf damit ohne Wirkung. Deshalb nach Titel gemerkt,
+-- ausserhalb der Liste. item.collapsed liefert nur noch den Startwert.
+local sectionCollapsed = {}
+
 renderers.section = function(parent, item, y, width)
+    local key = item.title or ""
+    if sectionCollapsed[key] == nil then
+        sectionCollapsed[key] = item.collapsed and true or false
+    end
+    local collapsed = sectionCollapsed[key]
+
     local head = CreateFrame("Button", nil, parent)
     head:SetPoint("TOPLEFT", PAD, y)
     head:SetSize(width, 20)
@@ -141,12 +153,10 @@ renderers.section = function(parent, item, y, width)
     UI.Font(fs, 13, "OUTLINE")
     fs:SetPoint("LEFT")
     fs:SetTextColor(ns:AccentColor())
-
-    local collapsed = item.collapsed and true or false
     fs:SetText((collapsed and "+ " or "- ") .. (item.title or ""))
 
     head:SetScript("OnClick", function()
-        item.collapsed = not collapsed
+        sectionCollapsed[key] = not collapsed
         ns:RefreshOptions()
     end)
 

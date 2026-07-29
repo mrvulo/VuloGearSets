@@ -16,7 +16,6 @@ local L = ns.L
 local mod = ns:RegisterModule("slotpicker", {
     name        = "Slot Picker",
     group       = "_hidden",
-    description = "Hover an equipment slot to see matching items from your bags, or click it for the full list. Click an item to equip it.",
     defaults = {
         enabled  = true,
         -- Steuert nur den KLICK-Weg. Das Ueberfahren zeigt die kompakte
@@ -237,7 +236,11 @@ local function showSlotPicker(slotID, anchorBtn)
         return
     end
 
-    local slotName = SLOT_FRAME_NAMES[slotID] or string.format("Slot %d", slotID)
+    -- SLOT_FRAME_NAMES sind Framenamen-Endungen, keine Beschriftungen: dort
+    -- stand vorher "SecondaryHand" oder "Finger0" im Titel, und uebersetzt
+    -- war es auch nicht. Die lesbaren Namen kommen aus dem Set-Modul.
+    local slotName = (ns.SLOT_NAMES and ns.SLOT_NAMES[slotID])
+        or SLOT_FRAME_NAMES[slotID] or string.format("Slot %d", slotID)
     popup.title:SetText(string.format(L["Items for: %s"], slotName)
         .. string.format(" |cff888888(%d)|r", #results))
     popup.title:SetShown(not compact)
@@ -297,9 +300,8 @@ local function showSlotPicker(slotID, anchorBtn)
             if btn.icon and iconTex then
                 btn.icon:SetTexture(iconTex)
             end
-            if _G[btn:GetName() and (btn:GetName() .. "IconTexture")] then
-                _G[btn:GetName() .. "IconTexture"]:SetTexture(iconTex)
-            end
+            -- Der Umweg ueber _G["<Name>IconTexture"] entfaellt: die Knoepfe
+            -- werden ohne Namen erzeugt, der Zweig war nie erreichbar.
             if SetItemButtonTexture then
                 pcall(SetItemButtonTexture, btn, iconTex)
             end
@@ -474,30 +476,25 @@ function mod:OnEnable()
     hookSlots()
 end
 
--- =========================================================
--- Options
--- =========================================================
-function mod:GetOptions()
-    return {
-        { type = "header", text = L["Slot Picker"] },
-        { type = "desc", text = L["Modifier-click an equipment slot in the Character frame to open a popup with all compatible items from your bags. Click an item to equip it (out-of-combat)."] },
-
-        { type = "spacer", height = 6 },
-        { type = "dropdown", label = L["Activation modifier"],
-          tooltip = L["Which click opens the full picker window. Hovering a slot always shows the compact list, regardless of this setting."],
-          values = {
-              { value = "right",       text = L["Right-click only"] },
-              { value = "shift-right", text = L["Shift + Right-click"] },
-              { value = "alt-right",   text = L["Alt + Right-click"] },
-              { value = "ctrl-right",  text = L["Ctrl + Right-click"] },
-          },
-          get = function() return mod.db.modifier or "right" end,
-          set = function(_, v) mod.db.modifier = v end },
-
-        { type = "slider", label = L["Grid columns"],
-          tooltip = L["How many item icons per row in the picker popup."],
-          min = 4, max = 14, step = 1,
-          get = function() return mod.db.cols or 8 end,
-          set = function(_, v) mod.db.cols = v end },
-    }
+function mod:OnDisable()
+    -- Die Hooks bleiben liegen: ein HookScript laesst sich nicht loesen. Sie
+    -- pruefen mod._enabled, das genuegt.
+    --
+    -- Was aber weg muss, ist alles gerade Offene und Eingeplante. SafeDisable
+    -- setzt _enabled erst NACH diesem Aufruf, ein bereits laufender
+    -- Oeffnen-Timer wuerde also noch feuern und ein Fenster aufziehen, das
+    -- niemand mehr schliesst. Die Generationszaehler entwerten ihn.
+    _openGen  = _openGen  + 1
+    _closeGen = _closeGen + 1
+    if popup then popup:Hide() end
 end
+
+-- =========================================================
+-- Optionen
+--
+-- Bewusst KEIN mod:GetOptions(): das Modul ist versteckt (group = "_hidden"),
+-- das Optionsfenster rendert nur die Seite des Set-Moduls. Die Einstellungen
+-- des Slot-Pickers stehen dort im Abschnitt "Slot Picker" und schreiben ueber
+-- ns.modules.slotpicker.db direkt hierher. Eine eigene Seite waere nie
+-- aufgerufen worden und haette die Texte nur doppelt gefuehrt.
+-- =========================================================

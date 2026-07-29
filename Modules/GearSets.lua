@@ -14,7 +14,6 @@ local L = ns.L
 
 local mod = ns:RegisterModule("gearsets", {
     name        = "Equipment Sets",
-    description = "Save and quickly equip gear sets for different specs, content, or roles.",
     -- Nur kontoweite Darstellungsoptionen. Die Sets selbst und ihre
     -- Bindungen liegen pro Charakter (siehe charDB weiter unten), ebenso
     -- die Position der Seitenleiste.
@@ -79,6 +78,9 @@ local SLOT_NAMES = {
     [15] = L["Back"],
     [16] = L["Main Hand"], [17] = L["Off Hand"], [18] = L["Ranged"],
 }
+-- Der SlotPicker beschriftet sein Fenster damit. Ohne die gemeinsame Tabelle
+-- stuenden dort die internen Framenamen ("SecondaryHand", "Finger0").
+ns.SLOT_NAMES = SLOT_NAMES
 
 -- Pre-defined slot groups for quick-save
 local SLOT_GROUPS = {
@@ -358,9 +360,15 @@ local function equipLoadout(name)
 
     for _, slot in ipairs(sortedSlots) do
         local link = loadout.slots[slot]
-        local currentLink = GetInventoryItemLink("player", slot)
-        if currentLink ~= link then
-            local itemID = getItemIDFromLink(link)
+        -- Ueber die Item-ID vergleichen, nicht ueber den Link. Verzauberung,
+        -- Sockel oder Zufallswerte aendern den Link, das Teil bleibt dasselbe.
+        -- Beim Linkvergleich galt ein verzaubertes Teil als "nicht angelegt",
+        -- wurde in den Taschen gesucht, dort nicht gefunden - und als fehlend
+        -- gemeldet, obwohl es getragen wird. getSetStatus rechnet ebenfalls
+        -- mit IDs; so sagen Statuspunkt und Anlegen dasselbe.
+        local itemID  = getItemIDFromLink(link)
+        local wornID  = getItemIDFromLink(GetInventoryItemLink("player", slot))
+        if itemID ~= wornID then
             if itemID then
                 local bag, bagSlot = findItemInBags(itemID)
                 if bag and bagSlot then
@@ -512,9 +520,9 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
         for _, n in ipairs(names) do
             local st = getSetStatus(n)
             if not st then
-                ns:Print("%s: |cffff5555kein Status|r (Set leer?)", n)
+                ns:Print("%s: |cffff5555no status|r (empty set?)", n)
             else
-                ns:Print("%s: %s  (%d Teile: %d angelegt, %d Tasche, %d Bank, %d fehlt)",
+                ns:Print("%s: %s  (%d items: %d worn, %d bags, %d bank, %d missing)",
                     n, st.state, st.total, #st.worn, #st.inBags, #st.inBank, #st.missing)
             end
         end
@@ -605,6 +613,8 @@ local function showLoadoutMenu(anchor)
     table.insert(entries, { text = L["Save current as new..."], func = function() promptSaveWithSlots(nil) end })
     table.insert(entries, { text = L["Save trinkets only..."],  func = function() promptSaveWithSlots(SLOT_GROUPS.trinkets) end })
     table.insert(entries, { text = L["Save weapons only..."],   func = function() promptSaveWithSlots(SLOT_GROUPS.weapons)  end })
+    table.insert(entries, { text = L["Save rings only..."],     func = function() promptSaveWithSlots(SLOT_GROUPS.rings)    end })
+    table.insert(entries, { text = L["Save armor only..."],     func = function() promptSaveWithSlots(SLOT_GROUPS.armor)    end })
     table.insert(entries, { separator = true })
     table.insert(entries, { text = L["Settings..."],
         func = function() openLoadoutsSettings() end })
@@ -628,7 +638,8 @@ local function createMinimapButton()
     mmBtn:SetFrameStrata("MEDIUM")
     mmBtn:SetFrameLevel(8)
     mmBtn:SetSize(31, 31)
-    mmBtn:SetMovable(true)
+    -- Kein SetMovable: verschoben wird nicht der Frame, sondern der Winkel
+    -- um die Minikarte (siehe OnDragStart weiter unten).
     mmBtn:RegisterForClicks("AnyUp")
     mmBtn:RegisterForDrag("LeftButton")
 
@@ -1420,16 +1431,26 @@ refreshSidebar = function()
         sidebarExpanded = nil
     end
 
-    -- Hide leftover buttons + item rows
+    -- Hide leftover buttons + item rows.
+    -- Der Item-Row-Pool ist nach Set-Index belegt und damit loechrig: wer
+    -- zuerst Set 3 aufklappt, hat nur [3] darin. ipairs wuerde bei der Luecke
+    -- auf Index 1 sofort abbrechen und die Zeile nie verstecken - das Set
+    -- liesse sich dann nicht mehr zuklappen. Also pairs.
     for _, b in ipairs(sidebarSetButtons) do b:Hide() end
-    for _, r in ipairs(sidebarItemRows)   do r:Hide() end
+    for _, r in pairs(sidebarItemRows)    do r:Hide() end
 
     local names = sortedLoadoutNames()
     if not sidebarSelected and #names > 0 then sidebarSelected = names[1] end
 
-    local y = -32  -- below action bar (which is at top)
+    -- Die Zeilen liegen im Scroll-Kind, nicht in der Leiste selbst. Der
+    -- Scrollbereich ist bereits zwischen Kopf- und Fussknopf eingepasst,
+    -- deshalb faengt die Liste hier bei 0 an und braucht keinen Rand mehr.
+    local list = sidebar.list
+    if not list then return end
+
+    local y = 0
     for i, name in ipairs(names) do
-        local btn = createSetRow(sidebar, i)
+        local btn = createSetRow(list, i)
         btn.setName = name
         btn.icon:SetTexture(getSetIcon(name))
 
@@ -1464,24 +1485,26 @@ refreshSidebar = function()
             btn.expand.icon:SetTexture("Interface\\Buttons\\UI-Panel-ExpandButton-Up")
         end
         btn:ClearAllPoints()
-        local pad = 4 + ns:FrameInset()
-        btn:SetPoint("TOPLEFT",  sidebar, "TOPLEFT",  pad, y)
-        btn:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -pad, y)
+        btn:SetPoint("TOPLEFT",  list, "TOPLEFT",  0, y)
+        btn:SetPoint("TOPRIGHT", list, "TOPRIGHT", 0, y)
         btn:Show()
         y = y - 33
 
         -- If expanded, render the item icons below this row
         if sidebarExpanded == name then
-            local row = getItemRow(sidebar, i)
+            local row = getItemRow(list, i)
             renderItemRow(row, name)
             row:ClearAllPoints()
-            local rpad = 6 + ns:FrameInset()
-            row:SetPoint("TOPLEFT",  sidebar, "TOPLEFT",  rpad, y)
-            row:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -rpad, y)
+            row:SetPoint("TOPLEFT",  list, "TOPLEFT",  2, y)
+            row:SetPoint("TOPRIGHT", list, "TOPRIGHT", -2, y)
             row:Show()
             y = y - row:GetHeight() - 4
         end
     end
+
+    -- Scrollhoehe erst NACH dem Auslegen setzen: aufgeklappte Sets aendern
+    -- die Gesamthoehe, und ein zu weit gescrollter Bereich muss zurueck.
+    if sidebar.updateScroll then sidebar.updateScroll(-y) end
 
     if #names == 0 then
         if not sidebar.emptyText then
@@ -1571,6 +1594,89 @@ local function createSidebar()
 
     ns.UI:SkinFrame(sidebar, "window")
 
+    -- =========================================================
+    -- Scrollbereich fuer die Set-Liste
+    --
+    -- Vorher lagen die Zeilen direkt in der Leiste und wurden von nichts
+    -- begrenzt: ab etwa neun Sets - mit einem aufgeklappten Set frueher -
+    -- liefen sie unter den "Neues Set"-Knopf und aus dem Rahmen heraus.
+    -- Der ScrollFrame schneidet sein Kind am Rand ab, deshalb bleibt jetzt
+    -- alles zwischen Kopf- und Fussknopf.
+    --
+    -- Kein UIPanelScrollFrameTemplate: dessen Blizzard-Leiste ist fuer 190
+    -- Pixel Breite zu breit und passt in keinen der beiden Stile. Stattdessen
+    -- Mausrad plus ein schmaler Balken, der nur erscheint, wenn es wirklich
+    -- etwas zu scrollen gibt.
+    -- =========================================================
+    local SCROLLBAR_W = 4
+    local ROW_STEP    = 33   -- eine Set-Zeile pro Mausrad-Rastung
+
+    local scroll = CreateFrame("ScrollFrame", nil, sidebar)
+    scroll:EnableMouseWheel(true)
+
+    local list = CreateFrame("Frame", nil, scroll)
+    list:SetSize(1, 1)
+    scroll:SetScrollChild(list)
+
+    -- Balken haengt neben dem Scrollbereich, nicht darin - sonst wuerde er
+    -- mitscrollen und am Rand abgeschnitten.
+    local sbar = CreateFrame("Frame", nil, sidebar)
+    sbar:SetWidth(SCROLLBAR_W)
+    sbar:Hide()
+    local sbarTrack = sbar:CreateTexture(nil, "BACKGROUND")
+    sbarTrack:SetAllPoints(sbar)
+    sbarTrack:SetColorTexture(0, 0, 0, 0.25)
+    local sbarThumb = sbar:CreateTexture(nil, "ARTWORK")
+    sbarThumb:SetWidth(SCROLLBAR_W)
+    sbarThumb:SetPoint("TOP", sbar, "TOP", 0, 0)
+
+    sidebar.scroll, sidebar.list, sidebar.scrollBar = scroll, list, sbar
+
+    -- Groesse und Lage des Griffs aus Sichtfenster, Inhalt und Position.
+    local function updateThumb()
+        local viewH   = scroll:GetHeight() or 0
+        local contentH = scroll._contentH or 0
+        local maxS    = scroll._maxScroll or 0
+        if maxS <= 0 or viewH <= 0 or contentH <= 0 then return end
+        -- Mindestgriff 16 px, aber nie hoeher als das Sichtfenster: sonst
+        -- wuerde der Griff bei einer sehr kurzen Leiste oben herauslaufen.
+        local thumbH = math.min(viewH, math.max(16, viewH * (viewH / contentH)))
+        local frac   = scroll:GetVerticalScroll() / maxS
+        sbarThumb:SetHeight(thumbH)
+        sbarThumb:ClearAllPoints()
+        sbarThumb:SetPoint("TOP", sbar, "TOP", 0, -(frac * (viewH - thumbH)))
+    end
+
+    -- Von refreshSidebar gerufen, sobald die Gesamthoehe feststeht.
+    sidebar.updateScroll = function(contentH)
+        local viewH = scroll:GetHeight() or 0
+        -- Beim allerersten Aufruf steht die Hoehe noch nicht fest (das
+        -- Charakterfenster war nie offen). Dann nichts erzwingen - der
+        -- naechste Aufruf beim Aufklappen liefert echte Werte.
+        if viewH <= 0 then return end
+
+        local maxS = math.max(0, contentH - viewH)
+        scroll._contentH  = contentH
+        scroll._maxScroll = maxS
+        -- Das Kind nie kleiner als das Sichtfenster: sonst rutscht der
+        -- Inhalt beim Scrollen ins Leere.
+        list:SetHeight(math.max(contentH, viewH))
+        if scroll:GetVerticalScroll() > maxS then scroll:SetVerticalScroll(maxS) end
+
+        sbarThumb:SetColorTexture(ns:AccentColor())
+        sbar:SetShown(maxS > 0)
+        updateThumb()
+    end
+
+    scroll:SetScript("OnVerticalScroll", updateThumb)
+    scroll:SetScript("OnMouseWheel", function(self, delta)
+        local maxS = self._maxScroll or 0
+        if maxS <= 0 then return end
+        local new = self:GetVerticalScroll() - delta * ROW_STEP
+        if new < 0 then new = 0 elseif new > maxS then new = maxS end
+        self:SetVerticalScroll(new)
+    end)
+
     -- Action buttons (top row)
     local equipBtn = CreateFrame("Button", nil, sidebar, "UIPanelButtonTemplate")
     equipBtn:SetHeight(22)
@@ -1614,6 +1720,23 @@ local function createSidebar()
         newBtn:ClearAllPoints()
         newBtn:SetPoint("BOTTOMLEFT",  sidebar, "BOTTOMLEFT",  pad, pad)
         newBtn:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -pad, pad)
+
+        -- Der Scrollbereich spannt sich zwischen die beiden Knopfreihen.
+        -- Rechts bleibt Platz fuer den Balken, damit er nicht ueber dem
+        -- Aufklapppfeil der Zeilen liegt.
+        local topEdge   = pad + 22 + 6                 -- unter Anlegen/Speichern
+        local botEdge   = pad + 24 + 6                 -- ueber "+ Neues Set"
+        local rightEdge = pad + SCROLLBAR_W + 2
+
+        scroll:ClearAllPoints()
+        scroll:SetPoint("TOPLEFT",     sidebar, "TOPLEFT",     pad, -topEdge)
+        scroll:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -rightEdge, botEdge)
+        -- Das Scroll-Kind braucht eine feste Breite, sonst zeichnet es nichts.
+        list:SetWidth(math.max(1, sidebar:GetWidth() - pad - rightEdge))
+
+        sbar:ClearAllPoints()
+        sbar:SetPoint("TOPRIGHT",    sidebar, "TOPRIGHT",    -pad, -topEdge)
+        sbar:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -pad, botEdge)
     end
     newBtn:SetText("+ " .. L["New Set"])
     newBtn:SetScript("OnClick", function() promptSaveWithSlots(nil) end)
@@ -1632,7 +1755,6 @@ local function createSidebar()
     charSide.sidebarPos = charSide.sidebarPos or { x = 0, y = 0 }
     mod.db.sidebarPos = charSide.sidebarPos
     sidebar.mover = ns:CreateMover(sidebar, {
-        key      = "loadouts.sidebar",
         label    = L["|cffffffffGEAR SETS SIDEBAR|r\n|cffaaaaaaDrag or arrow keys|r"],
         db       = mod.db.sidebarPos,
         width    = 168,
@@ -1710,12 +1832,16 @@ end
 -- Refresh sidebar after save/delete operations
 local _origSaveAs    = saveAs
 local _origDelete    = deleteLoadout
+-- Das Optionsfenster listet die Sets ebenfalls auf. Ohne das Neuzeichnen
+-- blieb dort ein geloeschtes Set stehen, bis man das Fenster neu oeffnet -
+-- mit Knoepfen, die dann ins Leere laufen.
 saveAs = function(name, slotList)
     _origSaveAs(name, slotList)
     if sidebar then
         sidebarSelected = name
         refreshSidebar()
     end
+    if ns.RefreshOptions then ns:RefreshOptions() end
 end
 deleteLoadout = function(name)
     _origDelete(name)
@@ -1723,6 +1849,7 @@ deleteLoadout = function(name)
         if sidebarSelected == name then sidebarSelected = nil end
         refreshSidebar()
     end
+    if ns.RefreshOptions then ns:RefreshOptions() end
 end
 
 -- =========================================================
@@ -1800,8 +1927,18 @@ function mod:OnEnable()
     ns:RegisterEvent("PLAYER_ENTERING_WORLD",       onTalentChange)
     ns:RegisterEvent("PLAYER_REGEN_ENABLED",        onTalentChange)  -- retry after combat
 
-    _lastForm = getCurrentForm()
-    -- Defer initial spec read — spec group may not be available immediately on login
+    -- Vergleichsbasis SOFORT setzen, nicht erst per Timer.
+    --
+    -- _lastSpecGroup stand sonst noch auf -1, waehrend PLAYER_ENTERING_WORLD
+    -- schon feuerte. onTalentChange hielt das fuer einen Specwechsel und hat
+    -- bei jedem Login ungefragt das an die Spec gebundene Set angelegt.
+    _lastForm      = getCurrentForm()
+    _lastSpecGroup = getActiveSpecGroup()
+
+    -- Kurz nach dem Login kann die Talentgruppe noch nicht feststehen;
+    -- getActiveSpecGroup faellt dann auf 1 zurueck. Deshalb den Ausgangswert
+    -- nach zwei Sekunden nachziehen. Das legt nichts an, es korrigiert nur
+    -- die Vergleichsbasis - erst ein Wechsel DANACH loest ein Anlegen aus.
     if C_Timer and C_Timer.After then
         C_Timer.After(2, function() _lastSpecGroup = getActiveSpecGroup() end)
     end
@@ -1820,6 +1957,14 @@ function mod:OnDisable()
     ns:UnregisterEvent("PLAYER_REGEN_ENABLED",        onTalentChange)
     if _specPoller then _specPoller:Cancel(); _specPoller = nil end
     if mmBtn then mmBtn:Hide() end
+
+    -- Sichtbares aufraeumen. updateVisibility entscheidet nur beim Oeffnen
+    -- und Schliessen des Charakterfensters neu - ohne das hier bliebe eine
+    -- gerade offene Seitenleiste samt Symbolauswahl und Kontextmenue stehen,
+    -- obwohl das Modul aus ist.
+    if sidebar     then sidebar:Hide()     end
+    if _iconPicker then _iconPicker:Hide() end
+    ns:HidePopupMenu()
 end
 
 -- =========================================================
@@ -1852,14 +1997,27 @@ function mod:GetOptions()
         { type = "desc", text = L["Save your current equipment as named gear sets and quickly switch between them. Equipping requires you to be out of combat — items in your bags are auto-equipped via Use."] },
 
         { type = "spacer", height = 6 },
+        -- Breite bewusst 118: drei Knoepfe plus zwei Luecken muessen in die
+        -- Inhaltsbreite des Scrollbereichs passen (408 px). Mit 130 ragte der
+        -- dritte darueber hinaus und wurde am rechten Rand abgeschnitten.
+        -- Der Zeilen-Renderer bricht nicht um, deshalb zwei Gruppen statt
+        -- einer langen Reihe.
         { type = "group", layout = "row", gap = 6,
           items = {
-              { type = "button", label = L["Save All..."], width = 130,
+              { type = "button", label = L["Save All..."], width = 118,
                 onClick = function() promptSaveWithSlots(nil) end },
-              { type = "button", label = L["Save Trinkets..."], width = 130,
+              { type = "button", label = L["Save Trinkets..."], width = 118,
                 onClick = function() promptSaveWithSlots(SLOT_GROUPS.trinkets) end },
-              { type = "button", label = L["Save Weapons..."], width = 130,
+              { type = "button", label = L["Save Weapons..."], width = 118,
                 onClick = function() promptSaveWithSlots(SLOT_GROUPS.weapons) end },
+          },
+        },
+        { type = "group", layout = "row", gap = 6,
+          items = {
+              { type = "button", label = L["Save Rings..."], width = 118,
+                onClick = function() promptSaveWithSlots(SLOT_GROUPS.rings) end },
+              { type = "button", label = L["Save Armor..."], width = 118,
+                onClick = function() promptSaveWithSlots(SLOT_GROUPS.armor) end },
           },
         },
         { type = "toggle", label = L["Confirm before deleting a gear set"],

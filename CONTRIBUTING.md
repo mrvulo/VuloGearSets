@@ -100,8 +100,9 @@ Einstellungen ausgeblendet, wo es sie nicht gibt.
 Zwei Dinge, über die man auf dem Anniversary-Client stolpert:
 
 - **Schriften aus Addon-Ordnern werden nicht geladen.** Gemessen wurde eine Textbreite
-  von 0 für Expressway aus diesem Addon, aus Details und aus VuloClassicUI — bei
-  bitgleicher Datei. Verlässlich prüfbar ist das nur funktional über
+  von 0 für Expressway aus diesem Addon und aus fremden Addon-Ordnern — bei
+  bitgleicher Datei. Es liegt also nicht am eigenen Pfad, sondern am Client.
+  Verlässlich prüfbar ist das nur funktional über
   `GetStringWidth()`; weder `FontString:GetFont()` noch der Rückgabewert von
   `Font:SetFont()` taugen dafür. Siehe `UI/Widgets.lua`.
 - **StaticPopups laufen über das neue GameDialog-System.** Das Eingabefeld heißt dort

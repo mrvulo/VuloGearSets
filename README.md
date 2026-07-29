@@ -9,7 +9,7 @@ click. Runs on its own, no other addons required.
 ## Features
 
 - **Save and equip sets** — the whole outfit or just parts of it: trinkets, weapons,
-  rings, armour
+  rings, armor
 - **Sidebar on the character frame** with a custom icon per set, per-slot replacement
   and a context menu
 - **Minimap button** — left-click for the set switcher, right-click for the settings,
@@ -70,11 +70,11 @@ Sets are stored per character because they reference that character's equipment.
 ## Known limitation: font
 
 The addon ships Expressway, the same font VuloClassicUI uses. The Anniversary client,
-however, does not load font files from addon folders — this affects not just this
-addon but equally the same file shipped by Details or VuloClassicUI (measured text
-width of 0 in every case). Arial Narrow from the client is used instead, which has a
-similarly narrow cut. If a client does accept Expressway, it is picked up
-automatically.
+however, does not load font files from addon folders at all — measured against several
+font files from different addons, including ones that are known to render on other
+clients, the text width came back as 0 in every case. So this is not specific to our
+copy of the file. Arial Narrow from the client is used instead, which has a similarly
+narrow cut. If a client does accept Expressway, it is picked up automatically.
 
 `/vgsfont` shows which font is active and what the measurement returns.
 

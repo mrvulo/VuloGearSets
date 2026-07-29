@@ -11,7 +11,7 @@
 --   { separator = true }                                — visual divider
 --   { text      = "Item", func = function() ... end }   — clickable
 --   { text      = "...",  checked = function() return mod.db.x end,
---     func = function() ... end, keepOpen = true }      — toggle (stays open)
+--     func = function() ... end }                       — with checkmark
 --   { text      = "...",  disabled = true }             — greyed
 -- =========================================================
 local _, ns = ...
@@ -35,6 +35,36 @@ local function createMenuFrame()
     if ns.UI and ns.UI.CreateShadow then ns.UI:CreateShadow(_menuFrame) end
     -- ESC closes
     tinsert(UISpecialFrames, "VGS_SharedPopupMenu")
+
+    -- Klick daneben schliesst ebenfalls.
+    --
+    -- Bewusst KEIN unsichtbarer Faenger ueber dem ganzen Bildschirm: der
+    -- wuerde den Klick schlucken, statt ihn durchzulassen, und muesste sich
+    -- mit Symbolauswahl und Slot-Picker um die Ebene streiten - beide liegen
+    -- in derselben Strata. Stattdessen prueft das Menue selbst, und zwar nur
+    -- solange es offen ist; OnUpdate laeuft auf versteckten Frames nicht.
+    _menuFrame:SetScript("OnUpdate", function(self)
+        local down = IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton")
+        -- Erst scharf schalten, wenn keine Taste mehr gedrueckt ist: geoeffnet
+        -- wird aus einem "...Up"-Handler, und ohne das koennte derselbe Klick
+        -- das Menue sofort wieder zuschlagen.
+        if not down then
+            self._armed = true
+            return
+        end
+        if not self._armed then return end
+        if self:IsMouseOver() then return end
+        -- Druck auf den eigenen Anker NICHT hier behandeln. Dessen OnClick
+        -- feuert erst beim Loslassen und klappt das Menue selbst zu; wuerden
+        -- wir schon beim Druecken verstecken, saehe OnClick ein geschlossenes
+        -- Menue und oeffnete es sofort wieder. Der zweite Klick auf dieselbe
+        -- Zeile bliebe damit wirkungslos.
+        local a = self._openAnchor
+        if type(a) == "table" and a.IsMouseOver and a:IsMouseOver() then return end
+        self:Hide()
+        self._openAnchor = nil
+    end)
+
     return _menuFrame
 end
 
@@ -114,17 +144,10 @@ function ns:ShowPopupMenu(entries, anchor)
                 btn:EnableMouse(true)
                 btn._clickable = true
                 btn:RegisterForClicks("LeftButtonUp")
-                local fn        = entry.func
-                local keepOpen  = entry.keepOpen
-                local checkedFn = entry.checked
+                local fn = entry.func
                 btn:SetScript("OnClick", function()
-                    if not keepOpen then menu:Hide() end
+                    menu:Hide()
                     if fn then fn() end
-                    -- keepOpen items must re-evaluate their checkmark in place
-                    if keepOpen and checkedFn then
-                        local ok, isChecked = pcall(checkedFn)
-                        btn.check:SetShown(ok and isChecked)
-                    end
                 end)
             end
             -- Checkmark
@@ -153,10 +176,6 @@ function ns:ShowPopupMenu(entries, anchor)
     menu:ClearAllPoints()
     if anchor and anchor.GetLeft then
         menu:SetPoint("TOPRIGHT", anchor, "BOTTOMLEFT", -2, 0)
-    elseif anchor == "cursor" then
-        local cx, cy = GetCursorPosition()
-        local scale  = UIParent:GetEffectiveScale() or 1
-        menu:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", cx / scale, cy / scale)
     else
         menu:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
@@ -167,6 +186,7 @@ function ns:ShowPopupMenu(entries, anchor)
         menu._openAnchor = nil
     else
         menu._openAnchor = anchor
+        menu._armed      = false
         menu:Show()
     end
 end

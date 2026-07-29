@@ -1,6 +1,27 @@
 # Changelog
 
-## 1.5.0
+## 1.6.0
+
+- The sidebar set list **scrolls**. Rows used to run past the frame and under the
+  New Set button once you had about nine sets. The list now scrolls with the mouse
+  wheel; a thin bar on the right appears only when there is something to scroll.
+- New quick-save groups: **rings** and **armor**, next to trinkets and weapons in
+  the minimap menu and the settings.
+- Equipping compares **item IDs** instead of item links. An enchanted or gemmed
+  piece changes its link but stays the same item — it used to be reported as
+  "missing from bags" even while you were wearing it.
+- Logging in no longer auto-equips the spec-bound set. The comparison baseline was
+  set two seconds too late, so the login itself looked like a spec change.
+- The expanded item view under a set closes reliably again. Whether collapsing
+  worked depended on which set you had expanded first.
+- The popup menu closes when you click somewhere else.
+- Settings window fixes: the Slot Picker section can actually collapse, the gear
+  set list updates right after deleting or saving a set, the third quick-save
+  button is no longer cut off at the edge, and sliders show the value they are
+  actually set to.
+- Disabling a module now hides its open windows instead of leaving them behind.
+- The slot picker window is titled with the proper slot name ("Off Hand" instead
+  of the internal frame name) and translated.
 
 - Support for **Classic Era and Season of Discovery** (interface 11509). The addon
   now ships a second TOC for that client; everything else is shared.

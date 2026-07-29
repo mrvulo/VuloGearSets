@@ -4,7 +4,6 @@
 --
 -- def = {
 --   name        = "Anzeigename",
---   description = "Was das Modul tut",
 --   defaults    = { enabled = true, ... },
 --   OnEnable    = function(self) end,
 --   OnDisable   = function(self) end,

@@ -9,12 +9,12 @@ local C  = ns.COLORS
 
 -- Dieselbe Schrift wie VuloClassicUI.
 local FONT_PATH = "Interface\\AddOns\\VuloGearSets\\Media\\Fonts\\Expressway.TTF"
-UI.FONT_PATH = FONT_PATH
 
 -- Gemessen auf dem Anniversary-Client: Schriftdateien aus Addon-Ordnern
--- werden NICHT geladen - weder unsere noch dieselbe Datei aus Details oder
--- VuloClassicUI (Textbreite jeweils 0). Client-interne Schriften laden
--- dagegen problemlos. Pruefen mit /vgsfont.
+-- werden NICHT geladen - weder unsere noch dieselbe oder eine andere Datei
+-- aus fremden Addon-Ordnern (Textbreite jeweils 0). Es liegt also nicht an
+-- unserem Pfad. Client-interne Schriften laden dagegen problemlos.
+-- Pruefen mit /vgsfont.
 --
 -- Deshalb der Reihe nach:
 --   1. die eigene Expressway - falls ein Client sie doch annimmt
@@ -262,7 +262,10 @@ function UI:CreateSlider(parent, label, minV, maxV, step)
     function f:SetValue(v)
         self._suppress = true
         self.slider:SetValue(v or minV or 0)
-        self.value:SetText(tostring(math.floor((v or 0) + 0.5)))
+        -- Zurueckgelesen statt v angezeigt: der Regler klemmt selbst auf
+        -- min/max. Ein Wert ausserhalb stand sonst in der Anzeige, waehrend
+        -- der Regler sichtbar woanders stand.
+        self.value:SetText(tostring(self:GetValue()))
         self._suppress = false
     end
     function f:GetValue() return math.floor(self.slider:GetValue() + 0.5) end

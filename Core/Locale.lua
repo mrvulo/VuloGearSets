@@ -30,7 +30,3 @@ function ns:RegisterLocale(code, tbl)
         ns.localeData[code][k] = v
     end
 end
-
-function ns:GetActiveLocale()
-    return resolveLocale()
-end
