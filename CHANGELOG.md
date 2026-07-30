@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.2
+
+- Gear sets can be **renamed**: right-click a set in the sidebar and pick
+  Rename. The dialog comes pre-filled with the current name, and the set keeps
+  everything — gear, custom icon, and its spec and stance/form bindings.
+
 ## 1.6.1
 
 - Classic style: the expanded item grid no longer loses its last column. The new
