@@ -334,6 +334,40 @@ local function deleteLoadout(name)
     ns:Print(string.format(L["Gear set '%s' deleted."], name))
 end
 
+-- Umbenennen = Eintrag unter neuem Schluessel weiterfuehren. Die Spec- und
+-- Gestalt-Bindungen haengen ebenfalls am Namen und muessen mitziehen, sonst
+-- zeigen sie nach dem Umbenennen ins Leere. Gibt bei Erfolg den endgueltigen
+-- (getrimmten) Namen zurueck, damit der Aufrufer die Auswahl nachfuehren kann.
+local function renameLoadout(oldName, newName)
+    newName = newName and newName:match("^%s*(.-)%s*$") or ""
+    if newName == "" then
+        ns:Print(L["Please provide a name for the gear set."])
+        return
+    end
+    local sets = LO()
+    if not sets[oldName] then
+        ns:Print(string.format(L["Gear set '%s' does not exist."], oldName))
+        return
+    end
+    if newName == oldName then return end
+    if sets[newName] then
+        ns:Print(string.format(L["A gear set named '%s' already exists."], newName))
+        return
+    end
+    sets[newName] = sets[oldName]
+    sets[oldName] = nil
+    if specMap()[oldName] then
+        specMap()[newName] = specMap()[oldName]
+        specMap()[oldName] = nil
+    end
+    if formMap()[oldName] then
+        formMap()[newName] = formMap()[oldName]
+        formMap()[oldName] = nil
+    end
+    ns:Print(string.format(L["Gear set '%s' renamed to '%s'."], oldName, newName))
+    return newName
+end
+
 local function equipLoadout(name)
     if InCombatLockdown() then
         ns:Print(L["Cannot change equipment in combat."])
@@ -449,6 +483,55 @@ StaticPopupDialogs["VGS_GEARSET_SAVE"] = {
     hideOnEscape = true,
     preferredIndex = 3,
 }
+
+-- Alter Name fuer den Umbenennen-Dialog (Popups reichen beim Show nichts durch)
+local _pendingRenameName = nil
+
+StaticPopupDialogs["VGS_GEARSET_RENAME"] = {
+    text = L["Rename gear set '%s'. Enter new name:"],
+    button1 = L["Rename"],
+    button2 = CANCEL or L["Cancel"],
+    hasEditBox = true,
+    maxLetters = 32,
+    OnShow = function(self)
+        -- Alten Namen vorbelegen und markieren - meist will man ihn nur anpassen.
+        local eb = ns.PopupEditBox(self)
+        if eb and _pendingRenameName then
+            eb:SetText(_pendingRenameName)
+            eb:HighlightText()
+        end
+    end,
+    OnAccept = function(self)
+        local eb = ns.PopupEditBox(self)
+        if not eb then
+            ns:Print(L["Could not read the name field on this client."])
+            return
+        end
+        renameLoadout(_pendingRenameName, eb:GetText())
+        _pendingRenameName = nil
+    end,
+    EditBoxOnEnterPressed = function(self)
+        renameLoadout(_pendingRenameName, self:GetText())
+        _pendingRenameName = nil
+        -- Ueber den Namen schliessen: GetParent ist im neuen GameDialog
+        -- nicht zwingend der Dialog selbst.
+        StaticPopup_Hide("VGS_GEARSET_RENAME")
+    end,
+    OnCancel = function() _pendingRenameName = nil end,
+    EditBoxOnEscapePressed = function()
+        _pendingRenameName = nil
+        StaticPopup_Hide("VGS_GEARSET_RENAME")
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
+local function promptRename(name)
+    _pendingRenameName = name
+    StaticPopup_Show("VGS_GEARSET_RENAME", name)
+end
 
 StaticPopupDialogs["VGS_GEARSET_DELETE"] = {
     text = L["Delete gear set '%s'?"],
@@ -1238,6 +1321,9 @@ local function createSetRow(parent, index)
                 { text = L["Change icon..."], func = function()
                     showIconPicker(setName, self)
                 end },
+                { text = L["Rename..."], func = function()
+                    promptRename(setName)
+                end },
             }
 
             -- Spec-binding entries — only when dual spec is active
@@ -1865,6 +1951,17 @@ deleteLoadout = function(name)
         refreshSidebar()
     end
     if ns.RefreshOptions then ns:RefreshOptions() end
+end
+local _origRename = renameLoadout
+renameLoadout = function(oldName, newName)
+    local finalName = _origRename(oldName, newName)
+    if not finalName then return end
+    if sidebar then
+        if sidebarSelected == oldName then sidebarSelected = finalName end
+        refreshSidebar()
+    end
+    if ns.RefreshOptions then ns:RefreshOptions() end
+    return finalName
 end
 
 -- =========================================================
