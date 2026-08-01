@@ -26,6 +26,9 @@ local mod = ns:RegisterModule("gearsets", {
         autoSwitchEnabled = true,
         -- Auto-switch on talent spec (dominant talent tab)
         specSwitchEnabled = true,
+        -- Reitgerte automatisch anlegen. Bewusst aus: das Addon fasst
+        -- ungefragt keine getragene Ausruestung an.
+        ridingCropEnabled = false,
         -- Character-frame sidebar
         sidebarEnabled      = true,
         -- Feinjustierung gegenueber dem Charakterfenster. Blizzards Frame
@@ -34,6 +37,10 @@ local mod = ns:RegisterModule("gearsets", {
         sidebarTopOffset    = -12,   -- Oberkante nach unten
         sidebarBottomOffset = 76,    -- Unterkante nach oben (ueber die Reiter)
         sidebarXOffset      = -34,   -- nach links, an den sichtbaren Rand
+        -- Luecke zur fremden Statistikspalte, falls eine da ist. Deren
+        -- sichtbarer Rahmen ragt ueber ihren Frame hinaus; das ist der
+        -- Ausgleich dafuer. Ebenfalls mit /gearset tune nachstellbar.
+        sidebarStatsGap     = 12,
     },
 })
 
@@ -755,18 +762,25 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
             mod.db.sidebarXOffset = val
             if mod._reanchorSidebar then mod._reanchorSidebar() end
             ns:Print(string.format("Sidebar left offset = %d", val))
+        elseif which == "stats" and val then
+            -- Nur wirksam, solange rechts am Charakterfenster eine fremde
+            -- Statistikspalte haengt.
+            mod.db.sidebarStatsGap = val
+            if mod._reanchorSidebar then mod._reanchorSidebar() end
+            ns:Print(string.format("Sidebar stats-column gap = %d", val))
         elseif which == "show" then
-            ns:Print(string.format("top=%d bottom=%d left=%d",
+            ns:Print(string.format("top=%d bottom=%d left=%d stats=%d",
                 mod.db.sidebarTopOffset or 0, mod.db.sidebarBottomOffset or 0,
-                mod.db.sidebarXOffset or 0))
+                mod.db.sidebarXOffset or 0, mod.db.sidebarStatsGap or 0))
         elseif which == "reset" then
             mod.db.sidebarTopOffset    = -12
             mod.db.sidebarBottomOffset = 76
             mod.db.sidebarXOffset      = -34
+            mod.db.sidebarStatsGap     = 12
             if mod._reanchorSidebar then mod._reanchorSidebar() end
             ns:Print("Sidebar offsets reset to defaults.")
         else
-            ns:Print("Usage: /gearset tune top <n> | bottom <n> | left <n> | show | reset")
+            ns:Print("Usage: /gearset tune top <n> | bottom <n> | left <n> | stats <n> | show | reset")
         end
     else
         -- Treat unknown first word as a loadout name to equip
@@ -963,6 +977,198 @@ local function onShapeshiftChange()
             return
         end
     end
+end
+
+-- =========================================================
+-- Reitgerte beim Aufsitzen
+--
+-- Die Reitgerte (und in Classic Era die Karotte am Stiel) steckt bei den
+-- meisten in der Tasche und wird vergessen. Ist der Schalter an, wandert
+-- sie beim Aufsitzen oder in Fluggestalt in den Schmuckslot und beim
+-- Absitzen wieder zurueck - inklusive des Teils, das sie verdraengt hat.
+--
+-- Nur ausserhalb des Kampfes: EquipCursorItem ist im Kampf gesperrt. Faellt
+-- ein Wechsel in den Kampf, wird er bis PLAYER_REGEN_ENABLED aufgehoben.
+-- =========================================================
+-- Reihenfolge = Vorrang. 25653 Reitgerte (TBC, +10%),
+-- 11122 Karotte am Stiel (Classic Era, +3%).
+local MOUNT_SPEED_ITEMS = { 25653, 11122 }
+local TRINKET_SLOTS     = { 13, 14 }
+-- Fluggestalt und Schnelle Fluggestalt. In Classic Era gibt es die Zauber
+-- nicht - GetSpellInfo liefert dann nil und der Eintrag entfaellt.
+local FLIGHT_FORM_SPELLS = { 33943, 40120 }
+
+-- Was wir angelegt haben und was dafuer weichen musste. nil = die Gerte
+-- steckt nicht durch uns im Slot, also fassen wir auch nichts an.
+--
+-- Das liegt in der Charakter-Datenbank statt in einer Variablen: nach
+-- einem /reload im Sattel waere der Zustand sonst weg, die Gerte bliebe
+-- fuer immer im Schmuckslot und das verdraengte Teil in der Tasche.
+local function cropState()      return charDB().cropState end
+local function setCropState(v)  charDB().cropState = v    end
+
+local _cropMounted = false -- letzter bekannter Reitzustand
+local _cropPending = false -- Wechsel faellig, aber Kampf war im Weg
+
+-- Die lokalisierten Gestaltnamen einmal aufloesen. GetSpellInfo ist billig,
+-- aber UNIT_AURA feuert oft genug, dass sich das Merken lohnt.
+local _flightFormNames
+local function flightFormNames()
+    if _flightFormNames then return _flightFormNames end
+    if not GetSpellInfo then return {} end
+    local names, found = {}, false
+    for _, spellID in ipairs(FLIGHT_FORM_SPELLS) do
+        local ok, sname = pcall(GetSpellInfo, spellID)
+        if ok and type(sname) == "string" and sname ~= "" then
+            names[sname] = true
+            found = true
+        end
+    end
+    -- Nur ein Treffer wird gemerkt. Ein leeres Ergebnis kann auch heissen,
+    -- dass die Zauberdaten kurz nach dem Login noch nicht stehen - das
+    -- duerfen wir nicht als "gibt es hier nicht" festschreiben, sonst
+    -- bliebe die Fluggestalt fuer die ganze Sitzung unerkannt.
+    if found then _flightFormNames = names end
+    return names
+end
+
+local function isFlightForm()
+    local idx = getCurrentForm()
+    if idx == 0 or not GetShapeshiftFormInfo then return false end
+    local ok, _icon, fname = pcall(GetShapeshiftFormInfo, idx)
+    if not ok or type(fname) ~= "string" then return false end
+    return flightFormNames()[fname] == true
+end
+
+local function wantsMountSpeed()
+    if IsMounted and IsMounted() then return true end
+    return isFlightForm()
+end
+
+-- Traegt der Spieler die Gerte ohnehin schon? Dann ist hier nichts zu tun.
+local function wornCropSlot()
+    for _, s in ipairs(TRINKET_SLOTS) do
+        local id = getItemIDFromLink(GetInventoryItemLink("player", s))
+        if id then
+            for _, cropID in ipairs(MOUNT_SPEED_ITEMS) do
+                if id == cropID then return s end
+            end
+        end
+    end
+    return nil
+end
+
+local function findCropInBags()
+    for _, cropID in ipairs(MOUNT_SPEED_ITEMS) do
+        local bag, bagSlot = findItemInBags(cropID)
+        if bag then return bag, bagSlot end
+    end
+    return nil
+end
+
+-- Cursor leerraeumen: erst in den Rucksack, dann in die uebrigen Taschen.
+-- Bleibt alles voll, wandert das Teil dorthin zurueck, wo es herkam.
+local function stowCursorItem()
+    if CursorHasItem and not CursorHasItem() then return end
+    if PutItemInBackpack then pcall(PutItemInBackpack) end
+    if CursorHasItem and CursorHasItem() and PutItemInBag and ContainerIDToInventoryID then
+        for bag = 1, (NUM_BAG_SLOTS or 4) do
+            if not CursorHasItem() then break end
+            pcall(PutItemInBag, ContainerIDToInventoryID(bag))
+        end
+    end
+    if CursorHasItem and CursorHasItem() then ClearCursor() end
+end
+
+local function equipMountSpeedItem()
+    if cropState() then return end      -- steckt schon durch uns im Slot
+    if wornCropSlot() then return end   -- der Spieler traegt sie selbst
+    local bag, bagSlot = findCropInBags()
+    if not bag then return end
+
+    -- Freien Schmuckslot bevorzugen. Ist keiner frei, muss der untere
+    -- weichen - und was dort sass, merken wir uns fuers Absitzen.
+    local target, prevLink
+    for _, s in ipairs(TRINKET_SLOTS) do
+        if not GetInventoryItemLink("player", s) then
+            target = s
+            break
+        end
+    end
+    if not target then
+        target   = TRINKET_SLOTS[#TRINKET_SLOTS]
+        prevLink = GetInventoryItemLink("player", target)
+    end
+
+    if ns:EquipBagItemToSlot(bag, bagSlot, target) then
+        setCropState({ slot = target, prevLink = prevLink })
+    end
+end
+
+local function restoreMountSpeedItem()
+    local state = cropState()
+    if not state then return end
+    setCropState(nil)
+
+    -- Wo die Gerte JETZT steckt, nicht wo wir sie hingelegt haben: nach
+    -- einem /reload kann der Spieler selbst umgesteckt haben. Traegt er
+    -- sie gar nicht mehr, ist der gemerkte Zustand veraltet und wir
+    -- fassen nichts an - sonst raeumten wir ein fremdes Schmuckstueck ab.
+    local slot = wornCropSlot()
+    if not slot then return end
+
+    -- War der Slot vorher belegt, legt das alte Teil die Gerte von selbst
+    -- ab - ein Tausch statt zweier Einzelschritte.
+    if state.prevLink then
+        local id = getItemIDFromLink(state.prevLink)
+        local bag, bagSlot = nil, nil
+        if id then bag, bagSlot = findItemInBags(id) end
+        if bag then
+            ns:EquipBagItemToSlot(bag, bagSlot, slot)
+            return
+        end
+    end
+
+    -- Slot war vorher leer (oder das alte Teil ist nicht auffindbar):
+    -- Gerte einfach in die Taschen zuruecklegen.
+    if PickupInventoryItem then
+        ClearCursor()
+        PickupInventoryItem(slot)
+        stowCursorItem()
+    end
+end
+
+-- force = auch handeln, wenn sich der Reitzustand nicht geaendert hat.
+-- Braucht der Schalter in den Optionen: wer ihn im Sattel umlegt, erwartet
+-- eine sofortige Wirkung, obwohl _cropMounted schon stimmt.
+local function applyMountState(force)
+    if not mod._enabled or not mod.db then return end
+
+    if not mod.db.ridingCropEnabled then
+        -- Ausgeschaltet, waehrend die Gerte von uns angelegt war: zurueck,
+        -- sonst bliebe sie fuer immer im Schmuckslot stehen.
+        if cropState() and not InCombatLockdown() then restoreMountSpeedItem() end
+        return
+    end
+
+    local want = wantsMountSpeed()
+    if want == _cropMounted and not _cropPending and not force then return end
+    _cropMounted = want
+
+    if InCombatLockdown() then
+        _cropPending = true
+        return
+    end
+    _cropPending = false
+
+    if want then equipMountSpeedItem() else restoreMountSpeedItem() end
+end
+
+local function onMountStateChange(event, unit)
+    -- UNIT_AURA feuert fuer jede Einheit in der Naehe. Alles ausser dem
+    -- Spieler faellt hier sofort raus, bevor irgendetwas gerechnet wird.
+    if event == "UNIT_AURA" and unit ~= "player" then return end
+    applyMountState(false)
 end
 
 -- =========================================================
@@ -1703,11 +1909,15 @@ local function renderItemRow(row, loadoutName)
     -- hinaus, und der Scrollbereich schneidet Ueberstehendes jetzt
     -- wirklich ab - die letzte Spalte war halb weg. Setzt voraus, dass
     -- die Zeile beim Rendern bereits verankert ist (macht refreshSidebar).
+    -- Die Zeile ist genau so breit wie das Raster (dafuer sorgt
+    -- _layoutSidebarButtons). Frame-Breiten sind Gleitkommazahlen, und ein
+    -- Rundungsrest von einem Tausendstel darf die letzte Spalte nicht
+    -- kosten - daher die halbe Pixel Toleranz.
     local cols = ITEM_COLS
     local w = row:GetWidth() or 0
     if w > 0 then
         cols = math.max(1, math.min(ITEM_COLS,
-            math.floor((w + ITEM_PAD) / (ITEM_SIZE + ITEM_PAD))))
+            math.floor((w + ITEM_PAD + 0.5) / (ITEM_SIZE + ITEM_PAD))))
     end
 
     for i, slot in ipairs(sortedSlots) do
@@ -1856,13 +2066,66 @@ refreshSidebar = function()
     end
 end
 
+-- =========================================================
+-- Fremde Statistikspalte am Charakterfenster
+--
+-- Ein verbreitetes Zusatzfenster haengt eine eigene Werteliste rechts an
+-- das Charakterfenster - genau an die Stelle, an der auch unsere Leiste
+-- sitzt. Ohne Ruecksicht darauf lagen beide uebereinander.
+--
+-- Ist diese Spalte da und aufgeklappt, ruecken wir um ihre volle Breite
+-- (Inhalt plus Zierrand) nach rechts und haengen uns damit aussen an sie
+-- an. Fehlt sie oder ist sie eingeklappt, ist der Versatz 0 und alles
+-- bleibt wie bisher. Gemessen wird zur Laufzeit, weil die Spalte je nach
+-- Scrollbalken unterschiedlich breit endet.
+-- =========================================================
+-- Schmalste zulaessige Leiste. Reicht das Symbolraster eines aufgeklappten
+-- Sets nicht hinein, waechst die Leiste darueber hinaus (siehe
+-- _layoutSidebarButtons).
+local SIDEBAR_MIN_WIDTH = 190
+
+local STATS_COLUMN_WIDTH    = 192  -- Rueckfallbreite, falls sich nichts messen laesst
+local STATS_COLUMN_GAP      = 12   -- Zierrand rechts der Spalte
+local STATS_COLUMN_SCROLL_W = 16   -- Rueckfallbreite ihres Scrollbalkens
+
+local function statsColumnShift()
+    local col = _G.DCS_StatScrollFrame
+    if not (col and col.IsShown and col:IsShown()) then return 0 end
+    local w = col:GetWidth()
+    if not w or w <= 0 then w = STATS_COLUMN_WIDTH end
+    -- Der Frame der Spalte endet vor ihrem sichtbaren Rahmen; die Luecke
+    -- gleicht das aus und laesst sich nachstellen, weil der Ueberstand
+    -- vom Rahmenbild abhaengt und sich nicht sauber messen laesst.
+    local gap = (mod.db and mod.db.sidebarStatsGap) or STATS_COLUMN_GAP
+    -- Ist ihr Scrollbalken eingeblendet, sitzt er noch daneben.
+    local bar = col.ScrollBar
+    if bar and bar:IsShown() then
+        local bw = bar:GetWidth()
+        gap = gap + ((bw and bw > 0) and bw or STATS_COLUMN_SCROLL_W)
+    end
+    return w + gap
+end
+
+-- Die Spalte laesst sich im Charakterfenster ein- und ausklappen. Ein
+-- einmaliger Hook auf ihr Zeigen/Verstecken schiebt die Leiste dann live
+-- mit, statt sie bis zum naechsten Oeffnen falsch stehen zu lassen.
+local _statsColumnHooked = false
+local function hookStatsColumn(reanchor)
+    if _statsColumnHooked then return end
+    local col = _G.DCS_StatScrollFrame
+    if not (col and col.HookScript) then return end
+    _statsColumnHooked = true
+    col:HookScript("OnShow", reanchor)
+    col:HookScript("OnHide", reanchor)
+end
+
 local function createSidebar()
     if sidebar then return sidebar end
     if not CharacterFrame then return end
 
     sidebar = CreateFrame("Frame", "VGS_GearSetsSidebar", CharacterFrame,
         BackdropTemplateMixin and "BackdropTemplate")
-    sidebar:SetWidth(190)
+    sidebar:SetWidth(SIDEBAR_MIN_WIDTH)
     sidebar:SetFrameStrata("HIGH")
     sidebar:Hide()
 
@@ -1872,8 +2135,10 @@ local function createSidebar()
     -- always line up. No GetHeight() snapshot that can be measured at the wrong
     -- time. The user-tunable offsets compensate if the frame bounds differ from
     -- the visible backdrop on a given client.
-    local function anchorToCharacterFrame()
+    local anchorToCharacterFrame
+    anchorToCharacterFrame = function()
         if not sidebar or not CharacterFrame then return end
+        hookStatsColumn(anchorToCharacterFrame)
         local pos    = mod.db and mod.db.sidebarPos
         local px     = (pos and pos.x) or 0   -- edit-mode drag offset (x)
         local py     = (pos and pos.y) or 0   -- edit-mode drag offset (y)
@@ -1881,6 +2146,7 @@ local function createSidebar()
         local botOff = ((mod.db and mod.db.sidebarBottomOffset) or 0) + py
         sidebar:ClearAllPoints()
         local xOff = ((mod.db and mod.db.sidebarXOffset) or 0) + px
+                     + statsColumnShift()
         sidebar:SetPoint("TOPLEFT",    CharacterFrame, "TOPRIGHT", xOff, topOff)
         sidebar:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMRIGHT", xOff, botOff)
     end
@@ -1913,9 +2179,11 @@ local function createSidebar()
         dump("CharacterFrameInset", _G.CharacterFrameInset)
         dump("PaperDollFrame",      _G.PaperDollFrame)
         dump("Sidebar",             sidebar)
+        dump("StatsColumn",         _G.DCS_StatScrollFrame)
         DEFAULT_CHAT_FRAME:AddMessage(string.format(
-            "  Offsets: top=%d bottom=%d",
-            mod.db.sidebarTopOffset or 0, mod.db.sidebarBottomOffset or 0))
+            "  Offsets: top=%d bottom=%d x=%d statsColumn=%d",
+            mod.db.sidebarTopOffset or 0, mod.db.sidebarBottomOffset or 0,
+            mod.db.sidebarXOffset or 0, statsColumnShift()))
     end
 
     ns.UI:SkinFrame(sidebar, "window")
@@ -2033,6 +2301,22 @@ local function createSidebar()
     mod._layoutSidebarButtons = function()
         local pad = 4 + ns:FrameInset()
         local gap = 4
+
+        -- Rechts bleibt Platz fuer den Scrollbalken, damit er nicht ueber
+        -- dem Aufklapppfeil der Zeilen liegt.
+        local rightEdge = pad + SCROLLBAR_W + 2
+
+        -- Die Breite richtet sich nach dem Symbolraster eines aufgeklappten
+        -- Sets: alle ITEM_COLS Spalten muessen ganz hineinpassen. Der
+        -- Classic-Rahmen ist deutlich breiter als der schlichte, deshalb
+        -- blieben bei fester Breite nur fuenf Spalten uebrig und das
+        -- letzte Symbol jeder Zeile rutschte in die naechste.
+        -- Die 4 sind der Innenabstand, mit dem refreshSidebar die
+        -- Symbolzeile in den Scrollbereich setzt (je 2 links und rechts).
+        local gridW = ITEM_COLS * (ITEM_SIZE + ITEM_PAD) - ITEM_PAD
+        sidebar:SetWidth(math.max(SIDEBAR_MIN_WIDTH,
+            gridW + 4 + pad + rightEdge))
+
         local half = (sidebar:GetWidth() - pad * 2 - gap) / 2
 
         equipBtn:ClearAllPoints()
@@ -2048,11 +2332,8 @@ local function createSidebar()
         newBtn:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -pad, pad)
 
         -- Der Scrollbereich spannt sich zwischen die beiden Knopfreihen.
-        -- Rechts bleibt Platz fuer den Balken, damit er nicht ueber dem
-        -- Aufklapppfeil der Zeilen liegt.
-        local topEdge   = pad + 22 + 6                 -- unter Anlegen/Speichern
-        local botEdge   = pad + 24 + 6                 -- ueber "+ Neues Set"
-        local rightEdge = pad + SCROLLBAR_W + 2
+        local topEdge = pad + 22 + 6                   -- unter Anlegen/Speichern
+        local botEdge = pad + 24 + 6                   -- ueber "+ Neues Set"
 
         scroll:ClearAllPoints()
         scroll:SetPoint("TOPLEFT",     sidebar, "TOPLEFT",     pad, -topEdge)
@@ -2294,6 +2575,14 @@ function mod:OnEnable()
     ns:RegisterEvent("UPDATE_SHAPESHIFT_FORMS", onShapeshiftChange)
     ns:RegisterEvent("PLAYER_REGEN_ENABLED",    onShapeshiftChange)  -- retry leaving combat
 
+    -- Reitgerte. Reittiere setzen einen Buff, deshalb reicht UNIT_AURA -
+    -- PLAYER_MOUNT_DISPLAY_CHANGED gibt es nicht in allen Classic-Builds
+    -- und RegisterEvent wirft bei unbekannten Ereignissen einen Fehler.
+    ns:RegisterEvent("UNIT_AURA",              onMountStateChange)
+    ns:RegisterEvent("UPDATE_SHAPESHIFT_FORM", onMountStateChange)
+    ns:RegisterEvent("PLAYER_REGEN_ENABLED",   onMountStateChange)  -- im Kampf Verschobenes nachholen
+    ns:RegisterEvent("PLAYER_ENTERING_WORLD",  onMountStateChange)
+
     -- Hook every plausible dual-spec event — Anniversary builds vary on which
     -- one actually fires. Plus a 2s polling fallback (startSpecPolling) covers
     -- builds where none of them fire reliably.
@@ -2311,6 +2600,9 @@ function mod:OnEnable()
     -- bei jedem Login ungefragt das an die Spec gebundene Set angelegt.
     _lastForm      = getCurrentForm()
     _lastSpecGroup = getActiveSpecGroup()
+    -- Gleiche Ueberlegung fuer die Reitgerte: wer beim Login schon sitzt,
+    -- soll nicht sofort einen Tausch ausgeloest bekommen.
+    _cropMounted   = wantsMountSpeed()
 
     -- Kurz nach dem Login kann die Talentgruppe noch nicht feststehen;
     -- getActiveSpecGroup faellt dann auf 1 zurueck. Deshalb den Ausgangswert
@@ -2328,6 +2620,12 @@ function mod:OnDisable()
     ns:UnregisterEvent("UPDATE_SHAPESHIFT_FORM",  onShapeshiftChange)
     ns:UnregisterEvent("UPDATE_SHAPESHIFT_FORMS", onShapeshiftChange)
     ns:UnregisterEvent("PLAYER_REGEN_ENABLED",    onShapeshiftChange)
+    ns:UnregisterEvent("UNIT_AURA",               onMountStateChange)
+    ns:UnregisterEvent("UPDATE_SHAPESHIFT_FORM",  onMountStateChange)
+    ns:UnregisterEvent("PLAYER_REGEN_ENABLED",    onMountStateChange)
+    ns:UnregisterEvent("PLAYER_ENTERING_WORLD",   onMountStateChange)
+    -- Die Gerte darf nicht zurueckbleiben, nur weil das Modul aus geht.
+    if _cropState and not InCombatLockdown() then restoreMountSpeedItem() end
     ns:UnregisterEvent("ACTIVE_TALENT_GROUP_CHANGED", onTalentChange)
     ns:UnregisterEvent("PLAYER_TALENT_UPDATE",        onTalentChange)
     ns:UnregisterEvent("CHARACTER_POINTS_CHANGED",    onTalentChange)
@@ -2474,6 +2772,18 @@ function mod:GetOptions()
             get = function() return mod.db.specSwitchEnabled ~= false end,
             set = function(_, v) mod.db.specSwitchEnabled = v end })
     end
+
+    table.insert(items, { type = "spacer", height = 6 })
+    table.insert(items, { type = "header", text = L["Riding Crop"] })
+    table.insert(items, { type = "toggle", label = L["Equip riding crop when mounting"],
+        tooltip = L["Equips the Riding Crop (or Carrot on a Stick) from your bags into a trinket slot when you mount up or shift into flight form, and puts it back when you dismount. Prefers a free trinket slot; otherwise the lower one is used and its item is restored afterwards. Out-of-combat only — a swap that falls into combat is deferred until combat ends."],
+        get = function() return mod.db.ridingCropEnabled == true end,
+        set = function(_, v)
+            mod.db.ridingCropEnabled = v
+            -- Sofort reagieren: einschalten waehrend man reitet legt die
+            -- Gerte gleich an, ausschalten nimmt sie gleich wieder ab.
+            applyMountState(true)
+        end })
 
     table.insert(items, { type = "spacer", height = 8 })
     table.insert(items, { type = "header", text = L["Saved Gear Sets"] })
