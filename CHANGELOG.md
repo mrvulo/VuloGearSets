@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.8.0
+
+- **New switch: equip a speed trinket when mounting.** The Riding Crop (or
+  Carrot on a Stick) moves from your bags into a trinket slot when you mount up
+  and goes back when you dismount, together with the trinket it displaced.
+  Druids in flight form get the Charm of Swift Flight instead — the riding crop
+  only affects mount speed and does nothing in flight form. A free trinket slot
+  is preferred; otherwise the lower one is used. Off by default, out of combat
+  only, and a swap that falls into combat is deferred until combat ends.
+- Switching between mount and flight form swaps only the trinket itself — the
+  slot and the displaced item stay put. If nothing suitable is in your bags, the
+  previous one is put back instead of sitting there uselessly.
+- The remembered state survives a reload, so a speed trinket never gets stuck in
+  your trinket slot.
+- **The sidebar makes room for a stats column.** If another addon attaches its
+  own stats column to the right of the character window, the sidebar now sits
+  outside it instead of on top of it, and follows that column being collapsed or
+  expanded straight away. Without such an addon nothing changes. The gap can be
+  adjusted with `/gearset tune stats <n>`.
+- **The sidebar is wide enough for a full row of item icons.** Its width now
+  follows the icon grid of an expanded set. In the Classic style the frame is
+  wider, and the last icon of every row used to wrap onto the next line.
+
 ## 1.7.1
 
 - **Classic is now the default window style.** Fresh installs start with
