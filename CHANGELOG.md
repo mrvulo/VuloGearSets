@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.1
+
+- **Classic is now the default window style.** Fresh installs start with
+  Blizzard's dialog frame look; a style you already picked is left untouched.
+- The icon picker window got a close button. Long set names in its title are
+  truncated instead of running underneath it.
+
 ## 1.7.0
 
 - **Over 200 new set icons.** The icon picker (right-click a set → Change icon)
