@@ -1271,6 +1271,9 @@ local function showIconPicker(loadoutName, anchor)
         _iconPicker.title:SetPoint("TOPLEFT", _iconPicker, "TOPLEFT", 8, -6)
         _iconPicker.title:SetTextColor(1, 0.82, 0)
 
+        _iconPicker.close = ns.UI:CreateButton(_iconPicker, "X", 18, 18)
+        _iconPicker.close:SetOnClick(function() _iconPicker:Hide() end)
+
         -- Scrollbereich: mit dem Symbolbogen sind es weit ueber 200
         -- Symbole - als starres Gitter waere das Fenster bildschirmhoch.
         -- Mausrad plus schmaler Balken, gleiche Machart wie die
@@ -1408,6 +1411,13 @@ local function showIconPicker(loadoutName, anchor)
 
     _iconPicker.title:ClearAllPoints()
     _iconPicker.title:SetPoint("TOPLEFT", _iconPicker, "TOPLEFT", 8 + inset, -6 - inset)
+
+    _iconPicker.close:ClearAllPoints()
+    _iconPicker.close:SetPoint("TOPRIGHT", _iconPicker, "TOPRIGHT", -(3 + inset), -(3 + inset))
+    -- Lange Set-Namen duerfen nicht unter den X-Button laufen.
+    _iconPicker.title:SetPoint("RIGHT", _iconPicker.close, "LEFT", -4, 0)
+    _iconPicker.title:SetWordWrap(false)
+    _iconPicker.title:SetJustifyH("LEFT")
 
     _iconPicker:SetSize(
         pad * 2 + gridW + ((maxS > 0) and (ICON_SCROLLBAR_W + 3) or 0),

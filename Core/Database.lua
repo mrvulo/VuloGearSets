@@ -15,7 +15,7 @@ function ns:InitDB()
     _G.VuloGearSetsDB = _G.VuloGearSetsDB or {}
     local db = _G.VuloGearSetsDB
     db.modules = db.modules or {}
-    db.style   = db.style or "modern"   -- "modern" | "classic", siehe Core/Skin.lua
+    db.style   = db.style or "classic"  -- "modern" | "classic", siehe Core/Skin.lua
 
     for key, mod in pairs(ns.modules) do
         db.modules[key] = ns:ApplyDefaults(db.modules[key], mod.defaults or {})

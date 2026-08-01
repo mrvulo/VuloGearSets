@@ -16,7 +16,7 @@ local C = ns.COLORS
 ns.UI = ns.UI or {}
 local UI = ns.UI
 
--- Nur diese beiden Werte sind gueltig; alles andere faellt auf modern.
+-- Nur diese beiden Werte sind gueltig; alles andere faellt auf classic.
 ns.STYLES = {
     { value = "modern",  text = "Modern"  },
     { value = "classic", text = "Classic" },
@@ -26,7 +26,7 @@ local registry = {}   -- { [frame] = kind }
 
 function ns:GetStyle()
     local s = ns.db and ns.db.style
-    return (s == "classic") and "classic" or "modern"
+    return (s == "modern") and "modern" or "classic"
 end
 
 -- =========================================================
@@ -175,7 +175,7 @@ function ns:RefreshStyle()
 end
 
 function ns:SetStyle(style)
-    if style ~= "classic" then style = "modern" end
+    if style ~= "modern" then style = "classic" end
     if not ns.db then return end
     ns.db.style = style
     ns:RefreshStyle()
