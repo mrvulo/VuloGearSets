@@ -991,9 +991,15 @@ end
 -- ein Wechsel in den Kampf, wird er bis PLAYER_REGEN_ENABLED aufgehoben.
 -- =========================================================
 -- Reihenfolge = Vorrang. 25653 Reitgerte (TBC, +10%),
--- 11122 Karotte am Stiel (Classic Era, +3%).
+-- 11122 Karotte am Stiel (Classic Era, +3%). Beide wirken auf das
+-- REITtempo und helfen in Fluggestalt deshalb nicht.
 local MOUNT_SPEED_ITEMS = { 25653, 11122 }
-local TRINKET_SLOTS     = { 13, 14 }
+-- 32481 Gluecksbringer des schnellen Fluges: "Erhoeht das Tempo in Flug-
+-- und Schneller Fluggestalt um 10%". Nutzt also ausschliesslich Druiden
+-- in Fluggestalt - dort wiederum bringt die Reitgerte nichts. Die beiden
+-- Listen schliessen sich aus, statt sich zu ergaenzen.
+local FLIGHT_SPEED_ITEMS = { 32481 }
+local TRINKET_SLOTS      = { 13, 14 }
 -- Fluggestalt und Schnelle Fluggestalt. In Classic Era gibt es die Zauber
 -- nicht - GetSpellInfo liefert dann nil und der Eintrag entfaellt.
 local FLIGHT_FORM_SPELLS = { 33943, 40120 }
@@ -1007,8 +1013,8 @@ local FLIGHT_FORM_SPELLS = { 33943, 40120 }
 local function cropState()      return charDB().cropState end
 local function setCropState(v)  charDB().cropState = v    end
 
-local _cropMounted = false -- letzter bekannter Reitzustand
-local _cropPending = false -- Wechsel faellig, aber Kampf war im Weg
+local _cropStateKey = "none" -- letzter bekannter Zustand: none | mount | fly
+local _cropPending  = false  -- Wechsel faellig, aber Kampf war im Weg
 
 -- Die lokalisierten Gestaltnamen einmal aufloesen. GetSpellInfo ist billig,
 -- aber UNIT_AURA feuert oft genug, dass sich das Merken lohnt.
@@ -1040,28 +1046,61 @@ local function isFlightForm()
     return flightFormNames()[fname] == true
 end
 
-local function wantsMountSpeed()
-    if IsMounted and IsMounted() then return true end
-    return isFlightForm()
+local _isDruid
+local function isDruid()
+    if _isDruid == nil then
+        local _, class = UnitClass("player")
+        _isDruid = (class == "DRUID")
+    end
+    return _isDruid
 end
 
--- Traegt der Spieler die Gerte ohnehin schon? Dann ist hier nichts zu tun.
-local function wornCropSlot()
+-- Grober Zustand, aus dem sich der passende Gegenstand ergibt. Absichtlich
+-- billig: UNIT_AURA feuert staendig, und der teure Taschendurchlauf soll
+-- erst laufen, wenn sich hier wirklich etwas geaendert hat.
+--
+-- Fluggestalt zuerst pruefen: sie zaehlt je nach Build auch als "beritten",
+-- braucht aber den Gluecksbringer statt der Reitgerte.
+local function mountStateKey()
+    if isDruid() and isFlightForm() then return "fly" end
+    if IsMounted and IsMounted() then return "mount" end
+    return "none"
+end
+
+-- Welche Gegenstaende im jeweiligen Zustand etwas bringen.
+local function itemsForState(key)
+    if key == "fly"   then return FLIGHT_SPEED_ITEMS end
+    if key == "mount" then return MOUNT_SPEED_ITEMS  end
+    return nil
+end
+
+-- Steckt einer der Gegenstuecke aus der Liste schon im Schmuckslot?
+local function wornSlotOf(list)
+    if not list then return nil end
     for _, s in ipairs(TRINKET_SLOTS) do
         local id = getItemIDFromLink(GetInventoryItemLink("player", s))
         if id then
-            for _, cropID in ipairs(MOUNT_SPEED_ITEMS) do
-                if id == cropID then return s end
+            for _, wantID in ipairs(list) do
+                if id == wantID then return s, id end
             end
         end
     end
     return nil
 end
 
-local function findCropInBags()
-    for _, cropID in ipairs(MOUNT_SPEED_ITEMS) do
-        local bag, bagSlot = findItemInBags(cropID)
-        if bag then return bag, bagSlot end
+-- Alles, was wir selbst anlegen - egal fuer welchen Zustand. Brauchen wir
+-- beim Zuruecklegen: dort zaehlt, wo das Teil JETZT steckt.
+local function wornManagedSlot()
+    local slot, id = wornSlotOf(FLIGHT_SPEED_ITEMS)
+    if slot then return slot, id end
+    return wornSlotOf(MOUNT_SPEED_ITEMS)
+end
+
+local function findInBags(list)
+    if not list then return nil end
+    for _, wantID in ipairs(list) do
+        local bag, bagSlot = findItemInBags(wantID)
+        if bag then return bag, bagSlot, wantID end
     end
     return nil
 end
@@ -1080,10 +1119,10 @@ local function stowCursorItem()
     if CursorHasItem and CursorHasItem() then ClearCursor() end
 end
 
-local function equipMountSpeedItem()
-    if cropState() then return end      -- steckt schon durch uns im Slot
-    if wornCropSlot() then return end   -- der Spieler traegt sie selbst
-    local bag, bagSlot = findCropInBags()
+local function equipMountSpeedItem(list)
+    if cropState() then return end       -- steckt schon durch uns im Slot
+    if wornSlotOf(list) then return end  -- der Spieler traegt es selbst
+    local bag, bagSlot = findInBags(list)
     if not bag then return end
 
     -- Freien Schmuckslot bevorzugen. Ist keiner frei, muss der untere
@@ -1110,14 +1149,14 @@ local function restoreMountSpeedItem()
     if not state then return end
     setCropState(nil)
 
-    -- Wo die Gerte JETZT steckt, nicht wo wir sie hingelegt haben: nach
+    -- Wo unser Teil JETZT steckt, nicht wo wir es hingelegt haben: nach
     -- einem /reload kann der Spieler selbst umgesteckt haben. Traegt er
-    -- sie gar nicht mehr, ist der gemerkte Zustand veraltet und wir
-    -- fassen nichts an - sonst raeumten wir ein fremdes Schmuckstueck ab.
-    local slot = wornCropSlot()
+    -- keines mehr, ist der gemerkte Zustand veraltet und wir fassen
+    -- nichts an - sonst raeumten wir ein fremdes Schmuckstueck ab.
+    local slot = wornManagedSlot()
     if not slot then return end
 
-    -- War der Slot vorher belegt, legt das alte Teil die Gerte von selbst
+    -- War der Slot vorher belegt, legt das alte Teil unseres von selbst
     -- ab - ein Tausch statt zweier Einzelschritte.
     if state.prevLink then
         local id = getItemIDFromLink(state.prevLink)
@@ -1130,7 +1169,7 @@ local function restoreMountSpeedItem()
     end
 
     -- Slot war vorher leer (oder das alte Teil ist nicht auffindbar):
-    -- Gerte einfach in die Taschen zuruecklegen.
+    -- unseres einfach in die Taschen zuruecklegen.
     if PickupInventoryItem then
         ClearCursor()
         PickupInventoryItem(slot)
@@ -1138,22 +1177,53 @@ local function restoreMountSpeedItem()
     end
 end
 
--- force = auch handeln, wenn sich der Reitzustand nicht geaendert hat.
--- Braucht der Schalter in den Optionen: wer ihn im Sattel umlegt, erwartet
--- eine sofortige Wirkung, obwohl _cropMounted schon stimmt.
+-- Wechsel zwischen Reittier und Fluggestalt: nur der Gegenstand im Slot
+-- wechselt, der Slot und das dafuer verdraengte Teil bleiben. Sonst wuerde
+-- erst zurueckgelegt und dann neu verdraengt - zwei Umsteckvorgaenge und
+-- ein kurzer Moment, in dem das alte Schmuckstueck wieder sichtbar ist.
+--
+-- Grundregel dahinter: im Slot steckt nur, was im aktuellen Zustand auch
+-- wirklich etwas bringt. Nichts Passendes da heisst zurueckraeumen.
+local function swapMountSpeedItem(list)
+    local state = cropState()
+    if not state then return end
+    local slot = wornManagedSlot()
+    if not slot then
+        -- Nicht mehr auffindbar: Zustand ist veraltet, sauber neu anfangen.
+        setCropState(nil)
+        equipMountSpeedItem(list)
+        return
+    end
+    -- Kein Ersatz in den Taschen: dann raeumen wir das bisherige zurueck,
+    -- statt es liegen zu lassen. Es hilft im neuen Zustand nicht mehr, und
+    -- wer aus der Fluggestalt heraus in einen Kampf geraet, haette es sonst
+    -- bis zum Kampfende im Slot - Zuruecklegen ist im Kampf gesperrt.
+    local bag, bagSlot = findInBags(list)
+    if not bag then
+        restoreMountSpeedItem()
+        return
+    end
+    if ns:EquipBagItemToSlot(bag, bagSlot, slot) then
+        setCropState({ slot = slot, prevLink = state.prevLink })
+    end
+end
+
+-- force = auch handeln, wenn sich der Zustand nicht geaendert hat. Braucht
+-- der Schalter in den Optionen: wer ihn im Sattel umlegt, erwartet eine
+-- sofortige Wirkung, obwohl _cropState schon stimmt.
 local function applyMountState(force)
     if not mod._enabled or not mod.db then return end
 
     if not mod.db.ridingCropEnabled then
-        -- Ausgeschaltet, waehrend die Gerte von uns angelegt war: zurueck,
-        -- sonst bliebe sie fuer immer im Schmuckslot stehen.
+        -- Ausgeschaltet, waehrend unser Teil angelegt war: zurueck, sonst
+        -- bliebe es fuer immer im Schmuckslot stehen.
         if cropState() and not InCombatLockdown() then restoreMountSpeedItem() end
         return
     end
 
-    local want = wantsMountSpeed()
-    if want == _cropMounted and not _cropPending and not force then return end
-    _cropMounted = want
+    local key = mountStateKey()
+    if key == _cropStateKey and not _cropPending and not force then return end
+    _cropStateKey = key
 
     if InCombatLockdown() then
         _cropPending = true
@@ -1161,7 +1231,17 @@ local function applyMountState(force)
     end
     _cropPending = false
 
-    if want then equipMountSpeedItem() else restoreMountSpeedItem() end
+    local list = itemsForState(key)
+    if not list then
+        restoreMountSpeedItem()
+    elseif cropState() then
+        -- Schon etwas von uns drin. Passt es zum neuen Zustand, bleibt es
+        -- liegen; sonst wird an Ort und Stelle getauscht (Reittier <-> Flug).
+        if wornSlotOf(list) then return end
+        swapMountSpeedItem(list)
+    else
+        equipMountSpeedItem(list)
+    end
 end
 
 local function onMountStateChange(event, unit)
@@ -2602,7 +2682,7 @@ function mod:OnEnable()
     _lastSpecGroup = getActiveSpecGroup()
     -- Gleiche Ueberlegung fuer die Reitgerte: wer beim Login schon sitzt,
     -- soll nicht sofort einen Tausch ausgeloest bekommen.
-    _cropMounted   = wantsMountSpeed()
+    _cropStateKey  = mountStateKey()
 
     -- Kurz nach dem Login kann die Talentgruppe noch nicht feststehen;
     -- getActiveSpecGroup faellt dann auf 1 zurueck. Deshalb den Ausgangswert
@@ -2774,9 +2854,9 @@ function mod:GetOptions()
     end
 
     table.insert(items, { type = "spacer", height = 6 })
-    table.insert(items, { type = "header", text = L["Riding Crop"] })
-    table.insert(items, { type = "toggle", label = L["Equip riding crop when mounting"],
-        tooltip = L["Equips the Riding Crop (or Carrot on a Stick) from your bags into a trinket slot when you mount up or shift into flight form, and puts it back when you dismount. Prefers a free trinket slot; otherwise the lower one is used and its item is restored afterwards. Out-of-combat only — a swap that falls into combat is deferred until combat ends."],
+    table.insert(items, { type = "header", text = L["Mount Speed Trinket"] })
+    table.insert(items, { type = "toggle", label = L["Equip speed trinket when mounting"],
+        tooltip = L["Equips the Riding Crop (or Carrot on a Stick) from your bags into a trinket slot when you mount up, and puts it back when you dismount. Druids in flight form get the Charm of Swift Flight instead — the riding crop only affects mount speed and does nothing in flight form. Prefers a free trinket slot; otherwise the lower one is used and its item is restored afterwards. Out-of-combat only — a swap that falls into combat is deferred until combat ends."],
         get = function() return mod.db.ridingCropEnabled == true end,
         set = function(_, v)
             mod.db.ridingCropEnabled = v
