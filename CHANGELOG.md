@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.7.0
+
+- **Over 200 new set icons.** The icon picker (right-click a set → Change icon)
+  now offers a large hand-drawn icon collection on top of the set's own item
+  icons and the role symbols. The picker got a scroll area for it: eight columns,
+  mouse wheel, and a thin bar on the right.
+- **Equipping can now swap worn items between slots.** If a set's ring or
+  trinket is already on your character but sitting in the other slot, Equip
+  moves it over instead of reporting it missing — crossed pairs are sorted out
+  in one go. Works for weapons too; an item displaced from its slot goes back
+  to the other slot or into your bags.
+- **Status dots count copies, not item IDs.** A set holding two identical rings
+  or trinkets used to show "equipped" as soon as one copy was worn; now each
+  piece needs its own copy, so "ready" and "missing" are reported correctly.
+- The green dot now means every piece sits in its intended slot. Crossed pairs
+  show as ready instead — matching what the Equip button will actually do.
+- The bank detection is more precise: bag copies no longer count as bank copies.
+- Sidebar and minimap button reappear right away when the module is re-enabled,
+  instead of staying hidden until a reload.
+- The settings window reuses its widgets instead of rebuilding everything on
+  each change — repeated saving, deleting, or style switching no longer piles
+  up discarded frames.
+- The sidebar status refresh is batched: equipping a full set updates the list
+  once instead of once per swapped item.
+- Renaming an expanded set keeps it expanded.
+- Event handlers are cleanly unregistered when the module is disabled, and
+  translations are cached after the first lookup.
+
 ## 1.6.2
 
 - Gear sets can be **renamed**: right-click a set in the sidebar and pick

@@ -2,7 +2,7 @@
 ## Title: |cff9b6cffVuloGearSets|r
 ## Notes: Equipment set manager for TBC Classic Anniversary
 ## Author: Vulo
-## Version: 1.6.2
+## Version: 1.7.0
 ## X-Curse-Project-ID: 1629333
 ## X-Wago-ID: b6mv8yKP
 ## SavedVariables: VuloGearSetsDB
