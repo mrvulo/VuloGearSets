@@ -64,6 +64,7 @@ end
 local GetContainerItemID    = (C_Container and C_Container.GetContainerItemID)    or _G.GetContainerItemID
 local GetContainerNumSlots  = (C_Container and C_Container.GetContainerNumSlots)  or _G.GetContainerNumSlots
 local UseContainerItem      = (C_Container and C_Container.UseContainerItem)      or _G.UseContainerItem
+local ContainerIDToInventoryID = (C_Container and C_Container.ContainerIDToInventoryID) or _G.ContainerIDToInventoryID
 
 -- Equipment slots we capture (skip shirt=4 and tabard=19)
 local EQUIP_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 }
@@ -84,7 +85,6 @@ ns.SLOT_NAMES = SLOT_NAMES
 
 -- Pre-defined slot groups for quick-save
 local SLOT_GROUPS = {
-    all      = EQUIP_SLOTS,
     trinkets = { 13, 14 },
     weapons  = { 16, 17, 18 },
     rings    = { 11, 12 },
@@ -154,6 +154,63 @@ function ns:EquipBagItemToSlot(bag, bagSlot, equipSlot)
     return ok
 end
 
+-- =========================================================
+-- Ein bereits GETRAGENES Teil in einen anderen Slot verschieben.
+-- Faelle: Ringe oder Schmuckstuecke ueber Kreuz angelegt, oder ein Set
+-- will die Waffe im jeweils anderen Haendchen-Slot. Vom Quell-Slot auf
+-- den Cursor, in den Ziel-Slot anlegen; das dabei verdraengte Teil
+-- landet auf dem Cursor und geht zurueck in den Quell-Slot (bei Paar-
+-- Slots immer gueltig) - passt es dort nicht, in die Taschen.
+-- =========================================================
+local function swapWornItem(fromSlot, toSlot)
+    if InCombatLockdown() then return false end
+    if not (_G.PickupInventoryItem and _G.EquipCursorItem) then return false end
+
+    ClearCursor()
+    PickupInventoryItem(fromSlot)
+    if CursorHasItem and not CursorHasItem() then return false end
+    local ok = pcall(EquipCursorItem, toSlot)
+
+    -- Verdraengtes Teil zuerst in den freigewordenen Quell-Slot.
+    if CursorHasItem and CursorHasItem() then
+        pcall(EquipCursorItem, fromSlot)
+    end
+    -- Passt es dort nicht (z. B. Zweihaender in die Schildhand), in die
+    -- Taschen damit.
+    if CursorHasItem and CursorHasItem() then
+        if PutItemInBackpack then pcall(PutItemInBackpack) end
+        if CursorHasItem() and PutItemInBag and ContainerIDToInventoryID then
+            for bag = 1, (NUM_BAG_SLOTS or 4) do
+                if not CursorHasItem() then break end
+                pcall(PutItemInBag, ContainerIDToInventoryID(bag))
+            end
+        end
+    end
+    -- Immer noch belegt: Abbruch der Aktion, das Teil kehrt an seinen
+    -- Ursprung zurueck.
+    if CursorHasItem and CursorHasItem() then
+        ClearCursor()
+    end
+    return ok
+end
+
+-- Slot suchen, der das gewuenschte Teil gerade traegt - aber keinen
+-- anpacken, der laut Set schon richtig bestueckt ist (zwei Exemplare
+-- derselben ID: das korrekt sitzende bleibt, wo es ist).
+local function findWornElsewhere(itemID, targetSlot, loadout)
+    for _, s in ipairs(EQUIP_SLOTS) do
+        if s ~= targetSlot then
+            local wornID = getItemIDFromLink(GetInventoryItemLink("player", s))
+            if wornID == itemID then
+                local wantedLink = loadout.slots and loadout.slots[s]
+                local wantedID   = wantedLink and getItemIDFromLink(wantedLink)
+                if wantedID ~= wornID then return s end
+            end
+        end
+    end
+    return nil
+end
+
 local function countSlots(loadout)
     local n = 0
     if loadout and loadout.slots then
@@ -181,70 +238,128 @@ end
 -- abzufragen. Bei mehreren Sets mit je bis zu 17 Teilen macht das den
 -- Unterschied. Der Index gilt nur fuer diesen Frame - Taschen und
 -- Ausruestung koennen sich unmittelbar danach aendern.
+-- Der Index zaehlt EXEMPLARE, nicht nur IDs: zwei gleiche Ringe oder
+-- Schmuckstuecke im Set verbrauchen zwei Kopien aus dem Bestand. Vorher
+-- galt das zweite Exemplar als "angelegt", sobald das erste getragen
+-- wurde - auch wenn es in der Tasche lag oder ganz fehlte.
 local availIndex
 local function buildAvailIndex()
-    local idx = {}
+    local idx = { wornBySlot = {}, worn = {}, bags = {} }
     for _, s in ipairs(EQUIP_SLOTS) do
-        local l = GetInventoryItemLink("player", s)
-        local id = l and getItemIDFromLink(l)
-        if id then idx[id] = "equipped" end
+        local id = getItemIDFromLink(GetInventoryItemLink("player", s))
+        if id then
+            idx.wornBySlot[s] = id
+            idx.worn[id] = (idx.worn[id] or 0) + 1
+        end
     end
     if GetContainerItemID and GetContainerNumSlots then
         for bag = 0, (NUM_BAG_SLOTS or 4) do
             for slot = 1, (GetContainerNumSlots(bag) or 0) do
                 local id = GetContainerItemID(bag, slot)
-                if id and not idx[id] then idx[id] = "bags" end
+                if id then idx.bags[id] = (idx.bags[id] or 0) + 1 end
             end
         end
     end
     return idx
 end
 
-local function itemAvailability(id)
-    if not id then return nil end
+local function getAvailIndex()
     if not availIndex then
         availIndex = buildAvailIndex()
         if C_Timer and C_Timer.After then
             C_Timer.After(0, function() availIndex = nil end)
         end
     end
-    local a = availIndex[id]
-    if a then return a end
-    -- Die Bank kennt der Client nur, wenn sie schon einmal offen war.
-    if GetItemCount and GetItemCount(id, true) > 0 then return "bank" end
-    return nil
+    return availIndex
 end
 
 local function getSetStatus(name)
     local set = LO()[name]
     if not set or not set.slots then return nil end
 
+    local idx = getAvailIndex()
     local worn, inBags, inBank, missing = {}, {}, {}, {}
     local total = 0
+
+    -- Verbleibende Exemplare je ID, nur fuer die IDs dieses Sets. Jeder
+    -- Verbrauch ist lokal fuer diesen Aufruf - der Index bleibt unberuehrt,
+    -- damit das naechste Set wieder mit vollem Bestand rechnet.
+    local wornLeft, bagLeft, bankLeft = {}, {}, {}
+    local entries = {}
 
     for slot, link in pairs(set.slots) do
         total = total + 1
         local id = getItemIDFromLink(link)
         local itemName = (link:match("|h%[(.-)%]|h")) or link
-        local entry = { slot = slot, name = itemName, link = link }
+        local entry = { slot = slot, name = itemName, link = link, id = id }
+        entries[#entries + 1] = entry
+        if id and wornLeft[id] == nil then
+            wornLeft[id] = idx.worn[id] or 0
+            bagLeft[id]  = idx.bags[id] or 0
+        end
+    end
 
-        local where = itemAvailability(id)
-        if where == "equipped" then
-            table.insert(worn, entry)
-        elseif where == "bags" then
-            table.insert(inBags, entry)
-        elseif where == "bank" then
-            table.insert(inBank, entry)
+    -- Durchgang 1: im vorgesehenen Slot getragen. Zuerst, damit ein im
+    -- richtigen Slot sitzendes Teil sein Exemplar sicher bekommt und nicht
+    -- ein anderes Set-Teil mit gleicher ID es ihm wegnimmt.
+    local exact = 0
+    for _, e in ipairs(entries) do
+        if e.id and idx.wornBySlot[e.slot] == e.id and wornLeft[e.id] > 0 then
+            wornLeft[e.id] = wornLeft[e.id] - 1
+            e.where = "worn"
+            exact = exact + 1
+        end
+    end
+
+    -- Durchgang 2: Rest aus Taschen, anderswo angelegt (z. B. vertauschte
+    -- Ringe), zuletzt Bank.
+    for _, e in ipairs(entries) do
+        local id = e.id
+        if not e.where and id then
+            if bagLeft[id] > 0 then
+                bagLeft[id] = bagLeft[id] - 1
+                e.where = "bags"
+            elseif wornLeft[id] > 0 then
+                wornLeft[id] = wornLeft[id] - 1
+                e.where = "worn"
+            elseif GetItemCount then
+                if bankLeft[id] == nil then
+                    -- Die Bank kennt der Client nur, wenn sie schon einmal
+                    -- offen war. Sie ist die Differenz der beiden Zaehlungen;
+                    -- ob GetItemCount Angelegtes mitzaehlt, kuerzt sich
+                    -- dabei heraus.
+                    bankLeft[id] = (GetItemCount(id, true) or 0)
+                                 - (GetItemCount(id) or 0)
+                end
+                if bankLeft[id] > 0 then
+                    bankLeft[id] = bankLeft[id] - 1
+                    e.where = "bank"
+                end
+            end
+        end
+    end
+
+    for _, e in ipairs(entries) do
+        if e.where == "worn" then
+            worn[#worn + 1] = e
+        elseif e.where == "bags" then
+            inBags[#inBags + 1] = e
+        elseif e.where == "bank" then
+            inBank[#inBank + 1] = e
         else
-            table.insert(missing, entry)
+            missing[#missing + 1] = e
         end
     end
 
     if total == 0 then return nil end
+    -- "Angelegt" heisst: jedes Teil sitzt in SEINEM Slot. Vertauschte
+    -- Ringe oder Schmuckstuecke zaehlen als "bereit" - das Anlegen kann
+    -- sie inzwischen umsortieren (swapWornItem), und der Punkt soll
+    -- dasselbe sagen wie der Knopf.
     local state = "ready"
     if #missing > 0 then
         state = "missing"
-    elseif #worn == total then
+    elseif exact == total then
         state = "equipped"
     end
     return {
@@ -413,7 +528,16 @@ local function equipLoadout(name)
                     end
                     if ok then swapped = swapped + 1 else missing = missing + 1 end
                 else
-                    missing = missing + 1
+                    -- Nicht in den Taschen: vielleicht schon angelegt, nur im
+                    -- falschen Slot (Ringe/Schmuck ueber Kreuz). Dann von dort
+                    -- herueberholen - das tauscht bei Paar-Slots beide in einem
+                    -- Zug, der zweite Slot stimmt danach von selbst.
+                    local srcSlot = findWornElsewhere(itemID, slot, loadout)
+                    if srcSlot and swapWornItem(srcSlot, slot) then
+                        swapped = swapped + 1
+                    else
+                        missing = missing + 1
+                    end
                 end
             end
         end
@@ -661,7 +785,7 @@ local mmBtn
 
 local function updateMinimapPos()
     if not mmBtn then return end
-    local angle = (mod.db.minimap and mod.db.minimap.angle) or -45
+    local angle = (mod.db.minimap and mod.db.minimap.angle) or 45
     local rad = math.rad(angle)
     local r = 80  -- distance from minimap center
     local x = r * math.cos(rad)
@@ -1082,8 +1206,16 @@ end
 local _iconPicker
 local _iconBtns = {}
 local ICON_SIZE = 30
-local ICON_COLS = 6
+local ICON_COLS = 8
 local ICON_PAD  = 3
+-- Sichtbare Zeilen des Auswahlfensters; alles darueber hinaus scrollt.
+local ICON_VISIBLE_ROWS = 8
+local ICON_SCROLLBAR_W  = 4
+
+-- Der zerlegte Symbolbogen: Media/Icons/sets/set_1.tga .. set_N.tga.
+-- Die Zahl muss zur Anzahl der Dateien im Ordner passen.
+local SHEET_ICON_COUNT = 209
+local SHEET_ICON_PATH  = "Interface\\AddOns\\VuloGearSets\\Media\\Icons\\sets\\set_"
 
 -- A few hand-picked generic icons (roles/specs) so a set can use a symbol
 -- that isn't one of its items.
@@ -1107,7 +1239,9 @@ local GENERIC_ICONS = {
 local function getIconPickerButton(idx)
     local b = _iconBtns[idx]
     if b then return b end
-    b = CreateFrame("Button", nil, _iconPicker)
+    -- Die Knoepfe liegen im Scroll-Kind, damit der ScrollFrame sie am
+    -- Rand des Sichtfensters abschneidet.
+    b = CreateFrame("Button", nil, _iconPicker.scrollChild)
     b:SetSize(ICON_SIZE, ICON_SIZE)
     b.tex = b:CreateTexture(nil, "ARTWORK")
     b.tex:SetAllPoints(b)
@@ -1136,6 +1270,49 @@ local function showIconPicker(loadoutName, anchor)
         _iconPicker.title = _iconPicker:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         _iconPicker.title:SetPoint("TOPLEFT", _iconPicker, "TOPLEFT", 8, -6)
         _iconPicker.title:SetTextColor(1, 0.82, 0)
+
+        -- Scrollbereich: mit dem Symbolbogen sind es weit ueber 200
+        -- Symbole - als starres Gitter waere das Fenster bildschirmhoch.
+        -- Mausrad plus schmaler Balken, gleiche Machart wie die
+        -- Seitenleiste.
+        local scroll = CreateFrame("ScrollFrame", nil, _iconPicker)
+        local child  = CreateFrame("Frame", nil, scroll)
+        child:SetSize(1, 1)
+        scroll:SetScrollChild(child)
+        scroll:EnableMouseWheel(true)
+
+        local sbar = CreateFrame("Frame", nil, _iconPicker)
+        sbar:SetWidth(ICON_SCROLLBAR_W)
+        sbar:Hide()
+        local track = sbar:CreateTexture(nil, "BACKGROUND")
+        track:SetAllPoints(sbar)
+        track:SetColorTexture(0, 0, 0, 0.25)
+        local thumb = sbar:CreateTexture(nil, "ARTWORK")
+        thumb:SetWidth(ICON_SCROLLBAR_W)
+
+        local function updateThumb()
+            local viewH    = scroll:GetHeight() or 0
+            local contentH = scroll._contentH or 0
+            local maxS     = scroll._maxScroll or 0
+            if maxS <= 0 or viewH <= 0 or contentH <= 0 then return end
+            local thumbH = math.min(viewH, math.max(16, viewH * (viewH / contentH)))
+            local frac   = scroll:GetVerticalScroll() / maxS
+            thumb:SetHeight(thumbH)
+            thumb:ClearAllPoints()
+            thumb:SetPoint("TOP", sbar, "TOP", 0, -(frac * (viewH - thumbH)))
+        end
+        scroll:SetScript("OnVerticalScroll", updateThumb)
+        scroll:SetScript("OnMouseWheel", function(self, delta)
+            local maxS = self._maxScroll or 0
+            if maxS <= 0 then return end
+            local new = self:GetVerticalScroll() - delta * (ICON_SIZE + ICON_PAD) * 2
+            if new < 0 then new = 0 elseif new > maxS then new = maxS end
+            self:SetVerticalScroll(new)
+        end)
+
+        _iconPicker.scroll, _iconPicker.scrollChild = scroll, child
+        _iconPicker.sbar, _iconPicker.thumb = sbar, thumb
+        _iconPicker.updateThumb = updateThumb
     end
 
     _iconPicker.title:SetText(string.format(L["Icon for: %s"], loadoutName))
@@ -1163,11 +1340,18 @@ local function showIconPicker(loadoutName, anchor)
             table.insert(icons, { tex = ic })
         end
     end
+    -- Zum Schluss der zerlegte Symbolbogen.
+    for i = 1, SHEET_ICON_COUNT do
+        local path = SHEET_ICON_PATH .. i
+        if not seen[path] then
+            seen[path] = true
+            table.insert(icons, { tex = path })
+        end
+    end
 
     -- Hide leftover buttons
     for _, b in ipairs(_iconBtns) do b:Hide() end
 
-    local startY = 24
     for i, entry in ipairs(icons) do
         local b = getIconPickerButton(i)
         b:Show()
@@ -1188,15 +1372,46 @@ local function showIconPicker(loadoutName, anchor)
         local col = (i - 1) % ICON_COLS
         local row = math.floor((i - 1) / ICON_COLS)
         b:ClearAllPoints()
-        b:SetPoint("TOPLEFT", _iconPicker, "TOPLEFT",
-            6 + col * (ICON_SIZE + ICON_PAD),
-            -(startY + row * (ICON_SIZE + ICON_PAD)))
+        b:SetPoint("TOPLEFT", _iconPicker.scrollChild, "TOPLEFT",
+            col * (ICON_SIZE + ICON_PAD),
+            -(row * (ICON_SIZE + ICON_PAD)))
     end
 
-    local numRows = math.ceil(#icons / ICON_COLS)
+    -- Layout: das Sichtfenster zeigt hoechstens ICON_VISIBLE_ROWS Zeilen,
+    -- der Rest scrollt. Der Innenabstand haengt am Stil (Classic-Rahmen
+    -- ist breiter), deshalb wird hier bei jedem Oeffnen neu verankert.
+    local inset    = ns:FrameInset()
+    local pad      = 6 + inset
+    local startY   = 24 + inset
+    local numRows  = math.ceil(#icons / ICON_COLS)
+    local visRows  = math.min(numRows, ICON_VISIBLE_ROWS)
+    local gridW    = ICON_COLS * (ICON_SIZE + ICON_PAD) - ICON_PAD
+    local viewH    = visRows * (ICON_SIZE + ICON_PAD) - ICON_PAD
+    local contentH = numRows * (ICON_SIZE + ICON_PAD) - ICON_PAD
+
+    local scroll, child, sbar = _iconPicker.scroll, _iconPicker.scrollChild, _iconPicker.sbar
+    scroll:ClearAllPoints()
+    scroll:SetPoint("TOPLEFT", _iconPicker, "TOPLEFT", pad, -startY)
+    scroll:SetSize(gridW, viewH)
+    child:SetSize(gridW, math.max(contentH, viewH))
+
+    sbar:ClearAllPoints()
+    sbar:SetPoint("TOPLEFT",    scroll, "TOPRIGHT", 3, 0)
+    sbar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", 3, 0)
+
+    local maxS = math.max(0, contentH - viewH)
+    scroll._contentH, scroll._maxScroll = contentH, maxS
+    scroll:SetVerticalScroll(0)
+    _iconPicker.thumb:SetColorTexture(ns:AccentColor())
+    sbar:SetShown(maxS > 0)
+    _iconPicker.updateThumb()
+
+    _iconPicker.title:ClearAllPoints()
+    _iconPicker.title:SetPoint("TOPLEFT", _iconPicker, "TOPLEFT", 8 + inset, -6 - inset)
+
     _iconPicker:SetSize(
-        ICON_COLS * (ICON_SIZE + ICON_PAD) + 12,
-        startY + numRows * (ICON_SIZE + ICON_PAD) + 8)
+        pad * 2 + gridW + ((maxS > 0) and (ICON_SCROLLBAR_W + 3) or 0),
+        startY + viewH + pad)
 
     _iconPicker:ClearAllPoints()
     if anchor and anchor.GetLeft then
@@ -1958,6 +2173,9 @@ renameLoadout = function(oldName, newName)
     if not finalName then return end
     if sidebar then
         if sidebarSelected == oldName then sidebarSelected = finalName end
+        -- Auch die Aufklapp-Markierung mitziehen, sonst klappt ein gerade
+        -- offenes Set beim Umbenennen kommentarlos zu.
+        if sidebarExpanded == oldName then sidebarExpanded = finalName end
         refreshSidebar()
     end
     if ns.RefreshOptions then ns:RefreshOptions() end
@@ -1967,11 +2185,41 @@ end
 -- =========================================================
 -- Lifecycle
 -- =========================================================
+-- Statuspunkte nachziehen, wenn sich Ausruestung oder Taschen aendern.
+-- Nur wenn die Leiste sichtbar ist - sonst waere es Arbeit fuer nichts.
+--
+-- Entprellt: beim Anlegen eines Sets feuert UNIT_INVENTORY_CHANGED einmal
+-- pro getauschtem Teil. Ohne Sammelaufruf wuerde die Leiste dann fuer
+-- jedes Teil einzeln komplett neu aufgebaut.
+--
+-- Auf Dateiebene statt in OnEnable, damit An- und Abmelden dieselbe
+-- Funktion sehen - ein erneutes OnEnable stapelte sonst immer neue Handler.
+local _statusRefreshQueued = false
+local function refreshStatusDots()
+    if not (sidebar and sidebar:IsShown()) then return end
+    if not (C_Timer and C_Timer.After) then
+        refreshSidebar()
+        return
+    end
+    if _statusRefreshQueued then return end
+    _statusRefreshQueued = true
+    C_Timer.After(0.05, function()
+        _statusRefreshQueued = false
+        if mod._enabled and sidebar and sidebar:IsShown() then
+            refreshSidebar()
+        end
+    end)
+end
+
+local function onInventoryChanged(_, unit)
+    if unit == "player" or unit == nil then refreshStatusDots() end
+end
+
 function mod:OnEnable()
     if not mod.db then return end
     -- Ensure per-character tables exist (the accessors create them lazily)
     LO(); formMap(); specMap()
-    mod.db.minimap     = mod.db.minimap     or { hidden = false, angle = -45 }
+    mod.db.minimap     = mod.db.minimap     or { hidden = false, angle = 45 }
 
     -- Migration: legacy loadouts without slotMask → derive from currently saved slots
     for _, loadout in pairs(LO()) do
@@ -2004,25 +2252,32 @@ function mod:OnEnable()
     end
 
     -- Create minimap button (deferred so Minimap definitely exists)
-    if C_Timer and C_Timer.After then
-        C_Timer.After(0.5, createMinimapButton)
-        C_Timer.After(0.5, createSidebar)
-    else
+    --
+    -- Beim WIEDEREINSCHALTEN existieren Knopf und Leiste schon und die
+    -- create-Funktionen kehren sofort zurueck - OnDisable hat aber beide
+    -- versteckt. Sichtbar machen muss sie deshalb der jeweilige
+    -- apply-Aufruf, sonst blieben sie bis zum /reload verschwunden.
+    local function setupUI()
         createMinimapButton()
         createSidebar()
+        applyMinimapVisibility()
+        applySidebarVisibility()
+    end
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.5, function()
+            -- Wurde das Modul innerhalb der Verzoegerung schon wieder
+            -- ausgeschaltet, darf der Timer nichts einblenden. Die Leiste
+            -- prueft das selbst, der Minimap-Knopf nicht. Nur im
+            -- Timer-Pfad pruefen: beim synchronen Aufruf direkt aus
+            -- OnEnable steht _enabled noch auf false (SafeEnable setzt
+            -- es erst danach).
+            if mod._enabled then setupUI() end
+        end)
+    else
+        setupUI()
     end
 
-    -- Hook stance/form events
-    -- Statuspunkte nachziehen, wenn sich Ausruestung oder Taschen aendern.
-    -- Nur wenn die Leiste sichtbar ist - sonst waere es Arbeit fuer nichts.
-    local function refreshStatusDots()
-        if sidebar and sidebar:IsShown() and mod._refreshSidebar then
-            mod._refreshSidebar()
-        end
-    end
-    ns:RegisterEvent("UNIT_INVENTORY_CHANGED", function(_, unit)
-        if unit == "player" or unit == nil then refreshStatusDots() end
-    end)
+    ns:RegisterEvent("UNIT_INVENTORY_CHANGED", onInventoryChanged)
     ns:RegisterEvent("BAG_UPDATE_DELAYED", refreshStatusDots)
 
     ns:RegisterEvent("UPDATE_SHAPESHIFT_FORM",  onShapeshiftChange)
@@ -2058,6 +2313,8 @@ function mod:OnEnable()
 end
 
 function mod:OnDisable()
+    ns:UnregisterEvent("UNIT_INVENTORY_CHANGED",  onInventoryChanged)
+    ns:UnregisterEvent("BAG_UPDATE_DELAYED",      refreshStatusDots)
     ns:UnregisterEvent("UPDATE_SHAPESHIFT_FORM",  onShapeshiftChange)
     ns:UnregisterEvent("UPDATE_SHAPESHIFT_FORMS", onShapeshiftChange)
     ns:UnregisterEvent("PLAYER_REGEN_ENABLED",    onShapeshiftChange)

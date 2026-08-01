@@ -15,11 +15,16 @@ local function resolveLocale()
     return _cached
 end
 
+-- Das Ergebnis wird per rawset in die Tabelle geschrieben: jeder Key wird
+-- nur einmal aufgeloest, danach ist der Zugriff ein einfacher Tabellenzugriff
+-- ohne Umweg ueber die Metatabelle. Gefahrlos, weil alle Locale-Dateien vor
+-- dem ersten L[]-Zugriff der Module geladen sind (siehe TOC-Reihenfolge).
 ns.L = setmetatable({}, {
-    __index = function(_, key)
+    __index = function(t, key)
         local data = ns.localeData[resolveLocale()]
-        if data and data[key] then return data[key] end
-        return key
+        local value = (data and data[key]) or key
+        rawset(t, key, value)
+        return value
     end,
 })
 

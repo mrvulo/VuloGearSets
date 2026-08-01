@@ -24,13 +24,54 @@ local frame, content
 local renderItems   -- vorwaerts deklariert: section/group rufen rekursiv auf
 
 -- =========================================================
+-- Widget-Pools
+--
+-- Frames lassen sich in WoW nie wieder einsammeln. Der fruehere Weg -
+-- bei jedem Neuzeichnen einen frischen Scroll-Child samt aller Widgets
+-- erzeugen und den alten nur verstecken - liess deshalb bei jedem
+-- Speichern, Loeschen oder Stilwechsel Dutzende Frames dauerhaft liegen.
+-- Stattdessen werden die Widgets jetzt je Typ gepoolt: verstecken,
+-- Zaehler zuruecksetzen, beim Rendern in derselben Reihenfolge wieder
+-- einsammeln und komplett neu konfigurieren.
+-- =========================================================
+local pools = {}
+
+local function acquire(kind, create)
+    local p = pools[kind]
+    if not p then p = { widgets = {}, n = 0 }; pools[kind] = p end
+    p.n = p.n + 1
+    local w = p.widgets[p.n]
+    if not w then
+        w = create()
+        p.widgets[p.n] = w
+    end
+    w:Show()
+    return w
+end
+
+local function resetPools()
+    for _, p in pairs(pools) do
+        for i = 1, #p.widgets do p.widgets[i]:Hide() end
+        p.n = 0
+    end
+end
+
+-- =========================================================
 -- Tooltip-Helfer
+--
+-- Der Text haengt am Widget, die Skripte werden nur einmal gesetzt:
+-- gepoolte Widgets bekommen bei jedem Rendern einen neuen (oder gar
+-- keinen) Text - ein fest eingebauter Text aus der letzten Verwendung
+-- wuerde sonst stehenbleiben.
 -- =========================================================
 local function attachTooltip(widget, text)
-    if not text or text == "" then return end
+    widget._tooltipText = (text ~= "") and text or nil
+    if widget._tooltipHooked then return end
+    widget._tooltipHooked = true
     widget:SetScript("OnEnter", function(self)
+        if not self._tooltipText then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(text, 1, 1, 1, 1, true)
+        GameTooltip:SetText(self._tooltipText, 1, 1, 1, 1, true)
         GameTooltip:Show()
     end)
     widget:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -42,23 +83,33 @@ end
 -- =========================================================
 local renderers = {}
 
+-- Header und Beschreibung teilen sich das Aussehen nicht, deshalb
+-- getrennte Pools - sonst muesste die Schrift bei jedem Rendern neu
+-- gesetzt werden.
+local function acquireText(kind, size, flags)
+    return acquire(kind, function()
+        local fs = content:CreateFontString(nil, "OVERLAY")
+        UI.Font(fs, size, flags)
+        fs:SetJustifyH("LEFT")
+        return fs
+    end)
+end
+
 renderers.header = function(parent, item, y, width)
-    local fs = parent:CreateFontString(nil, "OVERLAY")
-    UI.Font(fs, 14, "OUTLINE")
+    local fs = acquireText("header", 14, "OUTLINE")
+    fs:ClearAllPoints()
     fs:SetPoint("TOPLEFT", PAD, y)
     fs:SetWidth(width)
-    fs:SetJustifyH("LEFT")
     fs:SetText(item.text or "")
     fs:SetTextColor(ns:AccentColor())
     return fs:GetStringHeight() + 8
 end
 
 renderers.desc = function(parent, item, y, width)
-    local fs = parent:CreateFontString(nil, "OVERLAY")
-    UI.Font(fs, 11)
+    local fs = acquireText("desc", 11)
+    fs:ClearAllPoints()
     fs:SetPoint("TOPLEFT", PAD, y)
     fs:SetWidth(width)
-    fs:SetJustifyH("LEFT")
     fs:SetText(item.text or "")
     fs:SetTextColor(C.textDim.r, C.textDim.g, C.textDim.b)
     return fs:GetStringHeight() + 6
@@ -68,18 +119,35 @@ renderers.spacer = function(_, item)
     return item.height or 8
 end
 
+-- Knoepfe kommen aus einem gemeinsamen Pool (auch die der group-Zeilen).
+local function acquireButton(label, width, x, y)
+    local b = acquire("button", function()
+        return UI:CreateButton(content, "", 130, 22)
+    end)
+    b:SetSize(width or 130, 22)
+    b:SetText(label or "")
+    b:ClearAllPoints()
+    b:SetPoint("TOPLEFT", x, y)
+    return b
+end
+
 renderers.button = function(parent, item, y)
-    local b = UI:CreateButton(parent, item.label or "", item.width or 130, 22)
-    b:SetPoint("TOPLEFT", PAD, y)
+    local b = acquireButton(item.label, item.width, PAD, y)
     b:SetOnClick(item.onClick)
     b._tooltip = item.tooltip
     return 26
 end
 
 renderers.toggle = function(parent, item, y, width)
-    local t = UI:CreateToggle(parent, item.label or "")
+    local t = acquire("toggle", function() return UI:CreateToggle(content) end)
+    t:ClearAllPoints()
     t:SetPoint("TOPLEFT", PAD, y)
     t:SetWidth(width)
+    t.label:SetText(item.label or "")
+    -- Akzentfarbe je Rendern neu setzen: CreateToggle faerbt die Fuellung
+    -- nur einmal beim Erzeugen, ein Stilwechsel erreichte sie sonst nicht.
+    t.fill:SetColorTexture(ns:AccentColor())
+    t.OnValueChanged = nil   -- kein Callback der letzten Verwendung treffen
     t:SetChecked(item.get and item.get() or false)
     t.OnValueChanged = function(v)
         if item.set then item.set(nil, v) end
@@ -89,9 +157,20 @@ renderers.toggle = function(parent, item, y, width)
 end
 
 renderers.slider = function(parent, item, y, width)
-    local s = UI:CreateSlider(parent, item.label or "", item.min, item.max, item.step)
+    local s = acquire("slider", function() return UI:CreateSlider(content) end)
+    s:ClearAllPoints()
     s:SetPoint("TOPLEFT", PAD, y)
     s:SetWidth(width)   -- ohne Breite rendert der Frame seine Kinder nicht
+    s.label:SetText(item.label or "")
+    -- Wie beim Toggle: die Farbe der Wertanzeige setzt CreateSlider nur
+    -- einmal beim Erzeugen.
+    s.value:SetTextColor(ns:AccentColor())
+    -- Callback VOR SetMinMaxValues loesen: klemmt der alte Wert auf die
+    -- neue Spanne, feuert der Regler sofort - und traefe sonst noch den
+    -- Setter der letzten Verwendung.
+    s.OnValueChanged = nil
+    s.slider:SetMinMaxValues(item.min or 0, item.max or 100)
+    s.slider:SetValueStep(item.step or 1)
     s:SetValue(item.get and item.get() or item.min or 0)
     s.OnValueChanged = function(v)
         if item.set then item.set(nil, v) end
@@ -101,9 +180,13 @@ renderers.slider = function(parent, item, y, width)
 end
 
 renderers.dropdown = function(parent, item, y, width)
-    local d = UI:CreateDropdown(parent, item.label or "", item.values)
+    local d = acquire("dropdown", function() return UI:CreateDropdown(content) end)
+    d:ClearAllPoints()
     d:SetPoint("TOPLEFT", PAD, y)
     d:SetWidth(width)   -- ohne Breite rendert der Frame seine Kinder nicht
+    d.label:SetText(item.label or "")
+    d.values = item.values or {}
+    d.OnValueChanged = nil
     d:SetValue(item.get and item.get() or nil)
     d.OnValueChanged = function(v)
         if item.set then item.set(nil, v) end
@@ -120,8 +203,7 @@ renderers.group = function(parent, item, y, width)
     local gap, x, maxH = item.gap or 6, 0, 0
     for _, sub in ipairs(item.items or {}) do
         local w = sub.width or 130
-        local b = UI:CreateButton(parent, sub.label or "", w, 22)
-        b:SetPoint("TOPLEFT", PAD + x, y)
+        local b = acquireButton(sub.label, w, PAD + x, y)
         b:SetOnClick(sub.onClick)
         b._tooltip = sub.tooltip
         x = x + w + gap
@@ -145,15 +227,18 @@ renderers.section = function(parent, item, y, width)
     end
     local collapsed = sectionCollapsed[key]
 
-    local head = CreateFrame("Button", nil, parent)
+    local head = acquire("sectionHead", function()
+        local h = CreateFrame("Button", nil, content)
+        h.fs = h:CreateFontString(nil, "OVERLAY")
+        UI.Font(h.fs, 13, "OUTLINE")
+        h.fs:SetPoint("LEFT")
+        return h
+    end)
+    head:ClearAllPoints()
     head:SetPoint("TOPLEFT", PAD, y)
     head:SetSize(width, 20)
-
-    local fs = head:CreateFontString(nil, "OVERLAY")
-    UI.Font(fs, 13, "OUTLINE")
-    fs:SetPoint("LEFT")
-    fs:SetTextColor(ns:AccentColor())
-    fs:SetText((collapsed and "+ " or "- ") .. (item.title or ""))
+    head.fs:SetTextColor(ns:AccentColor())
+    head.fs:SetText((collapsed and "+ " or "- ") .. (item.title or ""))
 
     head:SetScript("OnClick", function()
         sectionCollapsed[key] = not collapsed
@@ -302,17 +387,12 @@ local function createFrame()
     frame.scroll = scroll
 end
 
--- Erzeugt den Inhalt neu. Der alte Scroll-Child wird verworfen, weil sich
--- Sektionen auf- und zuklappen lassen und die Liste dann anders aussieht.
+-- Zeichnet den Inhalt neu. Der Scroll-Child bleibt derselbe Frame; nur
+-- die gepoolten Widgets werden versteckt und in neuer Anordnung wieder
+-- eingesammelt (siehe Pools oben).
 function ns:RefreshOptions()
     if not frame or not frame:IsShown() then return end
-    if content then
-        content:Hide()
-        content:SetParent(nil)
-    end
-    content = CreateFrame("Frame", nil, frame.scroll)
-    content:SetSize(CONTENT_W, 10)
-    frame.scroll:SetScrollChild(content)
+    resetPools()
 
     local mod = ns.modules and ns.modules.gearsets
     if not (mod and mod.GetOptions) then return end
