@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.9.0
+
+- **New: a socket bar under the sidebar.** It shows every socket on your
+  equipped gear in one strip. Clicking an empty socket opens a picker with the
+  gems from your bags, and clicking a gem sets it — no hunting through the bags
+  and no socketing window to operate. Empty sockets are framed in red so they
+  are easy to spot, which can be turned off separately. The bar only appears
+  when your gear actually has sockets, and it steps back while VuloClassicUI
+  shows the same strip, so you never get two of them.
+- **The sidebar buttons follow the window style again.** Equip, Save and New Set
+  were built straight from Blizzard's template and kept its artwork even in the
+  Modern style. They go through the addon's own button now.
+- Every other button kept Blizzard's artwork in Modern as well: hiding it only
+  asked for the normal texture and its siblings, but on this client the
+  three-part artwork hangs off the button as child textures. A button's own
+  textures are now collected when it is built, whichever way they hang.
+- In the Modern style the label carries the disabled state that Blizzard's
+  artwork used to show, so a greyed-out Equip no longer looks clickable.
+- The window style list starts with Classic, which is the default.
+- **Less work during a fight.** `UNIT_AURA` is only subscribed while the speed
+  trinket option is on. It fires for every unit nearby and used to run in every
+  fight for a feature that is off by default.
+
 ## 1.8.0
 
 - **New switch: equip a speed trinket when mounting.** The Riding Crop (or
