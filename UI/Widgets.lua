@@ -115,17 +115,46 @@ end
 -- Knopftexturen zum Einsatz, sonst eine schlichte Flaeche.
 local buttons = setmetatable({}, { __mode = "k" })   -- schwach: Knoepfe duerfen sterben
 
--- Blizzards Knopfgrafik ist neunfach zerlegt (links, gedehnte Mitte,
--- rechts). Sie als ein Stueck zu strecken sieht falsch aus, deshalb
--- kommt das Original-Template zum Einsatz und wird im modernen Stil
--- nur ausgeblendet.
-local function setBlizzTextures(b, shown)
-    local a = shown and 1 or 0
+-- Blizzards Knopfgrafik ist zerlegt (links, gedehnte Mitte, rechts). Sie
+-- als ein Stueck zu strecken sieht falsch aus, deshalb kommt das
+-- Original-Template zum Einsatz und wird im modernen Stil nur
+-- ausgeblendet.
+--
+-- WIE die Teile am Knopf haengen, ist von Client zu Client verschieden:
+-- mal als NormalTexture und Geschwister, mal als benannte Kindtexturen
+-- (Left/Middle/Right). Auf dem Anniversary-Client antworten die vier
+-- Getter GAR NICHT - die Grafik blieb im modernen Stil deshalb sichtbar
+-- stehen, und die Knoepfe sahen nach einem Stilwechsel weiter nach
+-- Blizzard aus. Statt zu raten, welcher Weg gilt: einmal beim Bauen ALLE
+-- Texturregionen einsammeln, die der Knopf von sich aus mitbringt.
+--
+-- Muss VOR unserer eigenen bg-Textur laufen, sonst blendet der moderne
+-- Stil seinen eigenen Grund gleich mit aus.
+local function captureBlizzTextures(b)
+    local list = {}
+    local seen = {}
+    for _, r in ipairs({ b:GetRegions() }) do
+        if r and r.GetObjectType and r:GetObjectType() == "Texture" and not seen[r] then
+            seen[r] = true
+            list[#list + 1] = r
+        end
+    end
+    -- Guertel fuer den umgekehrten Fall: wo die Stuecke NICHT als Regionen
+    -- des Knopfes zurueckkommen, liefern die Getter sie.
     for _, get in ipairs({ b.GetNormalTexture, b.GetPushedTexture,
                            b.GetHighlightTexture, b.GetDisabledTexture }) do
         local t = get and get(b)
-        if t then t:SetAlpha(a) end
+        if t and not seen[t] then
+            seen[t] = true
+            list[#list + 1] = t
+        end
     end
+    b._blizzTex = list
+end
+
+local function setBlizzTextures(b, shown)
+    local a = shown and 1 or 0
+    for _, t in ipairs(b._blizzTex or {}) do t:SetAlpha(a) end
 end
 
 local function styleButton(b, style, hovered)
@@ -137,6 +166,10 @@ local function styleButton(b, style, hovered)
             b.arrow:SetVertexColor(C.textDim.r, C.textDim.g, C.textDim.b)
         end
     end
+    -- Im Classic-Stil zeigt Blizzards eigene Grafik den gesperrten Zustand.
+    -- Im modernen ist sie ausgeblendet, also muss die Schrift ihn tragen -
+    -- sonst sieht ein gesperrter Knopf aus wie ein bedienbarer.
+    local off = (b.IsEnabled and not b:IsEnabled()) and true or false
     if style == "classic" then
         setBlizzTextures(b, true)
         if b.bg then b.bg:Hide() end
@@ -145,13 +178,19 @@ local function styleButton(b, style, hovered)
         setBlizzTextures(b, false)
         if b.bg then
             b.bg:Show()
-            if hovered then
+            if off then
+                b.bg:SetColorTexture(C.bg.r, C.bg.g, C.bg.b, 1)
+            elseif hovered then
                 b.bg:SetColorTexture(C.accent.r * 0.5, C.accent.g * 0.5, C.accent.b * 0.5, 1)
             else
                 b.bg:SetColorTexture(C.bgLight.r, C.bgLight.g, C.bgLight.b, 1)
             end
         end
-        b.text:SetTextColor(C.text.r, C.text.g, C.text.b)
+        if off then
+            b.text:SetTextColor(C.textDim.r * 0.8, C.textDim.g * 0.8, C.textDim.b * 0.8)
+        else
+            b.text:SetTextColor(C.text.r, C.text.g, C.text.b)
+        end
     end
 end
 
@@ -165,6 +204,8 @@ end
 function UI:CreateButton(parent, text, width, height)
     local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     b:SetSize(width or 120, height or 22)
+    -- Vor der eigenen Flaeche, siehe captureBlizzTextures.
+    captureBlizzTextures(b)
     b.bg = b:CreateTexture(nil, "BACKGROUND")
     b.bg:SetPoint("TOPLEFT", 1, -1)
     b.bg:SetPoint("BOTTOMRIGHT", -1, 1)
@@ -189,6 +230,20 @@ function UI:CreateButton(parent, text, width, height)
     function b:SetOnClick(fn)
         self:SetScript("OnClick", function() if fn then fn() end end)
     end
+
+    -- Im modernen Stil steckt der gesperrte Zustand allein in den Farben,
+    -- und die setzt von selbst niemand neu. Beide Aufrufe umhuellen, damit
+    -- er sofort sichtbar wird und nicht erst beim naechsten Ueberfahren.
+    local origEnable, origDisable = b.Enable, b.Disable
+    b.Enable = function(self, ...)
+        origEnable(self, ...)
+        styleButton(self, ns:GetStyle(), false)
+    end
+    b.Disable = function(self, ...)
+        origDisable(self, ...)
+        styleButton(self, ns:GetStyle(), false)
+    end
+
     return b
 end
 

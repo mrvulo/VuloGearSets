@@ -17,9 +17,11 @@ ns.UI = ns.UI or {}
 local UI = ns.UI
 
 -- Nur diese beiden Werte sind gueltig; alles andere faellt auf classic.
+-- Classic steht zuerst, weil es der Standard ist (siehe ns:GetStyle) - die
+-- Liste liest sich sonst so, als waere Modern die Vorgabe.
 ns.STYLES = {
-    { value = "modern",  text = "Modern"  },
     { value = "classic", text = "Classic" },
+    { value = "modern",  text = "Modern"  },
 }
 
 local registry = {}   -- { [frame] = kind }

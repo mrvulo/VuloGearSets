@@ -26,5 +26,6 @@ UI\Widgets.lua
 UI\OptionsFrame.lua
 Modules\GearSets.lua
 Modules\SlotPicker.lua
+Modules\SocketBar.lua
 Core\Coexistence.lua
 Core\Init.lua

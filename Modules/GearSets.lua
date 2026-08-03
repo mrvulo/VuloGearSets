@@ -1251,6 +1251,30 @@ local function onMountStateChange(event, unit)
     applyMountState(false)
 end
 
+-- Die vier Ereignisse der Reitgerte haengen an IHRER Einstellung, nicht am
+-- Modul.
+--
+-- UNIT_AURA ist eines der lautesten Ereignisse im Spiel: es feuert fuer
+-- jede Einheit in der Naehe, in einem Schlachtzugskampf hunderte Male pro
+-- Sekunde. Es fest zu abonnieren hiess, jeden dieser Aufrufe durch den
+-- Verteiler und ein pcall zu schicken - fuer ein Feature, das ab Werk aus
+-- ist und dessen Handler ohnehin sofort wieder aussteigt. Ausgeschaltet
+-- kostet es jetzt gar nichts, weil der Client das Ereignis nicht mehr
+-- zustellt.
+--
+-- Bewusst NICHT auf mod._enabled pruefen: aus OnEnable heraus steht das
+-- noch auf false (SafeEnable setzt es erst danach), die Ereignisse waeren
+-- also nie angemeldet. OnDisable meldet sie unabhaengig davon ab.
+local function applyMountEvents()
+    local on = mod.db and mod.db.ridingCropEnabled
+    local fn = on and ns.RegisterEvent or ns.UnregisterEvent
+    fn(ns, "UNIT_AURA",              onMountStateChange)
+    fn(ns, "UPDATE_SHAPESHIFT_FORM", onMountStateChange)
+    fn(ns, "PLAYER_REGEN_ENABLED",   onMountStateChange)
+    fn(ns, "PLAYER_ENTERING_WORLD",  onMountStateChange)
+end
+mod._applyMountEvents = applyMountEvents
+
 -- =========================================================
 -- Dual-spec auto-switching
 -- Anniversary backported the WotLK dual-spec system. We use the real spec
@@ -2352,17 +2376,17 @@ local function createSidebar()
     end)
 
     -- Action buttons (top row)
-    local equipBtn = CreateFrame("Button", nil, sidebar, "UIPanelButtonTemplate")
-    equipBtn:SetHeight(22)
-    equipBtn:SetText(L["Equip"])
+    --
+    -- Ueber ns.UI:CreateButton, nicht direkt aus dem Blizzard-Template:
+    -- nur so kennen die drei Knoepfe beide Stile. Direkt gebaut trugen sie
+    -- Blizzards Grafik auch dann noch, wenn alles andere schon modern war.
+    local equipBtn = ns.UI:CreateButton(sidebar, L["Equip"], 100, 22)
     equipBtn:SetScript("OnClick", function()
         if sidebarSelected then equipLoadout(sidebarSelected) end
     end)
     sidebar.equipBtn = equipBtn
 
-    local saveBtn = CreateFrame("Button", nil, sidebar, "UIPanelButtonTemplate")
-    saveBtn:SetHeight(22)
-    saveBtn:SetText(L["Save"])
+    local saveBtn = ns.UI:CreateButton(sidebar, L["Save"], 100, 22)
     saveBtn:SetScript("OnClick", function()
         if sidebarSelected then
             overwriteLoadout(sidebarSelected)
@@ -2372,8 +2396,7 @@ local function createSidebar()
     sidebar.saveBtn = saveBtn
 
     -- New Set button (bottom)
-    local newBtn = CreateFrame("Button", nil, sidebar, "UIPanelButtonTemplate")
-    newBtn:SetHeight(24)
+    local newBtn = ns.UI:CreateButton(sidebar, "", 100, 24)
 
     -- Die drei Knoepfe spannen sich zwischen den Raendern auf, statt eine
     -- feste Breite zu haben - so halten sie in beiden Stilen denselben
@@ -2658,10 +2681,8 @@ function mod:OnEnable()
     -- Reitgerte. Reittiere setzen einen Buff, deshalb reicht UNIT_AURA -
     -- PLAYER_MOUNT_DISPLAY_CHANGED gibt es nicht in allen Classic-Builds
     -- und RegisterEvent wirft bei unbekannten Ereignissen einen Fehler.
-    ns:RegisterEvent("UNIT_AURA",              onMountStateChange)
-    ns:RegisterEvent("UPDATE_SHAPESHIFT_FORM", onMountStateChange)
-    ns:RegisterEvent("PLAYER_REGEN_ENABLED",   onMountStateChange)  -- im Kampf Verschobenes nachholen
-    ns:RegisterEvent("PLAYER_ENTERING_WORLD",  onMountStateChange)
+    -- Nur angemeldet, solange die Einstellung an ist (siehe applyMountEvents).
+    applyMountEvents()
 
     -- Hook every plausible dual-spec event — Anniversary builds vary on which
     -- one actually fires. Plus a 2s polling fallback (startSpecPolling) covers
@@ -2822,6 +2843,30 @@ function mod:GetOptions()
               set = function(_, v) local sp = ns.modules and ns.modules.slotpicker; if sp and sp.db then sp.db.cols = v end end },
         } },
 
+        -- Sockel-Leiste (eigenes Modul, versteckt registriert)
+        { type = "spacer", height = 6 },
+        { type = "section", title = L["Socket Bar"], collapsed = false, items = {
+            { type = "desc", text = L["|cffaaaaaaA strip with every socket on your equipped gear, hung under the sidebar. Click an empty socket to pick a gem from your bags and set it.|r"] },
+            { type = "toggle", label = L["Show the socket bar"],
+              tooltip = L["Only appears when your gear actually has sockets. If VuloClassicUI shows the same strip, this one steps back so there are not two of them."],
+              get = function() return ns:IsModuleEnabled("socketbar") end,
+              set = function(_, v)
+                  if ns.ToggleModule then ns:ToggleModule("socketbar", v, true) end
+                  if ns.RefreshSocketBar then ns.RefreshSocketBar() end
+              end },
+            { type = "toggle", label = L["Mark empty sockets"],
+              tooltip = L["Draws a red frame around sockets that have no gem."],
+              get = function()
+                  local sb = ns.modules and ns.modules.socketbar
+                  return not (sb and sb.db and sb.db.markEmpty == false)
+              end,
+              set = function(_, v)
+                  local sb = ns.modules and ns.modules.socketbar
+                  if sb and sb.db then sb.db.markEmpty = v end
+                  if ns.RefreshSocketBar then ns.RefreshSocketBar() end
+              end },
+        } },
+
         { type = "spacer", height = 6 },
         { type = "header", text = L["Minimap Button"] },
         { type = "toggle", label = L["Show minimap button"],
@@ -2860,6 +2905,10 @@ function mod:GetOptions()
         get = function() return mod.db.ridingCropEnabled == true end,
         set = function(_, v)
             mod.db.ridingCropEnabled = v
+            -- Erst die Ereignisse nachziehen, dann handeln: das Abschalten
+            -- meldet UNIT_AURA ab, das Anlegen bzw. Zuruecklegen laeuft
+            -- gleich darunter trotzdem direkt.
+            applyMountEvents()
             -- Sofort reagieren: einschalten waehrend man reitet legt die
             -- Gerte gleich an, ausschalten nimmt sie gleich wieder ab.
             applyMountState(true)
