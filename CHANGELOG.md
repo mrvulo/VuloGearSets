@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.9.1
+
+- **Fixed: the speed trinket is taken off again.** Putting it away only ever
+  tried your backpack. If that was full, nothing said so and the trinket slid
+  quietly back into the slot — the Riding Crop went on when you mounted and then
+  stayed on for good. A free bag slot is now picked deliberately, with
+  profession bags skipped.
+- What made a single hiccup permanent: the remembered state was cleared before
+  anything had actually happened, so once it was gone nothing ever touched the
+  trinket again. It is cleared only after the trinket has really left the slot,
+  and a failed attempt is retried instead of dropped.
+- The trinket also comes back off after logging out mounted and logging in on
+  foot, and when the gear set module itself is switched off. Both cases used to
+  leave it sitting in your trinket slot.
+- **New: a socket that already holds a gem asks before it is overwritten.** The
+  old gem is destroyed when a new one goes in, so a misclick in the gem picker
+  costs you a gem. Empty sockets never ask, and the question can be turned off
+  in the Socket Bar section.
+- Answering yes only sockets if the same gem is still sitting there — swap your
+  gear while the question is open and nothing happens.
+- The tooltip on a socketed gem now says that clicking replaces it. That this
+  was possible at all was invisible before.
+
 ## 1.9.0
 
 - **New: a socket bar under the sidebar.** It shows every socket on your
