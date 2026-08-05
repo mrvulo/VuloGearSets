@@ -33,8 +33,9 @@ local mod = ns:RegisterModule("socketbar", {
     name     = "Socket Bar",
     group    = "_hidden",
     defaults = {
-        enabled   = true,
-        markEmpty = true,
+        enabled          = true,
+        markEmpty        = true,
+        confirmOverwrite = true,
     },
 })
 
@@ -248,6 +249,7 @@ local ourSession    -- eine von UNS geoeffnete Sockel-Sitzung ist womoeglich noc
 local picker                         -- vorwaerts: der Steinauswahl-Frame
 local refreshBar, queueRefresh       -- vorwaerts
 local watchSession, unwatchSession   -- vorwaerts: der Ereignis-Frame der Sitzung
+local confirmOverwrite               -- vorwaerts: die Rueckfrage vorm Ueberschreiben
 
 local function closeOurSession()
     if CloseSocketInfoFn then CloseSocketInfoFn() end
@@ -273,7 +275,8 @@ local function abandonPending()
     unwatchSession()
 end
 
-local function doSocket(rec, gemItemID)
+-- confirmed = die Rueckfrage ist beantwortet, nicht erneut fragen.
+local function doSocket(rec, gemItemID, confirmed)
     if not CAN_SOCKET then return end
     if InCombatLockdown() then
         ns:Print(L["Cannot socket gems in combat."])
@@ -294,6 +297,20 @@ local function doSocket(rec, gemItemID)
         else
             ns:Print(L["Close the socketing window first."])
         end
+        return
+    end
+
+    -- Ein besetzter Sockel gibt seinen Stein nicht zurueck: der alte wird
+    -- beim Setzen zerstoert. Ein Fehlgriff in der Steinauswahl kostet damit
+    -- einen Stein, deshalb wird vorher gefragt. Leere Sockel fragen nicht,
+    -- dort ist nichts zu verlieren.
+    --
+    -- Erst hier gefragt, nicht ganz oben: alles darueber sind Gruende, aus
+    -- denen dieser Klick ohnehin nichts tut. Sonst haette man die Frage
+    -- beantwortet, um danach zu erfahren, dass gerade gar nicht gesockelt
+    -- werden kann.
+    if rec.gemID and not confirmed and opt("confirmOverwrite", true) then
+        confirmOverwrite(rec, gemItemID)
         return
     end
 
@@ -336,6 +353,62 @@ local function doSocket(rec, gemItemID)
                 abandonPending()
             end
         end)
+    end
+end
+
+-- =========================================================
+-- Die Rueckfrage vorm Ueberschreiben
+-- =========================================================
+local function gemLabel(itemID)
+    if not itemID then return L["this gem"] end
+    local name, link = GetItemInfo(itemID)
+    -- Ein Stein, den dieser Client nie geladen hat, hat noch keinen Namen.
+    -- Das Laden anstossen, damit die naechste Frage ihn benennen kann.
+    if not name and C_Item and C_Item.RequestLoadItemDataByID then
+        pcall(C_Item.RequestLoadItemDataByID, itemID)
+    end
+    return link or name or L["this gem"]
+end
+
+StaticPopupDialogs["VGS_SOCKET_OVERWRITE"] = {
+    text = L["Replace %s with %s?|n|nThe old gem is destroyed."],
+    button1 = YES or L["Yes"],
+    button2 = NO  or L["No"],
+    -- data kommt je nach Client als Argument oder haengt am Dialog.
+    OnAccept = function(self, data)
+        local d = data or (self and self.data)
+        if not d then return end
+        -- Zwischen Frage und Antwort liegt beliebig viel Zeit: die
+        -- Ausruestung kann gewechselt oder der Sockel von Hand gefuellt
+        -- worden sein. Das Ja galt dann einem anderen Stein als dem
+        -- gezeigten - also lieber nichts tun.
+        if gemIDAt(GetInventoryItemLink("player", d.slot), d.index) ~= d.gemID then
+            ns:Print(L["The socket changed - nothing was done."])
+            return
+        end
+        doSocket(d.rec, d.gemItemID, true)
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
+confirmOverwrite = function(rec, gemItemID)
+    -- Die Auswahl schliesst sich sonst erst, wenn der Zeiger sie verlaesst -
+    -- sie stuende also neben der Frage und liesse sich weiterklicken.
+    if picker then picker:Hide() end
+
+    local dlg = StaticPopup_Show("VGS_SOCKET_OVERWRITE",
+        gemLabel(rec.gemID), gemLabel(gemItemID))
+    if dlg then
+        dlg.data = {
+            rec       = rec,
+            slot      = rec.slot,
+            index     = rec.index,
+            gemID     = rec.gemID,
+            gemItemID = gemItemID,
+        }
     end
 end
 
@@ -622,6 +695,9 @@ local function acquireIcon(i)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         if rec.gemID then
             pcall(GameTooltip.SetHyperlink, GameTooltip, "item:" .. rec.gemID)
+            if CAN_SOCKET then
+                GameTooltip:AddLine(L["Click to replace this gem."], 0.7, 0.7, 0.75, true)
+            end
         else
             GameTooltip:AddLine(L["Empty socket"], 1, 1, 1)
             if CAN_SOCKET then

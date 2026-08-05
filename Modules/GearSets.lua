@@ -72,6 +72,7 @@ local GetContainerItemID    = (C_Container and C_Container.GetContainerItemID)  
 local GetContainerNumSlots  = (C_Container and C_Container.GetContainerNumSlots)  or _G.GetContainerNumSlots
 local UseContainerItem      = (C_Container and C_Container.UseContainerItem)      or _G.UseContainerItem
 local ContainerIDToInventoryID = (C_Container and C_Container.ContainerIDToInventoryID) or _G.ContainerIDToInventoryID
+local GetContainerNumFreeSlots = (C_Container and C_Container.GetContainerNumFreeSlots) or _G.GetContainerNumFreeSlots
 
 -- Equipment slots we capture (skip shirt=4 and tabard=19)
 local EQUIP_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 }
@@ -1016,6 +1017,14 @@ local function setCropState(v)  charDB().cropState = v    end
 local _cropStateKey = "none" -- letzter bekannter Zustand: none | mount | fly
 local _cropPending  = false  -- Wechsel faellig, aber Kampf war im Weg
 
+-- Zuruecklegen kann misslingen (kein Platz in den Taschen, verdraengtes
+-- Teil unauffindbar). Dann bleibt der gemerkte Zustand stehen und der
+-- naechste Durchlauf versucht es erneut. UNIT_AURA feuert dabei staendig,
+-- deshalb ein Deckel: nach ein paar Fehlversuchen ist Ruhe bis zum
+-- naechsten echten Zustandswechsel.
+local _cropRestoreTries = 0
+local CROP_RESTORE_TRIES = 3
+
 -- Die lokalisierten Gestaltnamen einmal aufloesen. GetSpellInfo ist billig,
 -- aber UNIT_AURA feuert oft genug, dass sich das Merken lohnt.
 local _flightFormNames
@@ -1105,18 +1114,59 @@ local function findInBags(list)
     return nil
 end
 
--- Cursor leerraeumen: erst in den Rucksack, dann in die uebrigen Taschen.
--- Bleibt alles voll, wandert das Teil dorthin zurueck, wo es herkam.
-local function stowCursorItem()
-    if CursorHasItem and not CursorHasItem() then return end
-    if PutItemInBackpack then pcall(PutItemInBackpack) end
-    if CursorHasItem and CursorHasItem() and PutItemInBag and ContainerIDToInventoryID then
-        for bag = 1, (NUM_BAG_SLOTS or 4) do
-            if not CursorHasItem() then break end
-            pcall(PutItemInBag, ContainerIDToInventoryID(bag))
+-- Erster freier Platz in einer normalen Tasche. Spezialtaschen (Koecher,
+-- Seelensplitter, Kraeuter) melden eine eigene Familie und nehmen kein
+-- Schmuckstueck - die ueberspringen wir, sonst zeigten wir auf einen Platz,
+-- in den der Client nichts ablegt.
+local function findFreeBagSlot()
+    if not GetContainerNumSlots or not GetContainerItemID then return nil end
+    for bag = 0, (NUM_BAG_SLOTS or 4) do
+        local family = 0
+        if GetContainerNumFreeSlots then
+            local ok, _free, fam = pcall(GetContainerNumFreeSlots, bag)
+            if ok then family = fam or 0 end
+        end
+        if family == 0 then
+            for slot = 1, (GetContainerNumSlots(bag) or 0) do
+                if not GetContainerItemID(bag, slot) then return bag, slot end
+            end
         end
     end
-    if CursorHasItem and CursorHasItem() then ClearCursor() end
+    return nil
+end
+
+-- Cursor leerraeumen. Rueckgabe: true = das Teil liegt in einer Tasche.
+--
+-- Wir suchen den freien Platz selbst und legen gezielt dort ab, statt uns
+-- auf PutItemInBackpack zu verlassen. Das trifft naemlich nur den Rucksack
+-- - ist der voll, sagt es nichts, und das Teil fiel ueber ClearCursor
+-- zurueck in den Schmuckslot. Genau so blieb die Reitgerte angelegt.
+-- PutItemInBackpack/PutItemInBag bleiben als Rueckfallebene stehen.
+local function stowCursorItem()
+    if CursorHasItem and not CursorHasItem() then return true end
+
+    local bag, bagSlot = findFreeBagSlot()
+    if bag and _PickupContainerItem then
+        pcall(_PickupContainerItem, bag, bagSlot)
+    end
+    if CursorHasItem and CursorHasItem() and PutItemInBackpack then
+        pcall(PutItemInBackpack)
+    end
+    if CursorHasItem and CursorHasItem() and PutItemInBag and ContainerIDToInventoryID then
+        for b = 1, (NUM_BAG_SLOTS or 4) do
+            if not CursorHasItem() then break end
+            pcall(PutItemInBag, ContainerIDToInventoryID(b))
+        end
+    end
+
+    -- Alles voll: das Teil wandert dorthin zurueck, wo es herkam - also in
+    -- den Schmuckslot. Das melden wir als Misserfolg, damit es spaeter
+    -- noch einmal versucht wird.
+    if CursorHasItem and CursorHasItem() then
+        ClearCursor()
+        return false
+    end
+    return true
 end
 
 local function equipMountSpeedItem(list)
@@ -1144,17 +1194,26 @@ local function equipMountSpeedItem(list)
     end
 end
 
+-- Rueckgabe: true = erledigt (oder nichts zu tun), false = spaeter nochmal.
+--
+-- Der gemerkte Zustand wird erst geloescht, wenn das Teil den Slot auch
+-- wirklich verlassen hat. Frueher stand das Loeschen ganz oben - jeder
+-- Fehlschlag darunter (Taschen voll, Anlegen abgelehnt) liess die Gerte
+-- damit fuer immer im Schmuckslot: der Zustand war weg, also fasste sie
+-- danach niemand mehr an.
 local function restoreMountSpeedItem()
     local state = cropState()
-    if not state then return end
-    setCropState(nil)
+    if not state then return true end
 
     -- Wo unser Teil JETZT steckt, nicht wo wir es hingelegt haben: nach
     -- einem /reload kann der Spieler selbst umgesteckt haben. Traegt er
     -- keines mehr, ist der gemerkte Zustand veraltet und wir fassen
     -- nichts an - sonst raeumten wir ein fremdes Schmuckstueck ab.
     local slot = wornManagedSlot()
-    if not slot then return end
+    if not slot then
+        setCropState(nil)
+        return true
+    end
 
     -- War der Slot vorher belegt, legt das alte Teil unseres von selbst
     -- ab - ein Tausch statt zweier Einzelschritte.
@@ -1162,19 +1221,24 @@ local function restoreMountSpeedItem()
         local id = getItemIDFromLink(state.prevLink)
         local bag, bagSlot = nil, nil
         if id then bag, bagSlot = findItemInBags(id) end
-        if bag then
-            ns:EquipBagItemToSlot(bag, bagSlot, slot)
-            return
+        if bag and ns:EquipBagItemToSlot(bag, bagSlot, slot) then
+            setCropState(nil)
+            return true
         end
+        -- Altes Teil nicht auffindbar oder Anlegen abgelehnt: unten weiter.
+        -- Hauptsache unseres kommt aus dem Slot.
     end
 
     -- Slot war vorher leer (oder das alte Teil ist nicht auffindbar):
     -- unseres einfach in die Taschen zuruecklegen.
-    if PickupInventoryItem then
-        ClearCursor()
-        PickupInventoryItem(slot)
-        stowCursorItem()
-    end
+    if not PickupInventoryItem then return false end
+    ClearCursor()
+    PickupInventoryItem(slot)
+    if CursorHasItem and not CursorHasItem() then return false end
+    if not stowCursorItem() then return false end
+
+    setCropState(nil)
+    return true
 end
 
 -- Wechsel zwischen Reittier und Fluggestalt: nur der Gegenstand im Slot
@@ -1210,7 +1274,7 @@ end
 
 -- force = auch handeln, wenn sich der Zustand nicht geaendert hat. Braucht
 -- der Schalter in den Optionen: wer ihn im Sattel umlegt, erwartet eine
--- sofortige Wirkung, obwohl _cropState schon stimmt.
+-- sofortige Wirkung, obwohl _cropStateKey schon stimmt.
 local function applyMountState(force)
     if not mod._enabled or not mod.db then return end
 
@@ -1221,8 +1285,22 @@ local function applyMountState(force)
         return
     end
 
-    local key = mountStateKey()
-    if key == _cropStateKey and not _cropPending and not force then return end
+    local key  = mountStateKey()
+    local list = itemsForState(key)
+
+    -- Wir tragen noch etwas von uns, obwohl der aktuelle Zustand nichts
+    -- davon braucht. Zwei Faelle, in denen sich der Zustandsschluessel dabei
+    -- NICHT geaendert hat und der Vergleich unten sonst aussteigen wuerde:
+    -- ein misslungenes Zuruecklegen von eben, und der Login abgesessen,
+    -- nachdem man beritten ausgeloggt hat. Beide Male bliebe die Gerte
+    -- sonst fuer immer im Schmuckslot.
+    local stale = cropState() ~= nil and list == nil
+                  and _cropRestoreTries < CROP_RESTORE_TRIES
+
+    if key == _cropStateKey and not _cropPending and not force and not stale then return end
+    -- Echter Zustandswechsel (und der Schalter in den Optionen) geben die
+    -- Versuche wieder frei.
+    if key ~= _cropStateKey or force then _cropRestoreTries = 0 end
     _cropStateKey = key
 
     if InCombatLockdown() then
@@ -1231,9 +1309,12 @@ local function applyMountState(force)
     end
     _cropPending = false
 
-    local list = itemsForState(key)
     if not list then
-        restoreMountSpeedItem()
+        if restoreMountSpeedItem() then
+            _cropRestoreTries = 0
+        else
+            _cropRestoreTries = _cropRestoreTries + 1
+        end
     elseif cropState() then
         -- Schon etwas von uns drin. Passt es zum neuen Zustand, bleibt es
         -- liegen; sonst wird an Ort und Stelle getauscht (Reittier <-> Flug).
@@ -2726,7 +2807,7 @@ function mod:OnDisable()
     ns:UnregisterEvent("PLAYER_REGEN_ENABLED",    onMountStateChange)
     ns:UnregisterEvent("PLAYER_ENTERING_WORLD",   onMountStateChange)
     -- Die Gerte darf nicht zurueckbleiben, nur weil das Modul aus geht.
-    if _cropState and not InCombatLockdown() then restoreMountSpeedItem() end
+    if cropState() and not InCombatLockdown() then restoreMountSpeedItem() end
     ns:UnregisterEvent("ACTIVE_TALENT_GROUP_CHANGED", onTalentChange)
     ns:UnregisterEvent("PLAYER_TALENT_UPDATE",        onTalentChange)
     ns:UnregisterEvent("CHARACTER_POINTS_CHANGED",    onTalentChange)
@@ -2864,6 +2945,16 @@ function mod:GetOptions()
                   local sb = ns.modules and ns.modules.socketbar
                   if sb and sb.db then sb.db.markEmpty = v end
                   if ns.RefreshSocketBar then ns.RefreshSocketBar() end
+              end },
+            { type = "toggle", label = L["Ask before overwriting a socket"],
+              tooltip = L["A socket that already holds a gem asks first: the old gem is destroyed when a new one goes in. Empty sockets never ask."],
+              get = function()
+                  local sb = ns.modules and ns.modules.socketbar
+                  return not (sb and sb.db and sb.db.confirmOverwrite == false)
+              end,
+              set = function(_, v)
+                  local sb = ns.modules and ns.modules.socketbar
+                  if sb and sb.db then sb.db.confirmOverwrite = v end
               end },
         } },
 
