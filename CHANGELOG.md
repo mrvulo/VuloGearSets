@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.10.0
+
+- **New: item tooltips name the gear sets an item belongs to.** Hover anything in
+  your bags, at the bank, on your character or a link in chat, and a line at the
+  bottom lists the sets it is part of. It can be turned off under Gear Sets.
+- Items are matched by their item ID plus random suffix, so an enchant or a gem
+  never hides the line, while a Ring of the Bear and a Ring of the Owl stay
+  apart — in Classic those two share one ID.
+- **New: gear sets equip from the bank.** With the bank window open, the parts of
+  a set sitting in your bank go on together with the rest. Your bags are still
+  searched first, so a copy there keeps priority. The piece you were wearing goes
+  into the bank slot the new one came from, exactly as if you had dragged it
+  across yourself.
+- With the bank closed, items waiting there are no longer counted as missing.
+  They get their own line telling you to open the bank window, and a set that is
+  only short of bank items no longer claims it is already equipped.
+
 ## 1.9.1
 
 - **Fixed: the speed trinket is taken off again.** Putting it away only ever
