@@ -2883,6 +2883,11 @@ function mod:GetOptions()
           get = function() return mod.db.confirmDelete ~= false end,
           set = function(_, v) mod.db.confirmDelete = v end },
 
+        { type = "toggle", label = L["Show set membership in item tooltips"],
+          tooltip = L["Adds a line to every item tooltip naming the gear sets the item belongs to — in your bags, at the bank, on your character and on links in chat."],
+          get = function() return ns:IsModuleEnabled("itemtooltip") end,
+          set = function(_, v) if ns.ToggleModule then ns:ToggleModule("itemtooltip", v, true) end end },
+
         { type = "dropdown", label = L["Window style"],
           tooltip = L["Modern uses the dark look with a purple accent. Classic uses Blizzard's dialog frame so the windows match the default interface."],
           values = ns.STYLES,
