@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.11.1
+
+- **Fixed: a set that is already on stops repeating itself in chat.** Clicking an
+  equipped set again, or pressing its key a second time, said the same sentence
+  every single time. The outcome of an attempt that moved nothing is now
+  remembered and reported once.
+- What is remembered is the whole outcome, not just the name — so if a missing
+  piece turns up in your bags in the meantime, the line is news again and comes
+  back. The refusal during combat works the same way, which a key makes very easy
+  to trigger three times in a row. Anything reporting a real swap always comes
+  through.
+
 ## 1.11.0
 
 - **New: a gear set can sit on a key.** Right-click a set, pick Set key, and the
