@@ -117,13 +117,49 @@ local function captureCurrentEquipment(slotList)
     return set
 end
 
-local function findItemInBags(targetItemID)
+-- =========================================================
+-- Die Bank zaehlt mit, solange ihr Fenster offen ist
+--
+-- Der Client behandelt Bankfaecher dann wie Taschenfaecher: was sich von
+-- Hand auf einen Ausruestungsslot ziehen laesst, laesst sich auch ueber
+-- EquipCursorItem anlegen. Ist das Fenster zu, liefert jeder Zugriff auf
+-- die Faecher nichts - deshalb wird nicht einmal danach gesucht.
+-- =========================================================
+local BANK_CONTAINER_ID = _G.BANK_CONTAINER or -1
+
+local function bankIsOpen()
+    local bf = _G.BankFrame
+    return (bf and bf.IsShown and bf:IsShown()) and true or false
+end
+
+local function isBankContainer(bag)
+    return bag < 0 or bag > (NUM_BAG_SLOTS or 4)
+end
+
+-- Taschen zuerst, dann Bankhauptfach und Bankbeutel: ein Teil aus der
+-- Tasche bleibt dem gleichen Teil an der Bank vorgezogen.
+local function containerIDs(includeBank)
+    local list = {}
+    for bag = 0, (NUM_BAG_SLOTS or 4) do list[#list + 1] = bag end
+    if includeBank then
+        list[#list + 1] = BANK_CONTAINER_ID
+        local first = (NUM_BAG_SLOTS or 4) + 1
+        -- Ein Beutel zu viel schadet nicht: den gibt es dann schlicht
+        -- nicht und er meldet null Faecher.
+        for bag = first, first + (NUM_BANKBAGSLOTS or 7) - 1 do
+            list[#list + 1] = bag
+        end
+    end
+    return list
+end
+
+local function findItemInBags(targetItemID, includeBank)
     if not GetContainerItemID or not GetContainerNumSlots then return nil end
-    for bag = 0, (NUM_BAG_SLOTS or 4) do
+    for _, bag in ipairs(containerIDs(includeBank)) do
         local slots = GetContainerNumSlots(bag) or 0
         for slot = 1, slots do
             if GetContainerItemID(bag, slot) == targetItemID then
-                return bag, slot
+                return bag, slot, isBankContainer(bag)
             end
         end
     end
@@ -506,7 +542,26 @@ local function equipLoadout(name)
         return
     end
 
-    local swapped, missing = 0, 0
+    local swapped, missing, atBank = 0, 0, 0
+
+    -- Einmal am Anfang festgehalten: waehrend des Anlegens soll sich der
+    -- Suchraum nicht aendern.
+    local useBank = bankIsOpen()
+
+    -- Wie viele Exemplare an der Bank liegen, aber gerade nicht erreichbar
+    -- sind. Die Bank kennt der Client nur als Differenz zweier Zaehlungen
+    -- (siehe getSetStatus); jedes gemeldete Teil wird abgezogen, damit ein
+    -- einzelnes Exemplar nicht fuer zwei Slots gemeldet wird.
+    local bankLeft = {}
+    local function bankStock(id)
+        if bankLeft[id] == nil then
+            bankLeft[id] = GetItemCount
+                and ((GetItemCount(id, true) or 0) - (GetItemCount(id) or 0))
+                or 0
+        end
+        return bankLeft[id]
+    end
+
     -- Sorted ascending so paired slots resolve predictably (11 before 12,
     -- 13 before 14). We equip via ns:EquipBagItemToSlot which uses
     -- EquipCursorItem(slot) — that honours the exact destination slot, so
@@ -527,11 +582,15 @@ local function equipLoadout(name)
         local wornID  = getItemIDFromLink(GetInventoryItemLink("player", slot))
         if itemID ~= wornID then
             if itemID then
-                local bag, bagSlot = findItemInBags(itemID)
+                local bag, bagSlot, fromBank = findItemInBags(itemID, useBank)
                 if bag and bagSlot then
                     local ok = ns:EquipBagItemToSlot(bag, bagSlot, slot)
-                    if not ok and UseContainerItem then
-                        -- Fallback for non-paired slots if cursor method failed
+                    -- Fallback for non-paired slots if cursor method failed.
+                    -- Auf ein Bankfach angewandt legt UseContainerItem aber
+                    -- nichts an, es schiebt das Teil nur in die Taschen - und
+                    -- das haette hier als angelegt gezaehlt. Also nur fuer
+                    -- Taschen.
+                    if not ok and not fromBank and UseContainerItem then
                         ok = pcall(UseContainerItem, bag, bagSlot)
                     end
                     if ok then swapped = swapped + 1 else missing = missing + 1 end
@@ -543,6 +602,11 @@ local function equipLoadout(name)
                     local srcSlot = findWornElsewhere(itemID, slot, loadout)
                     if srcSlot and swapWornItem(srcSlot, slot) then
                         swapped = swapped + 1
+                    elseif not useBank and bankStock(itemID) > 0 then
+                        -- Nicht verloren, nur unerreichbar: es liegt an der
+                        -- Bank und die ist zu.
+                        bankLeft[itemID] = bankLeft[itemID] - 1
+                        atBank = atBank + 1
                     else
                         missing = missing + 1
                     end
@@ -561,8 +625,15 @@ local function equipLoadout(name)
     elseif missing > 0 then
         ns:Print(string.format(L["Gear set '%s': %d items missing from bags, nothing swapped."],
             name, missing))
-    else
+    elseif atBank == 0 then
         ns:Print(string.format(L["Gear set '%s' already equipped."], name))
+    end
+
+    -- Eigene Zeile statt "fehlt": das Teil ist nicht weg, es ist nur gerade
+    -- nicht erreichbar. Mit offenem Bankfenster kaeme es von selbst mit.
+    if atBank > 0 then
+        ns:Print(string.format(
+            L["%d items are in the bank — open the bank window to equip them."], atBank))
     end
 end
 

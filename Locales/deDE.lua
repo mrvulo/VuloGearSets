@@ -9,6 +9,7 @@
 local _, ns = ...
 
 ns:RegisterLocale("deDE", {
+    ["%d items are in the bank — open the bank window to equip them."] = "%d Teile liegen in der Bank — öffne das Bankfenster, um sie anzulegen.",
     ["'%s' bound to %s."] = "'%s' an %s gebunden.",
     ["'%s' unbound from spec."] = "'%s' von Spec gelöst.",
     ["(equipped)"] = "(angelegt)",
