@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.11.0
+
+- **New: a gear set can sit on a key.** Right-click a set, pick Set key, and the
+  next key you press belongs to it. Pressing it equips the set exactly like a
+  double-click on the row, wherever you are — the character window does not have
+  to be open. Modifiers count, so Shift-1 and Alt-F are separate keys, and the
+  middle mouse button along with mouse 4 and 5 can be used as well.
+- The row tooltip names the key, and the right-click menu grows an entry to take
+  it away again. A key belongs to exactly one set: hand it to another one and the
+  previous owner loses it and is told so. Renaming a set carries its key along,
+  deleting the set drops it, and the whole assignment lives per character, just
+  like the sets themselves.
+- Blizzard's own key bindings are never rewritten and nothing is left behind when
+  the addon is off. The other side of that: while the addon runs, the key takes
+  precedence over whatever else uses it, and it does not show up in Blizzard's
+  key binding list. Keys cannot be changed during combat — a change made there is
+  applied the moment combat ends.
+- **Changed: the item list for the weapon slots opens downward.** The three
+  weapon slots sit as a row under the character model, so a list opening sideways
+  had nothing to cover but the neighbouring weapons. It now unfolds below the
+  slot and only flips up when there is genuinely no room.
+
 ## 1.10.0
 
 - **New: item tooltips name the gear sets an item belongs to.** Hover anything in
