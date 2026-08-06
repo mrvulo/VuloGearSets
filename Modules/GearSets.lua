@@ -490,11 +490,13 @@ local function deleteLoadout(name)
         return
     end
     LO()[name] = nil
+    -- Still: der Spieler hat das Set geloescht, nicht die Taste.
+    if ns.ClearSetKeybind then ns:ClearSetKeybind(name, true) end
     ns:Print(string.format(L["Gear set '%s' deleted."], name))
 end
 
--- Umbenennen = Eintrag unter neuem Schluessel weiterfuehren. Die Spec- und
--- Gestalt-Bindungen haengen ebenfalls am Namen und muessen mitziehen, sonst
+-- Umbenennen = Eintrag unter neuem Schluessel weiterfuehren. Spec-, Gestalt-
+-- und Tastenbindung haengen ebenfalls am Namen und muessen mitziehen, sonst
 -- zeigen sie nach dem Umbenennen ins Leere. Gibt bei Erfolg den endgueltigen
 -- (getrimmten) Namen zurueck, damit der Aufrufer die Auswahl nachfuehren kann.
 local function renameLoadout(oldName, newName)
@@ -523,6 +525,7 @@ local function renameLoadout(oldName, newName)
         formMap()[newName] = formMap()[oldName]
         formMap()[oldName] = nil
     end
+    if ns.RenameSetKeybind then ns:RenameSetKeybind(oldName, newName) end
     ns:Print(string.format(L["Gear set '%s' renamed to '%s'."], oldName, newName))
     return newName
 end
@@ -635,6 +638,12 @@ local function equipLoadout(name)
         ns:Print(string.format(
             L["%d items are in the bank — open the bank window to equip them."], atBank))
     end
+end
+
+-- Fuer das Tasten-Modul: es haengt an einem Setnamen und braucht genau
+-- diesen einen Weg hinein. equipLoadout bleibt lokal.
+function ns:EquipGearSet(name)
+    equipLoadout(name)
 end
 
 local function listLoadouts()
@@ -1984,6 +1993,11 @@ local function createSetRow(parent, index)
             end
 
             GameTooltip:AddLine(" ")
+            local key = ns.GetSetKeybind and ns:GetSetKeybind(self.setName)
+            if key then
+                GameTooltip:AddLine(string.format(L["Key: %s"], ns:KeybindText(key)),
+                    1, 0.82, 0)
+            end
             GameTooltip:AddLine(L["Left-click: select"], 1, 1, 1)
             GameTooltip:AddLine(L["Double-click / Right-click menu: equip"], 0.7, 0.7, 0.7)
             GameTooltip:Show()
@@ -2012,6 +2026,22 @@ local function createSetRow(parent, index)
                     promptRename(setName)
                 end },
             }
+
+            -- Taste: belegen steht immer da, loeschen nur, wenn es etwas
+            -- zu loeschen gibt - und nennt gleich die betroffene Taste.
+            local boundKey = ns.GetSetKeybind and ns:GetSetKeybind(setName)
+            table.insert(menu, { text = L["Set key..."], func = function()
+                ns:PromptSetKeybind(setName)
+            end })
+            if boundKey then
+                table.insert(menu, {
+                    text = string.format(L["Clear key (%s)"], ns:KeybindText(boundKey)),
+                    func = function()
+                        ns:ClearSetKeybind(setName)
+                        refreshSidebar()
+                    end,
+                })
+            end
 
             -- Spec-binding entries — only when dual spec is active
             if getNumSpecGroups() >= 2 then

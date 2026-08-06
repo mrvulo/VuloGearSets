@@ -26,6 +26,7 @@ function ns:InitDB()
     char.sets        = char.sets        or {}
     char.specMapping = char.specMapping or {}
     char.formMapping = char.formMapping or {}
+    char.keybinds    = char.keybinds    or {}
     char.modEnabled  = char.modEnabled  or {}
 
     ns.db = db

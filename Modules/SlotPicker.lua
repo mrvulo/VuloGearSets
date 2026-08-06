@@ -123,6 +123,11 @@ local function scanBagsForSlot(slotID)
     return results
 end
 
+-- Die drei Waffenslots sitzen als Reihe unter dem Charaktermodell, nicht
+-- in einer der Seitenspalten. Seitlich hat ihre Auswahl nur die Nachbar-
+-- slots zum Zudecken, deshalb klappt sie nach unten auf.
+local BOTTOM_SLOTS = { [16] = true, [17] = true, [18] = true }
+
 -- =========================================================
 -- Popup with item grid
 -- =========================================================
@@ -316,7 +321,23 @@ local function showSlotPicker(slotID, anchorBtn)
     end
 
     popup:ClearAllPoints()
-    if compact then
+    if compact and BOTTOM_SLOTS[slotID] then
+        -- Waffenreihe: nach unten aufklappen, mittig unter dem Slot.
+        -- Dieselbe Vorsicht wie bei den Seitenspalten - nur kippen, wenn
+        -- unten nachweislich kein Platz ist. Eine Kante, die nil liefert,
+        -- ist KEIN Platzmangel.
+        local down    = true
+        local need    = (popup:GetHeight() or 0) + 12
+        local edgeB   = anchorBtn:GetBottom()
+        local screenB = UIParent:GetBottom()
+        if edgeB and screenB and (edgeB - screenB) < need then down = false end
+
+        if down then
+            popup:SetPoint("TOP", anchorBtn, "BOTTOM", 0, -6)
+        else
+            popup:SetPoint("BOTTOM", anchorBtn, "TOP", 0, 6)
+        end
+    elseif compact then
         -- Zur Fensteraussenseite hin oeffnen, damit das Charaktermodell
         -- frei bleibt: linke Slotspalte nach links, rechte nach rechts.
         local toLeft = false

@@ -28,5 +28,6 @@ Modules\GearSets.lua
 Modules\SlotPicker.lua
 Modules\SocketBar.lua
 Modules\ItemTooltip.lua
+Modules\SetKeybinds.lua
 Core\Coexistence.lua
 Core\Init.lua
