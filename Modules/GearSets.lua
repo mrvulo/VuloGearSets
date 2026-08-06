@@ -530,9 +530,19 @@ local function renameLoadout(oldName, newName)
     return newName
 end
 
+-- Der zuletzt gemeldete Ausgang eines Anlegens, das nichts bewegt hat.
+-- Siehe unten am Ende von equipLoadout.
+local _lastEquipOutcome
+
 local function equipLoadout(name)
     if InCombatLockdown() then
-        ns:Print(L["Cannot change equipment in combat."])
+        -- Dieselbe Sperre wie am Ende der Funktion: eine Taste ist im Kampf
+        -- schnell mehrfach gedrueckt, und die Absage aendert sich dabei nicht.
+        local outcome = tostring(name) .. "\1combat"
+        if outcome ~= _lastEquipOutcome then
+            _lastEquipOutcome = outcome
+            ns:Print(L["Cannot change equipment in combat."])
+        end
         return
     end
     local loadout = LO()[name]
@@ -617,6 +627,21 @@ local function equipLoadout(name)
             end
         end
     end
+
+    -- Hat der Aufruf nichts bewegt, wird dieselbe Meldung nicht wiederholt:
+    -- wer ein angelegtes Set noch einmal anklickt oder seine Taste zweimal
+    -- drueckt, hat beim ersten Mal gelesen, warum nichts passiert. Gemerkt
+    -- wird der ganze Ausgang, nicht nur der Name - aendert sich etwas an der
+    -- Lage (ein fehlendes Teil taucht auf), kommt die Meldung wieder.
+    --
+    -- Sobald wirklich getauscht wurde, faellt der Merker weg: dann ist die
+    -- naechste "ist schon angelegt"-Meldung eine neue Auskunft.
+    local outcome = (swapped == 0)
+        and string.format("%s\1%d\1%d", name, missing, atBank)
+        or nil
+    local repeated = (outcome ~= nil and outcome == _lastEquipOutcome)
+    _lastEquipOutcome = outcome
+    if repeated then return end
 
     if swapped > 0 then
         if missing > 0 then
