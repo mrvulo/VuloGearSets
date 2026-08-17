@@ -2,7 +2,7 @@
 ## Title: |cff9b6cffVuloGearSets|r
 ## Notes: Equipment set manager for Classic Era and Season of Discovery
 ## Author: Vulo
-## Version: 1.12.0
+## Version: 1.12.1
 ## X-Curse-Project-ID: 1629333
 ## X-Wago-ID: b6mv8yKP
 ## SavedVariables: VuloGearSetsDB

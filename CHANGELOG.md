@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.12.1
+
+- **A set can now show or hide your helmet and cloak.** Right-click a set in
+  the sidebar: the Helmet and Cloak entries cycle between leave as is, show
+  and hide. When the set is equipped — by double-click, key, spec or form
+  switch, or the quick-switcher — it applies that choice, even if no item had
+  to move.
+- The default is leave as is, so existing sets behave exactly as before. The
+  set tooltip only mentions the setting when the set actually changes
+  something.
+
 ## 1.12.0
 
 - **New: gear sets can be put in your own order.** Right-click a set in the
