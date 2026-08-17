@@ -573,6 +573,47 @@ local function renameLoadout(oldName, newName)
     return newName
 end
 
+-- =========================================================
+-- Helm und Umhang sichtbar oder nicht - je Set
+--
+-- Am Set haengen `showHelm` und `showCloak` mit drei Zustaenden:
+--   nil   = nicht anfassen (Standard, wie vor diesem Feature)
+--   true  = beim Anlegen einblenden
+--   false = beim Anlegen ausblenden
+-- Angewendet wird beim Anlegen, auch wenn nichts zu wechseln war - der
+-- Spieler will das Set so sehen, wie er es eingestellt hat.
+-- =========================================================
+local VISIBILITY_FIELDS = {
+    { key = "showHelm",  show = ShowHelm,  label = L["Helmet"] },
+    { key = "showCloak", show = ShowCloak, label = L["Cloak"]  },
+}
+
+local function applySetVisibility(loadout)
+    if not loadout or InCombatLockdown() then return end
+    for _, f in ipairs(VISIBILITY_FIELDS) do
+        local want = loadout[f.key]
+        if want ~= nil and f.show then f.show(want) end
+    end
+end
+
+-- Menuetext fuer den aktuellen Zustand, z. B. "Helm: anzeigen".
+local function visibilityText(loadout, f)
+    local v = loadout and loadout[f.key]
+    local state
+    if v == true then state = L["shown"]
+    elseif v == false then state = L["hidden"]
+    else state = L["as is"] end
+    return string.format("%s: %s", f.label, state)
+end
+
+-- Ein Klick schaltet weiter: nicht aendern -> anzeigen -> verbergen -> ...
+local function cycleVisibility(loadout, f)
+    local v = loadout[f.key]
+    if v == nil then loadout[f.key] = true
+    elseif v == true then loadout[f.key] = false
+    else loadout[f.key] = nil end
+end
+
 -- Der zuletzt gemeldete Ausgang eines Anlegens, das nichts bewegt hat.
 -- Siehe unten am Ende von equipLoadout.
 local _lastEquipOutcome
@@ -597,6 +638,8 @@ local function equipLoadout(name)
         ns:Print(L["Equipment swap API not available on this client."])
         return
     end
+
+    applySetVisibility(loadout)
 
     local swapped, missing, atBank = 0, 0, 0
 
@@ -2222,6 +2265,20 @@ local function createSetRow(parent, index)
                 listPart(st.missing, L["Not found:"],      0.95, 0.4, 0.35)
             end
 
+            -- Nur nennen, was das Set wirklich anfasst.
+            local visLines = {}
+            for _, f in ipairs(VISIBILITY_FIELDS) do
+                if loadout[f.key] ~= nil then
+                    visLines[#visLines + 1] = visibilityText(loadout, f)
+                end
+            end
+            if #visLines > 0 then
+                GameTooltip:AddLine(" ")
+                for _, line in ipairs(visLines) do
+                    GameTooltip:AddLine(line, 0.85, 0.85, 0.85)
+                end
+            end
+
             GameTooltip:AddLine(" ")
             local key = ns.GetSetKeybind and ns:GetSetKeybind(self.setName)
             if key then
@@ -2270,6 +2327,23 @@ local function createSetRow(parent, index)
                     promptRename(setName)
                 end },
             }
+
+            -- Helm/Umhang: der Eintrag zeigt den Zustand, ein Klick schaltet
+            -- weiter. Das Menue schliesst danach; die Leiste wird neu
+            -- gezeichnet, damit der Tooltip gleich stimmt.
+            table.insert(menu, { separator = true })
+            for _, f in ipairs(VISIBILITY_FIELDS) do
+                local field = f
+                table.insert(menu, {
+                    text = visibilityText(LO()[setName], field),
+                    func = function()
+                        local lo = LO()[setName]
+                        if not lo then return end
+                        cycleVisibility(lo, field)
+                        refreshSidebar()
+                    end,
+                })
+            end
 
             -- Verschieben: nur die Richtungen anbieten, in die es noch geht.
             local order = sortedLoadoutNames()
