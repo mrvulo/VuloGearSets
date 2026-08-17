@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.12.0
+
+- **New: gear sets can be put in your own order.** Right-click a set in the
+  sidebar for Move up and Move down, or simply drag it: a shadow of the row
+  follows the pointer, a coloured line marks where it will land, and the list
+  scrolls on its own when you reach the top or bottom edge. Letting go saves
+  the order.
+- The order is kept per character and applies everywhere sets are listed —
+  the sidebar, the quick-switcher menu, the settings page and the Sets line in
+  item tooltips.
+- Until you move something, the list stays alphabetical as before. Once you
+  have, new sets join at the bottom.
+
 ## 1.11.1
 
 - **Fixed: a set that is already on stops repeating itself in chat.** Clicking an
