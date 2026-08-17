@@ -125,7 +125,18 @@ local function setsForLink(link)
     end
 
     if #names == 0 then return nil end
-    table.sort(names)
+    -- Dieselbe Reihenfolge wie in der Set-Leiste (vom Spieler sortiert),
+    -- Rueckfall alphabetisch, falls das Set-Modul nicht geladen ist.
+    if ns.SortedSetNames then
+        local rank = {}
+        for i, n in ipairs(ns.SortedSetNames()) do rank[n] = i end
+        table.sort(names, function(a, b)
+            return (rank[a] or math.huge) < (rank[b] or math.huge)
+                or ((rank[a] or math.huge) == (rank[b] or math.huge) and a < b)
+        end)
+    else
+        table.sort(names)
+    end
     return names
 end
 

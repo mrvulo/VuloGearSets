@@ -412,15 +412,58 @@ local function getSetStatus(name)
     }
 end
 
+-- Reihenfolge der Sets: solange der Spieler nichts verschoben hat, sind alle
+-- Eintraege ohne `order` und die Liste ist alphabetisch. Sobald er einmal
+-- verschiebt, tragen alle Sets eine Nummer (siehe moveLoadout). Neue Sets
+-- ohne Nummer haengen sich hinten an - alphabetisch untereinander.
 local function sortedLoadoutNames()
     local names = {}
     if mod.db and LO() then
-        for name in pairs(LO()) do
+        local sets = LO()
+        for name in pairs(sets) do
             table.insert(names, name)
         end
-        table.sort(names)
+        table.sort(names, function(a, b)
+            local oa = tonumber(sets[a].order) or math.huge
+            local ob = tonumber(sets[b].order) or math.huge
+            if oa ~= ob then return oa < ob end
+            return a < b
+        end)
     end
     return names
+end
+ns.SortedSetNames = sortedLoadoutNames
+
+-- Set an Position `newPos` der Liste stellen (1 = ganz oben). Danach tragen
+-- ALLE Sets ihre Position als `order`, damit die bisher alphabetische
+-- Reihenfolge der anderen erhalten bleibt und nicht ploetzlich ein einzelnes
+-- nummeriertes Set vor allen anderen steht.
+local function moveLoadoutTo(name, newPos)
+    local sets = LO()
+    if not sets[name] then return false end
+    local names = sortedLoadoutNames()
+    local idx
+    for i, n in ipairs(names) do
+        if n == name then idx = i; break end
+    end
+    if not idx then return false end
+    if newPos < 1 then newPos = 1 elseif newPos > #names then newPos = #names end
+    if newPos == idx then return false end
+    table.remove(names, idx)
+    table.insert(names, newPos, name)
+    for i, n in ipairs(names) do
+        sets[n].order = i
+    end
+    return true
+end
+
+-- Set um `delta` Plaetze verschieben (-1 = nach oben, +1 = nach unten).
+local function moveLoadout(name, delta)
+    local names = sortedLoadoutNames()
+    for i, n in ipairs(names) do
+        if n == name then return moveLoadoutTo(name, i + delta) end
+    end
+    return false
 end
 
 -- =========================================================
@@ -1928,6 +1971,168 @@ local function showIconPicker(loadoutName, anchor)
     _iconPicker:Show()
 end
 
+-- =========================================================
+-- Sets in der Leiste per Ziehen umsortieren
+--
+-- Beim Ziehen haengt ein Schatten der Zeile (Symbol + Name) am Mauszeiger,
+-- und ein Strich in der Liste zeigt, wo das Set beim Loslassen landet.
+-- Die Zielposition wird ueber die Mitte der sichtbaren Zeilen bestimmt:
+-- oberhalb der Mitte heisst "davor", unterhalb "danach". Am oberen und
+-- unteren Rand des Sichtfensters scrollt die Liste von selbst weiter, damit
+-- auch lange Listen ohne Absetzen sortierbar sind.
+-- =========================================================
+local DRAG_EDGE_SCROLL_ZONE  = 14   -- px vom Rand, ab dem gescrollt wird
+local DRAG_EDGE_SCROLL_SPEED = 240  -- px pro Sekunde
+
+local _drag  -- { name = <Set>, insertBefore = <Index in der Liste> }
+local _dragGhost, _dragMarker
+
+local function ensureDragWidgets()
+    if _dragGhost then return end
+    local g = CreateFrame("Frame", nil, UIParent)
+    g:SetSize(160, 28)
+    g:SetFrameStrata("TOOLTIP")
+    g:SetAlpha(0.9)
+    g:Hide()
+    g.bg = g:CreateTexture(nil, "BACKGROUND")
+    g.bg:SetAllPoints(g)
+    g.bg:SetColorTexture(0, 0, 0, 0.75)
+    g.icon = g:CreateTexture(nil, "ARTWORK")
+    g.icon:SetSize(22, 22)
+    g.icon:SetPoint("LEFT", g, "LEFT", 3, 0)
+    g.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    g.text = g:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    g.text:SetPoint("LEFT", g.icon, "RIGHT", 6, 0)
+    g.text:SetPoint("RIGHT", g, "RIGHT", -6, 0)
+    g.text:SetJustifyH("LEFT")
+    _dragGhost = g
+
+    -- Der Strich lebt im Scroll-Kind: so wird er mit den Zeilen bewegt
+    -- und am Rand des Sichtfensters abgeschnitten wie sie.
+    local m = sidebar.list:CreateTexture(nil, "OVERLAY")
+    m:SetHeight(2)
+    m:Hide()
+    _dragMarker = m
+end
+
+-- Zielindex aus der Mauslage bestimmen und den Strich dorthin setzen.
+local function updateDragTarget()
+    if not _drag then return end
+    local list = sidebar.list
+    local _, cy = GetCursorPosition()
+    cy = cy / list:GetEffectiveScale()
+
+    local names = sortedLoadoutNames()
+    local n = #names
+    local insertBefore = n + 1
+    for i = 1, n do
+        local row = sidebarSetButtons[i]
+        if row and row:IsShown() then
+            local top, bottom = row:GetTop(), row:GetBottom()
+            if top and bottom and cy >= (top + bottom) / 2 then
+                insertBefore = i
+                break
+            end
+        end
+    end
+    _drag.insertBefore = insertBefore
+
+    -- Ein Strich vor oder hinter der eigenen Zeile hiesse "nichts aendern".
+    local idx
+    for i, nm in ipairs(names) do
+        if nm == _drag.name then idx = i; break end
+    end
+    _dragMarker:ClearAllPoints()
+    if idx and (insertBefore == idx or insertBefore == idx + 1) then
+        _dragMarker:Hide()
+        return
+    end
+    _dragMarker:SetColorTexture(ns:AccentColor())
+    if insertBefore <= n then
+        local row = sidebarSetButtons[insertBefore]
+        _dragMarker:SetPoint("BOTTOMLEFT",  row, "TOPLEFT",  2, 0)
+        _dragMarker:SetPoint("BOTTOMRIGHT", row, "TOPRIGHT", -2, 0)
+    else
+        -- Hinter dem letzten Set - unter seinem aufgeklappten Raster, falls
+        -- es eines hat.
+        local anchor = sidebarSetButtons[n]
+        if sidebarExpanded == names[n] and sidebarItemRows[n]
+           and sidebarItemRows[n]:IsShown() then
+            anchor = sidebarItemRows[n]
+        end
+        _dragMarker:SetPoint("TOPLEFT",  anchor, "BOTTOMLEFT",  2, -1)
+        _dragMarker:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", -2, -1)
+    end
+    _dragMarker:Show()
+end
+
+local function dragOnUpdate(self, elapsed)
+    if not _drag then return end
+    -- Schatten am Zeiger halten
+    local x, y = GetCursorPosition()
+    local s = UIParent:GetEffectiveScale()
+    self:ClearAllPoints()
+    self:SetPoint("LEFT", UIParent, "BOTTOMLEFT", x / s + 12, y / s)
+
+    -- Am Rand des Sichtfensters weiterscrollen
+    local scroll = sidebar.scroll
+    local maxS = scroll and scroll._maxScroll or 0
+    if scroll and maxS > 0 then
+        local cy  = y / scroll:GetEffectiveScale()
+        local top, bottom = scroll:GetTop(), scroll:GetBottom()
+        if top and bottom then
+            local step = DRAG_EDGE_SCROLL_SPEED * elapsed
+            local cur  = scroll:GetVerticalScroll()
+            if cy > top - DRAG_EDGE_SCROLL_ZONE and cy <= top + 40 then
+                scroll:SetVerticalScroll(math.max(0, cur - step))
+            elseif cy < bottom + DRAG_EDGE_SCROLL_ZONE and cy >= bottom - 40 then
+                scroll:SetVerticalScroll(math.min(maxS, cur + step))
+            end
+        end
+    end
+
+    updateDragTarget()
+end
+
+local function startSetDrag(row)
+    if not (row.setName and LO()[row.setName]) then return end
+    if #sortedLoadoutNames() < 2 then return end
+    ensureDragWidgets()
+    _drag = { name = row.setName }
+    GameTooltip:Hide()
+    row:SetAlpha(0.4)
+    _dragGhost.icon:SetTexture(getSetIcon(row.setName))
+    _dragGhost.text:SetText(row.setName)
+    _dragGhost:SetScript("OnUpdate", dragOnUpdate)
+    _dragGhost:Show()
+    dragOnUpdate(_dragGhost, 0)
+end
+
+local function stopSetDrag(row, cancel)
+    if not _drag then return end
+    local name, insertBefore = _drag.name, _drag.insertBefore
+    _drag = nil
+    row:SetAlpha(1)
+    _dragGhost:SetScript("OnUpdate", nil)
+    _dragGhost:Hide()
+    _dragMarker:Hide()
+
+    if cancel or not insertBefore then return end
+    local names = sortedLoadoutNames()
+    local idx
+    for i, nm in ipairs(names) do
+        if nm == name then idx = i; break end
+    end
+    if not idx then return end
+    -- Aus "davor einfuegen" die Endposition machen: liegt das Ziel hinter
+    -- der eigenen Zeile, rueckt es durch das Herausnehmen um eins auf.
+    local newPos = (insertBefore > idx) and (insertBefore - 1) or insertBefore
+    if moveLoadoutTo(name, newPos) then
+        sidebarSelected = name
+        refreshSidebar()
+    end
+end
+
 local function createSetRow(parent, index)
     local btn = sidebarSetButtons[index]
     if btn then return btn end
@@ -2025,6 +2230,7 @@ local function createSetRow(parent, index)
             end
             GameTooltip:AddLine(L["Left-click: select"], 1, 1, 1)
             GameTooltip:AddLine(L["Double-click / Right-click menu: equip"], 0.7, 0.7, 0.7)
+            GameTooltip:AddLine(L["Drag: reorder"], 0.7, 0.7, 0.7)
             GameTooltip:Show()
         end
     end)
@@ -2033,8 +2239,21 @@ local function createSetRow(parent, index)
         GameTooltip:Hide()
     end)
 
+    -- Ziehen sortiert um. Ein Klick, der aus einem Ziehen hervorgeht,
+    -- darf weder auswaehlen noch als Doppelklick anlegen.
+    btn:RegisterForDrag("LeftButton")
+    btn:SetScript("OnDragStart", startSetDrag)
+    btn:SetScript("OnDragStop", function(self)
+        self._dragEnded = GetTime()
+        stopSetDrag(self)
+    end)
+    btn:SetScript("OnHide", function(self)
+        if _drag and _drag.name == self.setName then stopSetDrag(self, true) end
+    end)
+
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     btn:SetScript("OnClick", function(self, button)
+        if self._dragEnded and (GetTime() - self._dragEnded) < 0.1 then return end
         if button == "RightButton" then
             local setName = self.setName
             local menu = {
@@ -2051,6 +2270,26 @@ local function createSetRow(parent, index)
                     promptRename(setName)
                 end },
             }
+
+            -- Verschieben: nur die Richtungen anbieten, in die es noch geht.
+            local order = sortedLoadoutNames()
+            local pos
+            for i, n in ipairs(order) do
+                if n == setName then pos = i; break end
+            end
+            if pos and #order > 1 then
+                table.insert(menu, { separator = true })
+                if pos > 1 then
+                    table.insert(menu, { text = L["Move up"], func = function()
+                        if moveLoadout(setName, -1) then refreshSidebar() end
+                    end })
+                end
+                if pos < #order then
+                    table.insert(menu, { text = L["Move down"], func = function()
+                        if moveLoadout(setName, 1) then refreshSidebar() end
+                    end })
+                end
+            end
 
             -- Taste: belegen steht immer da, loeschen nur, wenn es etwas
             -- zu loeschen gibt - und nennt gleich die betroffene Taste.
