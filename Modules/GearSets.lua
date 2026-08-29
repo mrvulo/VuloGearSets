@@ -287,6 +287,60 @@ local function swapWornItem(fromSlot, toSlot)
     return ok
 end
 
+-- Erster freier Platz in einer normalen Tasche. Spezialtaschen (Koecher,
+-- Seelensplitter, Kraeuter) melden eine eigene Familie und nehmen kein
+-- Schmuckstueck - die ueberspringen wir, sonst zeigten wir auf einen Platz,
+-- in den der Client nichts ablegt.
+local function findFreeBagSlot()
+    if not GetContainerNumSlots or not GetContainerItemID then return nil end
+    for bag = 0, (NUM_BAG_SLOTS or 4) do
+        local family = 0
+        if GetContainerNumFreeSlots then
+            local ok, _free, fam = pcall(GetContainerNumFreeSlots, bag)
+            if ok then family = fam or 0 end
+        end
+        if family == 0 then
+            for slot = 1, (GetContainerNumSlots(bag) or 0) do
+                if not GetContainerItemID(bag, slot) then return bag, slot end
+            end
+        end
+    end
+    return nil
+end
+
+-- Cursor leerraeumen. Rueckgabe: true = das Teil liegt in einer Tasche.
+--
+-- Wir suchen den freien Platz selbst und legen gezielt dort ab, statt uns
+-- auf PutItemInBackpack zu verlassen. Das trifft naemlich nur den Rucksack
+-- - ist der voll, sagt es nichts, und das Teil fiel ueber ClearCursor
+-- zurueck in den Slot. Genau so blieb die Reitgerte angelegt.
+-- PutItemInBackpack/PutItemInBag bleiben als Rueckfallebene stehen.
+local function stowCursorItem()
+    if CursorHasItem and not CursorHasItem() then return true end
+
+    local bag, bagSlot = findFreeBagSlot()
+    if bag and _PickupContainerItem then
+        pcall(_PickupContainerItem, bag, bagSlot)
+    end
+    if CursorHasItem and CursorHasItem() and PutItemInBackpack then
+        pcall(PutItemInBackpack)
+    end
+    if CursorHasItem and CursorHasItem() and PutItemInBag and ContainerIDToInventoryID then
+        for b = 1, (NUM_BAG_SLOTS or 4) do
+            if not CursorHasItem() then break end
+            pcall(PutItemInBag, ContainerIDToInventoryID(b))
+        end
+    end
+
+    -- Alles voll: das Teil wandert dorthin zurueck, wo es herkam. Das
+    -- melden wir als Misserfolg, damit es spaeter noch einmal versucht wird.
+    if CursorHasItem and CursorHasItem() then
+        ClearCursor()
+        return false
+    end
+    return true
+end
+
 -- Slot suchen, der das gewuenschte Teil gerade traegt - aber keinen
 -- anpacken, der laut Set schon richtig bestueckt ist (zwei Exemplare
 -- derselben ID: das korrekt sitzende bleibt, wo es ist).
@@ -526,19 +580,33 @@ local function getSetStatus(name)
         end
     end
 
-    if total == 0 then return nil end
-    -- "Angelegt" heisst: jedes Teil sitzt in SEINEM Slot. Vertauschte
-    -- Ringe oder Schmuckstuecke zaehlen als "bereit" - das Anlegen kann
-    -- sie inzwischen umsortieren (swapWornItem), und der Punkt soll
-    -- dasselbe sagen wie der Knopf.
+    -- Slots, die laut Maske leer gehoeren, muessen auch leer sein - das
+    -- Anlegen wuerde sie freiraeumen, also darf der Punkt vorher nicht
+    -- gruen sein. Alt-Daten ohne echte Maske kennen keine Leer-Slots.
+    local extraWorn = 0
+    if set.slotMask then
+        for _, slot in ipairs(set.slotMask) do
+            if not set.slots[slot] and idx.wornBySlot[slot] then
+                extraWorn = extraWorn + 1
+            end
+        end
+    end
+
+    -- Ein Set ganz ohne Teile ist gueltig, solange es eine Maske hat: es
+    -- bedeutet "diese Slots frei". Ohne beides gibt es nichts zu melden.
+    if total == 0 and #(set.slotMask or {}) == 0 then return nil end
+    -- "Angelegt" heisst: jedes Teil sitzt in SEINEM Slot und die
+    -- Leer-Slots sind frei. Vertauschte Ringe oder Schmuckstuecke zaehlen
+    -- als "bereit" - das Anlegen kann sie inzwischen umsortieren
+    -- (swapWornItem), und der Punkt soll dasselbe sagen wie der Knopf.
     local state = "ready"
     if #missing > 0 then
         state = "missing"
-    elseif exact == total then
+    elseif exact == total and extraWorn == 0 then
         state = "equipped"
     end
     return {
-        state = state, total = total,
+        state = state, total = total, extraWorn = extraWorn,
         worn = worn, inBags = inBags, inBank = inBank, missing = missing,
     }
 end
@@ -868,16 +936,42 @@ local function equipLoadout(name)
         end
     end
 
+    -- Slots, die beim Speichern LEER waren, werden beim Anlegen geleert:
+    -- die Maske nennt alle damals gemeinten Slots, und wofuer dort kein
+    -- Teil hinterlegt ist, gehoert frei. So laesst sich ein Set anlegen,
+    -- das bewusst wenig (oder nichts) traegt. Alt-Daten ohne echte Maske
+    -- bekommen sie von der Migration aus den BELEGTEN Slots abgeleitet -
+    -- die kennen keine Leer-Slots und verhalten sich wie bisher.
+    -- Nach dem Tauschen, nicht davor: eine Zweihandwaffe raeumt die
+    -- Schildhand von selbst, das Teil liegt dann schon in der Tasche.
+    local removed, bagsFull = 0, 0
+    if loadout.slotMask and PickupInventoryItem then
+        for _, slot in ipairs(loadout.slotMask) do
+            if not loadout.slots[slot]
+               and GetInventoryItemLink("player", slot) then
+                ClearCursor()
+                PickupInventoryItem(slot)
+                if CursorHasItem and not CursorHasItem() then
+                    -- nichts aufgenommen - dann gibt es nichts abzulegen
+                elseif stowCursorItem() then
+                    removed = removed + 1
+                else
+                    bagsFull = bagsFull + 1
+                end
+            end
+        end
+    end
+
     -- Hat der Aufruf nichts bewegt, wird dieselbe Meldung nicht wiederholt:
     -- wer ein angelegtes Set noch einmal anklickt oder seine Taste zweimal
     -- drueckt, hat beim ersten Mal gelesen, warum nichts passiert. Gemerkt
     -- wird der ganze Ausgang, nicht nur der Name - aendert sich etwas an der
     -- Lage (ein fehlendes Teil taucht auf), kommt die Meldung wieder.
     --
-    -- Sobald wirklich getauscht wurde, faellt der Merker weg: dann ist die
-    -- naechste "ist schon angelegt"-Meldung eine neue Auskunft.
-    local outcome = (swapped == 0)
-        and string.format("%s\1%d\1%d", name, missing, atBank)
+    -- Sobald wirklich getauscht oder abgelegt wurde, faellt der Merker weg:
+    -- dann ist die naechste "ist schon angelegt"-Meldung eine neue Auskunft.
+    local outcome = (swapped + removed == 0)
+        and string.format("%s\1%d\1%d\1%d", name, missing, atBank, bagsFull)
         or nil
     local repeated = (outcome ~= nil and outcome == _lastEquipOutcome)
     _lastEquipOutcome = outcome
@@ -893,8 +987,18 @@ local function equipLoadout(name)
     elseif missing > 0 then
         ns:Print(string.format(L["Gear set '%s': %d items missing from bags, nothing swapped."],
             name, missing))
-    elseif atBank == 0 then
+    elseif atBank == 0 and removed == 0 and bagsFull == 0 then
         ns:Print(string.format(L["Gear set '%s' already equipped."], name))
+    end
+
+    -- Eigene Zeilen fuer das Ablegen: das ist die Haelfte der Wahrheit, die
+    -- in "gewechselt" nicht steckt.
+    if removed > 0 then
+        ns:Print(string.format(L["%d items taken off."], removed))
+    end
+    if bagsFull > 0 then
+        ns:Print(string.format(
+            L["%d items stayed on — no free bag space to take them off."], bagsFull))
     end
 
     -- Eigene Zeile statt "fehlt": das Teil ist nicht weg, es ist nur gerade
@@ -1457,61 +1561,6 @@ local function findInBags(list)
         if bag then return bag, bagSlot, wantID end
     end
     return nil
-end
-
--- Erster freier Platz in einer normalen Tasche. Spezialtaschen (Koecher,
--- Seelensplitter, Kraeuter) melden eine eigene Familie und nehmen kein
--- Schmuckstueck - die ueberspringen wir, sonst zeigten wir auf einen Platz,
--- in den der Client nichts ablegt.
-local function findFreeBagSlot()
-    if not GetContainerNumSlots or not GetContainerItemID then return nil end
-    for bag = 0, (NUM_BAG_SLOTS or 4) do
-        local family = 0
-        if GetContainerNumFreeSlots then
-            local ok, _free, fam = pcall(GetContainerNumFreeSlots, bag)
-            if ok then family = fam or 0 end
-        end
-        if family == 0 then
-            for slot = 1, (GetContainerNumSlots(bag) or 0) do
-                if not GetContainerItemID(bag, slot) then return bag, slot end
-            end
-        end
-    end
-    return nil
-end
-
--- Cursor leerraeumen. Rueckgabe: true = das Teil liegt in einer Tasche.
---
--- Wir suchen den freien Platz selbst und legen gezielt dort ab, statt uns
--- auf PutItemInBackpack zu verlassen. Das trifft naemlich nur den Rucksack
--- - ist der voll, sagt es nichts, und das Teil fiel ueber ClearCursor
--- zurueck in den Schmuckslot. Genau so blieb die Reitgerte angelegt.
--- PutItemInBackpack/PutItemInBag bleiben als Rueckfallebene stehen.
-local function stowCursorItem()
-    if CursorHasItem and not CursorHasItem() then return true end
-
-    local bag, bagSlot = findFreeBagSlot()
-    if bag and _PickupContainerItem then
-        pcall(_PickupContainerItem, bag, bagSlot)
-    end
-    if CursorHasItem and CursorHasItem() and PutItemInBackpack then
-        pcall(PutItemInBackpack)
-    end
-    if CursorHasItem and CursorHasItem() and PutItemInBag and ContainerIDToInventoryID then
-        for b = 1, (NUM_BAG_SLOTS or 4) do
-            if not CursorHasItem() then break end
-            pcall(PutItemInBag, ContainerIDToInventoryID(b))
-        end
-    end
-
-    -- Alles voll: das Teil wandert dorthin zurueck, wo es herkam - also in
-    -- den Schmuckslot. Das melden wir als Misserfolg, damit es spaeter
-    -- noch einmal versucht wird.
-    if CursorHasItem and CursorHasItem() then
-        ClearCursor()
-        return false
-    end
-    return true
 end
 
 local function equipMountSpeedItem(list)

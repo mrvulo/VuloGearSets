@@ -10,6 +10,8 @@ local _, ns = ...
 
 ns:RegisterLocale("deDE", {
     ["%d items are in the bank — open the bank window to equip them."] = "%d Teile liegen in der Bank — öffne das Bankfenster, um sie anzulegen.",
+    ["%d items stayed on — no free bag space to take them off."] = "%d Teile bleiben an — kein freier Taschenplatz, um sie abzulegen.",
+    ["%d items taken off."] = "%d Teile abgelegt.",
     ["%s was taken from '%s'."] = "%s wurde '%s' weggenommen.",
     ["'%s' bound to %s."] = "'%s' an %s gebunden.",
     ["'%s' is now on %s."] = "'%s' liegt jetzt auf %s.",
