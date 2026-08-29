@@ -107,6 +107,25 @@ local function getItemIDFromLink(link)
     return tonumber(link:match("item:(%d+)"))
 end
 
+-- Kennung eines EXEMPLARS: Item-ID plus Verzauberung, die vier Sockel und
+-- der Zufallswert-Suffix. Zwei Teile mit gleicher ID, aber verschiedenen
+-- Steinen oder Verzauberungen (die T5-Schultern einmal mit Zaubermacht,
+-- einmal mit Widerstand) bekommen so verschiedene Schluessel. Die uebrigen
+-- Linkfelder (uniqueID, Levelangabe) bleiben bewusst draussen - sie aendern
+-- sich, ohne dass das Teil ein anderes wird.
+local function variantKey(link)
+    if not link then return nil end
+    local payload = link:match("item:([%-%d:]+)")
+    if not payload then return nil end
+    local fields = {}
+    for f in (payload .. ":"):gmatch("(.-):") do
+        fields[#fields + 1] = (f ~= "" and f) or "0"
+        if #fields == 7 then break end
+    end
+    for i = #fields + 1, 7 do fields[i] = "0" end
+    return table.concat(fields, ":")
+end
+
 local function captureCurrentEquipment(slotList)
     slotList = slotList or EQUIP_SLOTS
     local set = {}
@@ -164,6 +183,36 @@ local function findItemInBags(targetItemID, includeBank)
         end
     end
     return nil
+end
+
+-- Wie findItemInBags, aber fuer ein bestimmtes EXEMPLAR (per Link).
+-- Rueckgabe: zuerst der Fundort des exakten Exemplars, dahinter der erste
+-- Fund mit nur passender ID als Rueckfallebene - der Aufrufer entscheidet,
+-- ob er den noch braucht.
+local GetContainerItemLink = (C_Container and C_Container.GetContainerItemLink) or _G.GetContainerItemLink
+
+local function findVariantInBags(wantLink, includeBank)
+    if not GetContainerItemID or not GetContainerNumSlots then return nil end
+    local wantID  = getItemIDFromLink(wantLink)
+    local wantKey = variantKey(wantLink)
+    local idBag, idSlot, idFromBank
+    for _, bag in ipairs(containerIDs(includeBank)) do
+        local slots = GetContainerNumSlots(bag) or 0
+        for slot = 1, slots do
+            if GetContainerItemID(bag, slot) == wantID then
+                local key = GetContainerItemLink
+                    and variantKey(GetContainerItemLink(bag, slot))
+                if wantKey and key == wantKey then
+                    return bag, slot, isBankContainer(bag),
+                           idBag, idSlot, idFromBank
+                end
+                if not idBag then
+                    idBag, idSlot, idFromBank = bag, slot, isBankContainer(bag)
+                end
+            end
+        end
+    end
+    return nil, nil, nil, idBag, idSlot, idFromBank
 end
 
 -- =========================================================
@@ -241,14 +290,31 @@ end
 -- Slot suchen, der das gewuenschte Teil gerade traegt - aber keinen
 -- anpacken, der laut Set schon richtig bestueckt ist (zwei Exemplare
 -- derselben ID: das korrekt sitzende bleibt, wo es ist).
-local function findWornElsewhere(itemID, targetSlot, loadout)
+-- Mit byVariant=true zaehlt nur das exakte Exemplar (gleiche Sockel und
+-- Verzauberung), sonst wie bisher die Item-ID.
+local function findWornElsewhere(wantLink, targetSlot, loadout, byVariant)
+    local wantID  = getItemIDFromLink(wantLink)
+    local wantKey = byVariant and variantKey(wantLink) or nil
     for _, s in ipairs(EQUIP_SLOTS) do
         if s ~= targetSlot then
-            local wornID = getItemIDFromLink(GetInventoryItemLink("player", s))
-            if wornID == itemID then
+            local wornLink = GetInventoryItemLink("player", s)
+            local hit
+            if byVariant then
+                hit = wornLink and wantKey and variantKey(wornLink) == wantKey
+            else
+                hit = getItemIDFromLink(wornLink) == wantID
+            end
+            if hit then
                 local wantedLink = loadout.slots and loadout.slots[s]
-                local wantedID   = wantedLink and getItemIDFromLink(wantedLink)
-                if wantedID ~= wornID then return s end
+                local sitsRight
+                if byVariant then
+                    sitsRight = wantedLink
+                        and variantKey(wantedLink) == variantKey(wornLink)
+                else
+                    sitsRight = wantedLink
+                        and getItemIDFromLink(wantedLink) == getItemIDFromLink(wornLink)
+                end
+                if not sitsRight then return s end
             end
         end
     end
@@ -275,8 +341,9 @@ end
 -- einmal geoeffnet - die Bank. Ein Teil bei einem anderen Charakter oder
 -- in der Post ist von hier aus nicht von einem verkauften zu unterscheiden.
 --
--- Verglichen wird die Item-ID, nicht der Link: derselbe Gegenstand hat je
--- nach Verzauberung oder Sockel unterschiedliche Links.
+-- Verglichen wird das Exemplar (variantKey: ID plus Sockel, Verzauberung,
+-- Suffix), mit Rueckfall auf die Item-ID, wenn das exakte Exemplar nirgends
+-- greifbar ist - dann ist der gespeicherte Link veraltet.
 -- =========================================================
 -- Ausruestung und Taschen einmal indizieren statt jedes Teil einzeln
 -- abzufragen. Bei mehreren Sets mit je bis zu 17 Teilen macht das den
@@ -288,19 +355,34 @@ end
 -- wurde - auch wenn es in der Tasche lag oder ganz fehlte.
 local availIndex
 local function buildAvailIndex()
-    local idx = { wornBySlot = {}, worn = {}, bags = {} }
+    -- wornKeys/bagKeys zaehlen EXEMPLARE (variantKey) getrennt nach
+    -- Ausruestung und Taschen. Damit erkennt der Status, ob ein bestimmtes
+    -- Exemplar - nicht nur irgendeines mit der ID - greifbar ist, und wo.
+    local idx = { wornBySlot = {}, wornKeyBySlot = {}, worn = {}, bags = {},
+                  wornKeys = {}, bagKeys = {} }
     for _, s in ipairs(EQUIP_SLOTS) do
-        local id = getItemIDFromLink(GetInventoryItemLink("player", s))
+        local link = GetInventoryItemLink("player", s)
+        local id = getItemIDFromLink(link)
         if id then
             idx.wornBySlot[s] = id
             idx.worn[id] = (idx.worn[id] or 0) + 1
+            local key = variantKey(link)
+            if key then
+                idx.wornKeyBySlot[s] = key
+                idx.wornKeys[key] = (idx.wornKeys[key] or 0) + 1
+            end
         end
     end
     if GetContainerItemID and GetContainerNumSlots then
         for bag = 0, (NUM_BAG_SLOTS or 4) do
             for slot = 1, (GetContainerNumSlots(bag) or 0) do
                 local id = GetContainerItemID(bag, slot)
-                if id then idx.bags[id] = (idx.bags[id] or 0) + 1 end
+                if id then
+                    idx.bags[id] = (idx.bags[id] or 0) + 1
+                    local key = GetContainerItemLink
+                        and variantKey(GetContainerItemLink(bag, slot))
+                    if key then idx.bagKeys[key] = (idx.bagKeys[key] or 0) + 1 end
+                end
             end
         end
     end
@@ -325,48 +407,97 @@ local function getSetStatus(name)
     local worn, inBags, inBank, missing = {}, {}, {}, {}
     local total = 0
 
-    -- Verbleibende Exemplare je ID, nur fuer die IDs dieses Sets. Jeder
-    -- Verbrauch ist lokal fuer diesen Aufruf - der Index bleibt unberuehrt,
-    -- damit das naechste Set wieder mit vollem Bestand rechnet.
+    -- Verbleibende Exemplare je ID und je Exemplar-Schluessel, nur fuer
+    -- dieses Set. Jeder Verbrauch ist lokal fuer diesen Aufruf - der Index
+    -- bleibt unberuehrt, damit das naechste Set mit vollem Bestand rechnet.
     local wornLeft, bagLeft, bankLeft = {}, {}, {}
+    local wornKeyLeft, bagKeyLeft = {}, {}
     local entries = {}
 
     for slot, link in pairs(set.slots) do
         total = total + 1
         local id = getItemIDFromLink(link)
         local itemName = (link:match("|h%[(.-)%]|h")) or link
-        local entry = { slot = slot, name = itemName, link = link, id = id }
+        local entry = { slot = slot, name = itemName, link = link, id = id,
+                        key = variantKey(link) }
         entries[#entries + 1] = entry
         if id and wornLeft[id] == nil then
             wornLeft[id] = idx.worn[id] or 0
             bagLeft[id]  = idx.bags[id] or 0
+        end
+        if entry.key and wornKeyLeft[entry.key] == nil then
+            wornKeyLeft[entry.key] = idx.wornKeys[entry.key] or 0
+            bagKeyLeft[entry.key]  = idx.bagKeys[entry.key] or 0
         end
     end
 
     -- Durchgang 1: im vorgesehenen Slot getragen. Zuerst, damit ein im
     -- richtigen Slot sitzendes Teil sein Exemplar sicher bekommt und nicht
     -- ein anderes Set-Teil mit gleicher ID es ihm wegnimmt.
+    -- "Getragen" heisst: das exakte Exemplar (variantKey). Erst nachdem alle
+    -- echten Exemplar-Treffer ihre Kopie verbraucht haben, kommt der
+    -- Rueckfall: sitzt im Slot nur ein Geschwister-Teil mit gleicher ID,
+    -- zaehlt das dann, wenn das gewuenschte Exemplar nirgends greifbar ist -
+    -- der gespeicherte Link ist veraltet (umgesockelt/umverzaubert) und die
+    -- ID entscheidet wie frueher. Dieselbe Logik wie beim Anlegen, damit
+    -- Punkt und Knopf dasselbe sagen.
     local exact = 0
     for _, e in ipairs(entries) do
-        if e.id and idx.wornBySlot[e.slot] == e.id and wornLeft[e.id] > 0 then
+        if e.id and idx.wornBySlot[e.slot] == e.id and wornLeft[e.id] > 0
+           and (not e.key or idx.wornKeyBySlot[e.slot] == e.key) then
             wornLeft[e.id] = wornLeft[e.id] - 1
+            if e.key and wornKeyLeft[e.key] > 0 then
+                wornKeyLeft[e.key] = wornKeyLeft[e.key] - 1
+            end
             e.where = "worn"
             exact = exact + 1
         end
     end
+    for _, e in ipairs(entries) do
+        if not e.where and e.key and idx.wornBySlot[e.slot] == e.id
+           and wornLeft[e.id] > 0 then
+            local reachable = wornKeyLeft[e.key] > 0 or bagKeyLeft[e.key] > 0
+            if not reachable and GetItemCount then
+                -- An der Bank koennte das richtige Exemplar liegen; von
+                -- hier aus ist nur die Stueckzahl je ID sichtbar.
+                reachable = ((GetItemCount(e.id, true) or 0)
+                           - (GetItemCount(e.id) or 0)) > 0
+            end
+            if not reachable then
+                wornLeft[e.id] = wornLeft[e.id] - 1
+                e.where = "worn"
+                exact = exact + 1
+            end
+        end
+    end
 
-    -- Durchgang 2: Rest aus Taschen, anderswo angelegt (z. B. vertauschte
-    -- Ringe), zuletzt Bank.
+    -- Durchgang 2: Rest zuerst als exaktes Exemplar aus Taschen oder
+    -- anderswo angelegt (z. B. vertauschte Ringe), dann ueber die ID,
+    -- zuletzt Bank.
     for _, e in ipairs(entries) do
         local id = e.id
         if not e.where and id then
-            if bagLeft[id] > 0 then
+            local siblingInSlot = e.key and idx.wornBySlot[e.slot] == id
+                and idx.wornKeyBySlot[e.slot] ~= e.key
+            if e.key and bagKeyLeft[e.key] > 0 then
+                bagKeyLeft[e.key] = bagKeyLeft[e.key] - 1
+                if bagLeft[id] > 0 then bagLeft[id] = bagLeft[id] - 1 end
+                e.where = "bags"
+            elseif e.key and wornKeyLeft[e.key] > 0 then
+                wornKeyLeft[e.key] = wornKeyLeft[e.key] - 1
+                if wornLeft[id] > 0 then wornLeft[id] = wornLeft[id] - 1 end
+                e.where = "worn"
+            elseif not siblingInSlot and bagLeft[id] > 0 then
                 bagLeft[id] = bagLeft[id] - 1
                 e.where = "bags"
-            elseif wornLeft[id] > 0 then
+            elseif not siblingInSlot and wornLeft[id] > 0 then
                 wornLeft[id] = wornLeft[id] - 1
                 e.where = "worn"
             elseif GetItemCount then
+                -- Sitzt im Ziel-Slot ein Geschwister-Exemplar (siblingInSlot),
+                -- wuerde der ID-Rueckfall oben genau dieses faelschlich
+                -- zaehlen - dann bleibt nur die Bank. Auch das Anlegen
+                -- verweist in dem Fall auf die Bank.
                 if bankLeft[id] == nil then
                     -- Die Bank kennt der Client nur, wenn sie schon einmal
                     -- offen war. Sie ist die Differenz der beiden Zaehlungen;
@@ -671,44 +802,67 @@ local function equipLoadout(name)
 
     for _, slot in ipairs(sortedSlots) do
         local link = loadout.slots[slot]
-        -- Ueber die Item-ID vergleichen, nicht ueber den Link. Verzauberung,
-        -- Sockel oder Zufallswerte aendern den Link, das Teil bleibt dasselbe.
-        -- Beim Linkvergleich galt ein verzaubertes Teil als "nicht angelegt",
-        -- wurde in den Taschen gesucht, dort nicht gefunden - und als fehlend
-        -- gemeldet, obwohl es getragen wird. getSetStatus rechnet ebenfalls
-        -- mit IDs; so sagen Statuspunkt und Anlegen dasselbe.
-        local itemID  = getItemIDFromLink(link)
-        local wornID  = getItemIDFromLink(GetInventoryItemLink("player", slot))
-        if itemID ~= wornID then
-            if itemID then
-                local bag, bagSlot, fromBank = findItemInBags(itemID, useBank)
-                if bag and bagSlot then
-                    local ok = ns:EquipBagItemToSlot(bag, bagSlot, slot)
-                    -- Fallback for non-paired slots if cursor method failed.
-                    -- Auf ein Bankfach angewandt legt UseContainerItem aber
-                    -- nichts an, es schiebt das Teil nur in die Taschen - und
-                    -- das haette hier als angelegt gezaehlt. Also nur fuer
-                    -- Taschen.
-                    if not ok and not fromBank and UseContainerItem then
-                        ok = pcall(UseContainerItem, bag, bagSlot)
-                    end
-                    if ok then swapped = swapped + 1 else missing = missing + 1 end
-                else
-                    -- Nicht in den Taschen: vielleicht schon angelegt, nur im
-                    -- falschen Slot (Ringe/Schmuck ueber Kreuz). Dann von dort
-                    -- herueberholen - das tauscht bei Paar-Slots beide in einem
-                    -- Zug, der zweite Slot stimmt danach von selbst.
-                    local srcSlot = findWornElsewhere(itemID, slot, loadout)
-                    if srcSlot and swapWornItem(srcSlot, slot) then
-                        swapped = swapped + 1
-                    elseif not useBank and bankStock(itemID) > 0 then
-                        -- Nicht verloren, nur unerreichbar: es liegt an der
-                        -- Bank und die ist zu.
+        -- Verglichen wird das EXEMPLAR (ID plus Sockel/Verzauberung/Suffix,
+        -- siehe variantKey), nicht der rohe Link: dessen uebrige Felder
+        -- aendern sich, ohne dass das Teil ein anderes wird. Zwei Teile mit
+        -- gleicher ID, aber verschiedenen Steinen - die T5-Schultern einmal
+        -- fuer Schaden, einmal fuer Widerstand gesockelt - werden so beim
+        -- Wechseln tatsaechlich getauscht. Ist das exakte Exemplar nirgends
+        -- greifbar (nachtraeglich umgesockelt: der gespeicherte Link ist
+        -- veraltet), gilt wie bisher die Item-ID, damit nichts faelschlich
+        -- als fehlend gemeldet wird.
+        local itemID   = getItemIDFromLink(link)
+        local wornLink = GetInventoryItemLink("player", slot)
+        local wantKey  = variantKey(link)
+        if itemID and wantKey ~= variantKey(wornLink) then
+            local wornID = getItemIDFromLink(wornLink)
+            local bag, bagSlot, fromBank, idBag, idSlot, idFromBank =
+                findVariantInBags(link, useBank)
+            -- Rueckfallebene "gleiche ID reicht" nur, wenn im Slot nicht
+            -- schon ein Exemplar dieser ID sitzt - sonst wuerde das
+            -- Schwester-Teil aus der Tasche sinnlos hin- und hergetauscht.
+            if not bag and wornID ~= itemID then
+                bag, bagSlot, fromBank = idBag, idSlot, idFromBank
+            end
+            if bag and bagSlot then
+                local ok = ns:EquipBagItemToSlot(bag, bagSlot, slot)
+                -- Fallback for non-paired slots if cursor method failed.
+                -- Auf ein Bankfach angewandt legt UseContainerItem aber
+                -- nichts an, es schiebt das Teil nur in die Taschen - und
+                -- das haette hier als angelegt gezaehlt. Also nur fuer
+                -- Taschen.
+                if not ok and not fromBank and UseContainerItem then
+                    ok = pcall(UseContainerItem, bag, bagSlot)
+                end
+                if ok then swapped = swapped + 1 else missing = missing + 1 end
+            else
+                -- Nicht in den Taschen: vielleicht schon angelegt, nur im
+                -- falschen Slot (Ringe/Schmuck ueber Kreuz). Dann von dort
+                -- herueberholen - das tauscht bei Paar-Slots beide in einem
+                -- Zug, der zweite Slot stimmt danach von selbst. Zuerst das
+                -- exakte Exemplar, sonst eines mit gleicher ID.
+                local srcSlot = findWornElsewhere(link, slot, loadout, true)
+                if not srcSlot and wornID ~= itemID then
+                    srcSlot = findWornElsewhere(link, slot, loadout)
+                end
+                if srcSlot and swapWornItem(srcSlot, slot) then
+                    swapped = swapped + 1
+                elseif wornID == itemID then
+                    -- Gleiche ID sitzt schon im Slot, das exakte Exemplar ist
+                    -- aber nicht greifbar. Liegt es an der (geschlossenen)
+                    -- Bank, sagen wir das; sonst ist der gespeicherte Link
+                    -- veraltet und das getragene Teil zaehlt als angelegt.
+                    if not useBank and bankStock(itemID) > 0 then
                         bankLeft[itemID] = bankLeft[itemID] - 1
                         atBank = atBank + 1
-                    else
-                        missing = missing + 1
                     end
+                elseif not useBank and bankStock(itemID) > 0 then
+                    -- Nicht verloren, nur unerreichbar: es liegt an der
+                    -- Bank und die ist zu.
+                    bankLeft[itemID] = bankLeft[itemID] - 1
+                    atBank = atBank + 1
+                else
+                    missing = missing + 1
                 end
             end
         end
