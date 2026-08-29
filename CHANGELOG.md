@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.13.0
+
+- **New: slots that were empty when a set was saved are now emptied when you
+  equip it.** A set saved wearing only a few pieces — say, nothing but
+  no-durability jewelry for a graveyard run — used to answer "already
+  equipped" and leave your armor on. Equipping now takes off whatever sits in
+  those slots and puts it in your bags, with its own chat line ("%d items
+  taken off") and a warning when your bags have no room (those pieces stay
+  on). Even a set with no items at all works now.
+- The status dot counts those extra worn pieces too: a set only turns green
+  once its empty slots really are empty.
+- This reads a set the way it was saved: removing an item from a set in the
+  editor now means "this slot should be empty" rather than "leave this slot
+  alone". Old sets from before masks existed only know their occupied slots
+  and behave as before.
+
 ## 1.12.2
 
 - **Fixed: two copies of the same item with different gems or enchants now
