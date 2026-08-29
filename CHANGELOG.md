@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.12.2
+
+- **Fixed: two copies of the same item with different gems or enchants now
+  actually swap.** Two pieces sharing one item ID — say, the same shoulders
+  socketed once for damage and once for resistance — counted as the same
+  item, so switching sets left the worn copy in place. Sets now tell the
+  exact copy apart by its gems, enchant and random suffix, and equipping
+  swaps in the one the set was saved with.
+- The sidebar status dot uses the same logic, so it agrees with the equip
+  button — including a hint when the right copy is sitting in the closed
+  bank.
+- If a saved copy can no longer be found anywhere — for example after
+  re-gemming it — the set falls back to matching by item ID as before, so
+  nothing is wrongly reported as missing.
+
 ## 1.12.1
 
 - **A set can now show or hide your helmet and cloak.** Right-click a set in
