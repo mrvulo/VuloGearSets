@@ -15,7 +15,9 @@ function ns:InitDB()
     _G.VuloGearSetsDB = _G.VuloGearSetsDB or {}
     local db = _G.VuloGearSetsDB
     db.modules = db.modules or {}
-    db.style   = db.style or "classic"  -- "modern" | "classic", siehe Core/Skin.lua
+    -- "classic" | "modern" | "forever" (nur auf Forever und dort Standard),
+    -- siehe Core/Skin.lua
+    db.style   = db.style or ns:DefaultStyle()
 
     for key, mod in pairs(ns.modules) do
         db.modules[key] = ns:ApplyDefaults(db.modules[key], mod.defaults or {})
@@ -30,4 +32,6 @@ function ns:InitDB()
     char.modEnabled  = char.modEnabled  or {}
 
     ns.db = db
+    -- Vor dem ersten Fenster: im Forever-Stil malt alles in dessen Farben.
+    ns:ApplyStylePalette()
 end

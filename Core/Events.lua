@@ -23,8 +23,11 @@ end)
 function ns:RegisterEvent(event, handler)
     if type(event) ~= "string" or type(handler) ~= "function" then return end
     if not handlers[event] then
+        -- Ein Ereignis, das der Client nicht kennt, wirft einen Fehler und
+        -- bricht sonst die ganze aufrufende Datei ab (Forever kennt nicht
+        -- jedes Talent-Ereignis der Classic-Clients und umgekehrt).
+        if not pcall(frame.RegisterEvent, frame, event) then return end
         handlers[event] = {}
-        frame:RegisterEvent(event)
     end
     for _, fn in ipairs(handlers[event]) do
         if fn == handler then return end   -- schon registriert

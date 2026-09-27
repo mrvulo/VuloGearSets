@@ -144,31 +144,42 @@ end
 -- Die Zeile
 -- =========================================================
 local guarded = setmetatable({}, { __mode = "k" })
+-- Fuer welchen Link die Zeile schon steht, je Tooltip. Bewusst eine eigene
+-- Tabelle statt eines Feldes am Tooltip: ein von einem Addon geschriebenes
+-- Feld verseucht Blizzards Frame (Taint), und auf Forever stolpert der
+-- Tooltip danach ueber seine eigenen geschuetzten Werte.
+local shownFor = setmetatable({}, { __mode = "k" })
 
 -- Der Hook feuert bei Taschen-Items auf manchen Clients zweimal. Gemerkt
 -- wird, fuer welchen Link die Zeile schon steht; das Aufraeumen des
 -- Tooltips setzt den Merker zurueck, damit dasselbe Teil beim naechsten
 -- Ueberfahren wieder eine bekommt.
 local function alreadyShown(tt, link)
-    if tt.vgsSetLineFor == link then return true end
-    tt.vgsSetLineFor = link
+    if shownFor[tt] == link then return true end
+    shownFor[tt] = link
     if not guarded[tt] and tt.HookScript then
         guarded[tt] = true
-        local clear = function(self) self.vgsSetLineFor = nil end
+        local clear = function(self) shownFor[self] = nil end
         pcall(tt.HookScript, tt, "OnHide", clear)
         pcall(tt.HookScript, tt, "OnTooltipCleared", clear)
     end
     return false
 end
 
+local function plainString(v)
+    return type(v) == "string" and not (issecretvalue and issecretvalue(v))
+end
+
 local function linkFromTooltip(tt, data)
     if type(data) == "table" then
-        if type(data.hyperlink) == "string" then return data.hyperlink end
-        if data.id then return "item:" .. tostring(data.id) end
+        if plainString(data.hyperlink) then return data.hyperlink end
+        if type(data.id) == "number" and not (issecretvalue and issecretvalue(data.id)) then
+            return "item:" .. tostring(data.id)
+        end
     end
     if tt and tt.GetItem then
         local ok, _, link = pcall(tt.GetItem, tt)
-        if ok and type(link) == "string" then return link end
+        if ok and plainString(link) then return link end
     end
     return nil
 end
@@ -205,7 +216,28 @@ local function installHooks()
     local TDP = _G.TooltipDataProcessor
     local itemType = _G.Enum and _G.Enum.TooltipDataType and _G.Enum.TooltipDataType.Item
     if TDP and TDP.AddTooltipPostCall and itemType then
-        TDP.AddTooltipPostCall(itemType, addSetLine)
+        if ns.isForever then
+            -- Auf Forever verseucht Addon-Code, der INNERHALB des Aufrufs
+            -- laeuft, den ganzen Tooltip-Aufbau (gemessen von anderen
+            -- Autoren). Deshalb einen Frame spaeter anhaengen - und nur,
+            -- wenn der Tooltip dann noch dasselbe Teil zeigt.
+            TDP.AddTooltipPostCall(itemType, function(tt, data)
+                C_Timer.After(0, function()
+                    if not (tt.IsShown and tt:IsShown()) then return end
+                    -- Nur, wenn der Tooltip noch dasselbe Teil zeigt. Ueber
+                    -- die Item-ID verglichen: data kennt manchmal nur die
+                    -- ID, GetItem liefert den vollen Link.
+                    local want = linkFromTooltip(nil, data)
+                    local now  = linkFromTooltip(tt, nil)
+                    if want and (not now or now:match("item:(%d+)") ~= want:match("item:(%d+)")) then
+                        return
+                    end
+                    addSetLine(tt, data)
+                end)
+            end)
+        else
+            TDP.AddTooltipPostCall(itemType, addSetLine)
+        end
         return
     end
 

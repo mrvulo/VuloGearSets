@@ -77,6 +77,7 @@ ns:RegisterLocale("deDE", {
     ["Finger 1"] = "Finger 1",
     ["Finger 2"] = "Finger 2",
     ["Form %d"] = "Gestalt %d",
+    ["Forever takes the look of VuloForeverUI: its colors and, with its Blizzard themes, the client's metal frame. Modern uses the dark look with a purple accent. Classic uses Blizzard's dialog frame."] = "Forever übernimmt das Aussehen von VuloForeverUI: seine Farben und bei dessen Blizzard-Themes den Metallrahmen des Clients. Modern nutzt den dunklen Look mit lila Akzent. Classic nutzt Blizzards Dialograhmen.",
     ["Gear set '%s' already equipped."] = "Set '%s' bereits angelegt.",
     ["Gear set '%s' deleted."] = "Set '%s' gelöscht.",
     ["Gear set '%s' does not exist."] = "Set '%s' existiert nicht.",

@@ -66,6 +66,13 @@ local GetContainerItemID   = (C_Container and C_Container.GetContainerItemID)   
 local GetContainerNumSlots = (C_Container and C_Container.GetContainerNumSlots) or _G.GetContainerNumSlots
 local PickupContainerItem  = (C_Container and C_Container.PickupContainerItem)  or _G.PickupContainerItem
 
+-- Forever kennt nur noch die C_Item-Fassungen. Das Global zuerst, damit
+-- sich auf den Classic-Clients nichts aendert.
+local GetItemInfo          = _G.GetItemInfo          or (C_Item and C_Item.GetItemInfo)
+local GetItemInfoInstant   = _G.GetItemInfoInstant   or (C_Item and C_Item.GetItemInfoInstant)
+local GetItemCount         = _G.GetItemCount         or (C_Item and C_Item.GetItemCount)
+local GetItemQualityColor  = _G.GetItemQualityColor  or (C_Item and C_Item.GetItemQualityColor)
+
 -- =========================================================
 -- Masse
 -- =========================================================
@@ -146,7 +153,34 @@ end
 -- einer sitzt, sonst die Grafik des leeren Sockels. ClearLines versteckt
 -- Tooltip-TEXTUREN nicht zuverlaessig, ein sockelloses Item nach einem
 -- besetzten wuerde dessen Symbole erben - also von Hand verstecken.
+-- Forever (und jeder Client mit Tooltip-Daten) liefert die Sockel direkt
+-- als Zeilen vom Typ GemSocket - dieselben Angaben, aus denen der Client
+-- seine Tooltip-Symbole malt. Kein Scan-Tooltip noetig. nil = der Weg
+-- steht nicht zur Verfuegung, dann scannt der Aufrufer wie bisher.
+local function socketTexturesFromData(slot)
+    local TI  = _G.C_TooltipInfo
+    local TDL = _G.Enum and _G.Enum.TooltipDataLineType
+    if not (TI and TI.GetInventoryItem and TDL and TDL.GemSocket) then return nil end
+    local ok, data = pcall(TI.GetInventoryItem, "player", slot)
+    if not ok then return nil end
+    local out = {}
+    for _, line in ipairs((type(data) == "table" and data.lines) or {}) do
+        if line.type == TDL.GemSocket and #out < MAX_SOCKETS then
+            local tex = line.gemIcon
+            if not tex and type(line.socketType) == "string" then
+                tex = "Interface\\ItemSocketingFrame\\UI-EmptySocket-" .. line.socketType
+            end
+            if tex then out[#out + 1] = tex end
+        end
+    end
+    return out
+end
+
 local function socketTexturesFor(slot)
+    if ns.isForever then
+        local fromData = socketTexturesFromData(slot)
+        if fromData then return fromData end
+    end
     local tip = ensureScanTip()
     for i = 1, MAX_TIP_TEXTURES do
         local t = _G["VGS_SocketScanTooltipTexture" .. i]

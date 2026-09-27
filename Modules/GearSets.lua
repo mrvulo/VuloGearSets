@@ -34,9 +34,12 @@ local mod = ns:RegisterModule("gearsets", {
         -- Feinjustierung gegenueber dem Charakterfenster. Blizzards Frame
         -- ist breiter und hoeher als sein sichtbarer Rahmen, deshalb sind
         -- die Standardwerte nicht 0. Nachstellbar mit /gearset tune.
-        sidebarTopOffset    = -12,   -- Oberkante nach unten
-        sidebarBottomOffset = 76,    -- Unterkante nach oben (ueber die Reiter)
-        sidebarXOffset      = -34,   -- nach links, an den sichtbaren Rand
+        -- Auf Forever ist das Charakterfenster so gross wie sein Rahmen
+        -- und traegt seine Reiter rechts, nicht unten (siehe
+        -- sideTabsShift) - dort starten alle drei Werte nahe 0.
+        sidebarTopOffset    = ns.isForever and 0 or -12,   -- Oberkante nach unten
+        sidebarBottomOffset = ns.isForever and 0 or 76,    -- Unterkante nach oben (ueber die Reiter)
+        sidebarXOffset      = ns.isForever and 3 or -34,   -- nach links, an den sichtbaren Rand
         -- Luecke zur fremden Statistikspalte, falls eine da ist. Deren
         -- sichtbarer Rahmen ragt ueber ihren Frame hinaus; das ist der
         -- Ausgleich dafuer. Ebenfalls mit /gearset tune nachstellbar.
@@ -73,6 +76,22 @@ local GetContainerNumSlots  = (C_Container and C_Container.GetContainerNumSlots)
 local UseContainerItem      = (C_Container and C_Container.UseContainerItem)      or _G.UseContainerItem
 local ContainerIDToInventoryID = (C_Container and C_Container.ContainerIDToInventoryID) or _G.ContainerIDToInventoryID
 local GetContainerNumFreeSlots = (C_Container and C_Container.GetContainerNumFreeSlots) or _G.GetContainerNumFreeSlots
+
+-- Forever kennt nur noch die C_Item-/C_Spell-Fassungen. Das Global zuerst,
+-- damit sich auf den Classic-Clients nichts aendert.
+local GetItemCount       = _G.GetItemCount       or (C_Item and C_Item.GetItemCount)
+local GetItemInfoInstant = _G.GetItemInfoInstant or (C_Item and C_Item.GetItemInfoInstant)
+
+-- Nur der Name eines Zaubers. GetSpellInfo liefert ihn als ersten Wert,
+-- C_Spell.GetSpellInfo dagegen eine Tabelle - deshalb GetSpellName.
+local function spellName(spellID)
+    if not spellID then return nil end
+    local fn = _G.GetSpellInfo or (C_Spell and C_Spell.GetSpellName)
+    if not fn then return nil end
+    local ok, name = pcall(fn, spellID)
+    if ok and type(name) == "string" and name ~= "" then return name end
+    return nil
+end
 
 -- Equipment slots we capture (skip shirt=4 and tabard=19)
 local EQUIP_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 }
@@ -160,7 +179,17 @@ end
 local function containerIDs(includeBank)
     local list = {}
     for bag = 0, (NUM_BAG_SLOTS or 4) do list[#list + 1] = bag end
-    if includeBank then
+    -- Forever hat statt Bankfach und Bankbeuteln nummerierte Bankreiter
+    -- (neun auf 1.60.1) mit eigenen Container-IDs.
+    local bagIndex = _G.Enum and _G.Enum.BagIndex
+    if includeBank and bagIndex and bagIndex.CharacterBankTab_1 then
+        local inv = _G.Constants and _G.Constants.InventoryConstants
+        local n = (inv and inv.NumCharacterBankSlots) or 9
+        for i = 1, n do
+            local id = bagIndex["CharacterBankTab_" .. i]
+            if id then list[#list + 1] = id end
+        end
+    elseif includeBank then
         list[#list + 1] = BANK_CONTAINER_ID
         local first = (NUM_BAG_SLOTS or 4) + 1
         -- Ein Beutel zu viel schadet nicht: den gibt es dann schlicht
@@ -1149,11 +1178,11 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
         end
     elseif cmd == "spec" then
         -- Debug: show dual-spec state
-        local active = (GetActiveTalentGroup and select(1, pcall(GetActiveTalentGroup))) and GetActiveTalentGroup() or "?"
-        local numG   = (GetNumTalentGroups  and select(1, pcall(GetNumTalentGroups)))  and GetNumTalentGroups()  or "?"
+        local active = mod._getActiveSpecGroup and mod._getActiveSpecGroup() or "?"
+        local numG   = mod._getNumSpecGroups and mod._getNumSpecGroups() or "?"
         DEFAULT_CHAT_FRAME:AddMessage("|cff9b6cff[Gear Sets spec debug]|r")
-        DEFAULT_CHAT_FRAME:AddMessage(string.format("  GetActiveTalentGroup() = %s", tostring(active)))
-        DEFAULT_CHAT_FRAME:AddMessage(string.format("  GetNumTalentGroups()   = %s", tostring(numG)))
+        DEFAULT_CHAT_FRAME:AddMessage(string.format("  active spec group = %s", tostring(active)))
+        DEFAULT_CHAT_FRAME:AddMessage(string.format("  spec groups       = %s", tostring(numG)))
         DEFAULT_CHAT_FRAME:AddMessage(string.format("  specSwitchEnabled      = %s", tostring(mod.db.specSwitchEnabled)))
         local anyMap = false
         for name, g in pairs(specMap() or {}) do
@@ -1223,10 +1252,11 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
                 mod.db.sidebarTopOffset or 0, mod.db.sidebarBottomOffset or 0,
                 mod.db.sidebarXOffset or 0, mod.db.sidebarStatsGap or 0))
         elseif which == "reset" then
-            mod.db.sidebarTopOffset    = -12
-            mod.db.sidebarBottomOffset = 76
-            mod.db.sidebarXOffset      = -34
-            mod.db.sidebarStatsGap     = 12
+            local d = mod.defaults or {}
+            mod.db.sidebarTopOffset    = d.sidebarTopOffset    or -12
+            mod.db.sidebarBottomOffset = d.sidebarBottomOffset or 76
+            mod.db.sidebarXOffset      = d.sidebarXOffset      or -34
+            mod.db.sidebarStatsGap     = d.sidebarStatsGap     or 12
             if mod._reanchorSidebar then mod._reanchorSidebar() end
             ns:Print("Sidebar offsets reset to defaults.")
         else
@@ -1399,14 +1429,23 @@ local function getCurrentForm()
     return GetShapeshiftForm() or 0
 end
 
+-- Name einer Gestalt. Auf Forever liefert GetShapeshiftFormInfo
+-- (icon, active, castable, spellID) - der Name kommt dort ueber die
+-- Zauber-ID. Auf den Classic-Clients bleibt es beim bisherigen Lesen des
+-- zweiten Werts, damit sich dort nichts aendert.
+local function formNameOf(formIdx)
+    if not GetShapeshiftFormInfo then return nil end
+    -- pcall stellt ok voran, deshalb steht der zweite Wert an dritter Stelle
+    local ok, _icon, second, _castable, spellID = pcall(GetShapeshiftFormInfo, formIdx)
+    if not ok then return nil end
+    if type(second) == "string" and second ~= "" then return second end
+    if ns.isForever and type(spellID) == "number" then return spellName(spellID) end
+    return nil
+end
+
 local function getFormName(formIdx)
     if formIdx == 0 then return L["No Form"] end
-    if GetShapeshiftFormInfo then
-        -- returns (icon, name, ...); pcall prepends ok, so the name is the 3rd value
-        local ok, _icon, fname = pcall(GetShapeshiftFormInfo, formIdx)
-        if ok and type(fname) == "string" and fname ~= "" then return fname end
-    end
-    return string.format(L["Form %d"], formIdx)
+    return formNameOf(formIdx) or string.format(L["Form %d"], formIdx)
 end
 
 local function onShapeshiftChange()
@@ -1479,11 +1518,10 @@ local CROP_RESTORE_TRIES = 3
 local _flightFormNames
 local function flightFormNames()
     if _flightFormNames then return _flightFormNames end
-    if not GetSpellInfo then return {} end
     local names, found = {}, false
     for _, spellID in ipairs(FLIGHT_FORM_SPELLS) do
-        local ok, sname = pcall(GetSpellInfo, spellID)
-        if ok and type(sname) == "string" and sname ~= "" then
+        local sname = spellName(spellID)
+        if sname then
             names[sname] = true
             found = true
         end
@@ -1498,9 +1536,9 @@ end
 
 local function isFlightForm()
     local idx = getCurrentForm()
-    if idx == 0 or not GetShapeshiftFormInfo then return false end
-    local ok, _icon, fname = pcall(GetShapeshiftFormInfo, idx)
-    if not ok or type(fname) ~= "string" then return false end
+    if idx == 0 then return false end
+    local fname = formNameOf(idx)
+    if not fname then return false end
     return flightFormNames()[fname] == true
 end
 
@@ -1758,18 +1796,26 @@ mod._applyMountEvents = applyMountEvents
 -- =========================================================
 local _lastSpecGroup = -1
 
+-- Forever hat ebenfalls zwei Talentgruppen, fragt sie aber ueber die
+-- Retail-Aufrufe ab: C_SpecializationInfo.GetActiveSpecGroup und
+-- GetNumSpecGroups. GetActiveTalentGroup gibt es dort nicht.
+local CSI = _G.C_SpecializationInfo
+local GetActiveGroupFn = _G.GetActiveTalentGroup
+    or (CSI and CSI.GetActiveSpecGroup) or _G.GetActiveSpecGroup
+local GetNumGroupsFn = _G.GetNumTalentGroups or _G.GetNumSpecGroups
+
 local function getActiveSpecGroup()
-    if GetActiveTalentGroup then
-        local ok, g = pcall(GetActiveTalentGroup)
-        if ok and g then return g end
+    if GetActiveGroupFn then
+        local ok, g = pcall(GetActiveGroupFn)
+        if ok and type(g) == "number" then return g end
     end
     return 1
 end
 
 local function getNumSpecGroups()
-    if GetNumTalentGroups then
-        local ok, n = pcall(GetNumTalentGroups)
-        if ok and n then return n end
+    if GetNumGroupsFn then
+        local ok, n = pcall(GetNumGroupsFn)
+        if ok and type(n) == "number" then return n end
     end
     return 1
 end
@@ -1781,6 +1827,8 @@ local function getTabPoints(tab, group)
         if type(pointsSpent) == "number" then return pointsSpent end
     end
     local total = 0
+    -- Ohne GetTalentInfo (Forever) gibt es auch keine Baeume zu zaehlen.
+    if not GetTalentInfo then return total end
     local numTalents = (GetNumTalents and GetNumTalents(tab)) or 0
     for t = 1, numTalents do
         local rank = select(5, GetTalentInfo(tab, t, false, false, group))
@@ -1826,6 +1874,10 @@ local function onTalentChange()
         end
     end
 end
+
+-- Fuer /gearset spec, das weiter oben steht als diese Funktionen.
+mod._getActiveSpecGroup = getActiveSpecGroup
+mod._getNumSpecGroups   = getNumSpecGroups
 
 -- Force a spec re-check (clears the cached group so it always re-evaluates).
 -- Used by /loadout spec and as the polling fallback.
@@ -2946,6 +2998,31 @@ local function hookStatsColumn(reanchor)
     col:HookScript("OnHide", reanchor)
 end
 
+-- Forever haengt die Reiter des Charakterfensters (Charakter, Ruf,
+-- Fertigkeiten ...) senkrecht an seine RECHTE Kante - genau dorthin, wo
+-- die Leiste sitzt. Gemessen wird, wie weit der breiteste sichtbare
+-- Reiter ueber das Fenster hinausragt; um so viel rueckt die Leiste nach
+-- rechts. Ohne diese Reiter (Classic-Clients) ist der Versatz 0.
+local function readable(v)
+    return type(v) == "number" and not (issecretvalue and issecretvalue(v))
+end
+
+local function sideTabsShift()
+    local cf   = _G.CharacterFrame
+    local host = cf and cf.ModeTabs
+    if not (host and host.IsShown and host:IsShown() and host.Tabs) then return 0 end
+    local cfRight = cf:GetRight()
+    if not readable(cfRight) then return 0 end
+    local shift = 0
+    for _, tab in ipairs(host.Tabs) do
+        if tab.IsShown and tab:IsShown() then
+            local r = tab:GetRight()
+            if readable(r) and r - cfRight > shift then shift = r - cfRight end
+        end
+    end
+    return shift
+end
+
 local function createSidebar()
     if sidebar then return sidebar end
     if not CharacterFrame then return end
@@ -2973,7 +3050,8 @@ local function createSidebar()
         local botOff = ((mod.db and mod.db.sidebarBottomOffset) or 0) + py
         sidebar:ClearAllPoints()
         local xOff = ((mod.db and mod.db.sidebarXOffset) or 0) + px
-                     + statsColumnShift()
+                     + statsColumnShift() + sideTabsShift()
+                     + ns:WindowArtReach()
         sidebar:SetPoint("TOPLEFT",    CharacterFrame, "TOPRIGHT", xOff, topOff)
         sidebar:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMRIGHT", xOff, botOff)
     end
@@ -3353,6 +3431,9 @@ function mod:OnEnable()
     -- Die Seitenleiste schliesst jetzt buendig an das Charakterfenster an.
     -- Wer noch auf den frueheren Werten -14/45 steht, wird einmalig auf 0
     -- gesetzt; selbst eingestellte Werte bleiben erhalten.
+    -- Nicht auf Forever: dort sind 0/0 die richtigen Standardwerte, und
+    -- Altwerte aus VuloClassicUI gibt es nicht.
+    if ns.isForever then mod.db._offsetMigrated_v3 = true end
     if not mod.db._offsetMigrated_v3 then
         -- Frueher galten -14/45 (aus VuloClassicUI) und zwischenzeitlich 0/0.
         -- Beide richteten sich nach den Frame-Grenzen statt nach dem
@@ -3414,6 +3495,8 @@ function mod:OnEnable()
     ns:RegisterEvent("PLAYER_TALENT_UPDATE",        onTalentChange)
     ns:RegisterEvent("CHARACTER_POINTS_CHANGED",    onTalentChange)
     ns:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", onTalentChange)
+    -- Forever: der Wechsel der Talentgruppe tauscht die Kampf-Konfiguration.
+    ns:RegisterEvent("ACTIVE_COMBAT_CONFIG_CHANGED", onTalentChange)
     ns:RegisterEvent("PLAYER_ENTERING_WORLD",       onTalentChange)
     ns:RegisterEvent("PLAYER_REGEN_ENABLED",        onTalentChange)  -- retry after combat
 
@@ -3454,6 +3537,7 @@ function mod:OnDisable()
     ns:UnregisterEvent("PLAYER_TALENT_UPDATE",        onTalentChange)
     ns:UnregisterEvent("CHARACTER_POINTS_CHANGED",    onTalentChange)
     ns:UnregisterEvent("PLAYER_SPECIALIZATION_CHANGED", onTalentChange)
+    ns:UnregisterEvent("ACTIVE_COMBAT_CONFIG_CHANGED", onTalentChange)
     ns:UnregisterEvent("PLAYER_ENTERING_WORLD",       onTalentChange)
     ns:UnregisterEvent("PLAYER_REGEN_ENABLED",        onTalentChange)
     if _specPoller then _specPoller:Cancel(); _specPoller = nil end
@@ -3531,7 +3615,9 @@ function mod:GetOptions()
           set = function(_, v) if ns.ToggleModule then ns:ToggleModule("itemtooltip", v, true) end end },
 
         { type = "dropdown", label = L["Window style"],
-          tooltip = L["Modern uses the dark look with a purple accent. Classic uses Blizzard's dialog frame so the windows match the default interface."],
+          tooltip = ns.isForever
+              and L["Forever takes the look of VuloForeverUI: its colors and, with its Blizzard themes, the client's metal frame. Modern uses the dark look with a purple accent. Classic uses Blizzard's dialog frame."]
+              or  L["Modern uses the dark look with a purple accent. Classic uses Blizzard's dialog frame so the windows match the default interface."],
           values = ns.STYLES,
           get = function() return ns:GetStyle() end,
           set = function(_, v) ns:SetStyle(v) end },

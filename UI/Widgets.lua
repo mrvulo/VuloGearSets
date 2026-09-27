@@ -157,33 +157,38 @@ local function setBlizzTextures(b, shown)
     for _, t in ipairs(b._blizzTex or {}) do t:SetAlpha(a) end
 end
 
+-- style bleibt als Parameter stehen (RestyleButtons reicht ihn durch);
+-- das Aussehen entscheidet ns:ButtonLook, weil der Forever-Stil je nach
+-- Theme Blizzards Knopfgrafik oder flache Knoepfe traegt.
 local function styleButton(b, style, hovered)
+    local blizzard = (ns:ButtonLook() == "blizzard")
     -- Der Dropdown-Pfeil haengt am Knopf und folgt derselben Farbe.
     if b.arrow then
-        if style == "classic" then
-            b.arrow:SetVertexColor(1, 0.82, 0)
+        if blizzard then
+            b.arrow:SetVertexColor(ns:AccentColor())
         else
             b.arrow:SetVertexColor(C.textDim.r, C.textDim.g, C.textDim.b)
         end
     end
-    -- Im Classic-Stil zeigt Blizzards eigene Grafik den gesperrten Zustand.
-    -- Im modernen ist sie ausgeblendet, also muss die Schrift ihn tragen -
-    -- sonst sieht ein gesperrter Knopf aus wie ein bedienbarer.
+    -- Mit Blizzards Grafik zeigt diese den gesperrten Zustand. Flach ist
+    -- sie ausgeblendet, also muss die Schrift ihn tragen - sonst sieht ein
+    -- gesperrter Knopf aus wie ein bedienbarer.
     local off = (b.IsEnabled and not b:IsEnabled()) and true or false
-    if style == "classic" then
+    if blizzard then
         setBlizzTextures(b, true)
         if b.bg then b.bg:Hide() end
-        b.text:SetTextColor(1, 0.82, 0)          -- Blizzard-Gold
+        b.text:SetTextColor(ns:AccentColor())    -- Blizzard-Gold bzw. Theme-Akzent
     else
         setBlizzTextures(b, false)
         if b.bg then
             b.bg:Show()
+            local ir, ig, ib, hr, hg, hb = ns:ButtonColors()
             if off then
                 b.bg:SetColorTexture(C.bg.r, C.bg.g, C.bg.b, 1)
             elseif hovered then
-                b.bg:SetColorTexture(C.accent.r * 0.5, C.accent.g * 0.5, C.accent.b * 0.5, 1)
+                b.bg:SetColorTexture(hr, hg, hb, 1)
             else
-                b.bg:SetColorTexture(C.bgLight.r, C.bgLight.g, C.bgLight.b, 1)
+                b.bg:SetColorTexture(ir, ig, ib, 1)
             end
         end
         if off then

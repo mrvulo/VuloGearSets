@@ -8,6 +8,14 @@ ns.VERSION     = "1.13.0"
 ns.modules     = {}
 ns.moduleOrder = {}
 
+-- World of Warcraft: Forever (Interface 16001) ist KEIN Classic-Client: er
+-- gehoert zu Blizzards Mainline-Familie, bringt also die Retail-API, das
+-- Retail-Charakterfenster und die Kampfsperren von 12.x mit. Erkannt wird
+-- er am Interface-Bereich plus C_SwingTimer, das es nur dort gibt.
+-- WOW_PROJECT_ID taugt nicht: Forever meldet dort dasselbe wie Retail.
+local _iface = tonumber((select(4, GetBuildInfo()))) or 0
+ns.isForever = (_iface >= 16000 and _iface < 20000) and (C_SwingTimer ~= nil)
+
 -- Dieselbe Palette wie VuloClassicUI, damit beide Addons zusammenpassen.
 ns.COLORS = {
     accent     = { r = 0.608, g = 0.424, b = 1 },

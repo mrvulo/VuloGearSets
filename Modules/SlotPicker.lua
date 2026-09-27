@@ -33,7 +33,8 @@ local GetContainerItemID    = (C_Container and C_Container.GetContainerItemID)  
 local GetContainerItemLink  = (C_Container and C_Container.GetContainerItemLink)  or _G.GetContainerItemLink
 local GetContainerNumSlots  = (C_Container and C_Container.GetContainerNumSlots)  or _G.GetContainerNumSlots
 local UseContainerItem      = (C_Container and C_Container.UseContainerItem)      or _G.UseContainerItem
-local GetItemInfoInstant    = _G.GetItemInfoInstant
+-- Forever kennt nur die C_Item-Fassung.
+local GetItemInfoInstant    = _G.GetItemInfoInstant or (C_Item and C_Item.GetItemInfoInstant)
 
 -- =========================================================
 -- Slot → INVTYPE mapping
@@ -182,7 +183,14 @@ end
 local function getItemButton(idx)
     local btn = itemButtons[idx]
     if btn then return btn end
-    btn = CreateFrame("Button", nil, popup, "ItemButtonTemplate")
+    -- Auf Forever ist ItemButton ein eigener Frametyp; die Vorlage
+    -- ItemButtonTemplate gibt es dort nicht, und CreateFrame mit einer
+    -- unbekannten Vorlage wirft.
+    if ns.isForever then
+        btn = CreateFrame("ItemButton", nil, popup)
+    else
+        btn = CreateFrame("Button", nil, popup, "ItemButtonTemplate")
+    end
     if not btn.icon then
         -- Fallback in case ItemButtonTemplate doesn't expose .icon
         btn.icon = btn:CreateTexture(nil, "ARTWORK")
