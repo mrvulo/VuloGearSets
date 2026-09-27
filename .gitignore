@@ -16,3 +16,6 @@ __pycache__/
 # Lokale Bauartefakte
 *.zip
 graphify-out/
+
+# Arbeitsordner von Claude Code (Sitzungen, Worktrees)
+.claude/
