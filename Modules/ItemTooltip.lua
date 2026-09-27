@@ -184,6 +184,36 @@ local function linkFromTooltip(tt, data)
     return nil
 end
 
+-- Sets, die Blizzards eigene Zeile schon nennt ("Ausruestungssets: X").
+-- Auf Forever spiegelt BlizzardSets.lua die Sets in Blizzards
+-- Ausruestungsmanager, und der Client schreibt dann selbst eine Zeile
+-- dazu. Nur was dort NICHT steht, bekommt unsere Zeile - so steht kein
+-- Set doppelt im Tooltip, und ein nicht gespiegeltes fehlt auch nicht.
+local function namesInBlizzardLine(data)
+    local fmt = _G.EQUIPMENT_SETS
+    if type(data) ~= "table" or type(data.lines) ~= "table" or type(fmt) ~= "string" then
+        return nil
+    end
+    -- Das Format traegt selbst Farbcodes ("...: |cFFFFFFFF%s|r"); vor dem
+    -- Vergleich auf beiden Seiten entfernen.
+    local prefix = fmt:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):match("^(.-)%%s")
+    if not prefix or prefix == "" then return nil end
+    for _, line in ipairs(data.lines) do
+        local text = type(line) == "table" and line.leftText
+        if plainString(text) then
+            text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+            if text:sub(1, #prefix) == prefix then
+                local listed = {}
+                for n in (text:sub(#prefix + 1) .. ","):gmatch("%s*(.-)%s*,") do
+                    if n ~= "" then listed[n] = true end
+                end
+                return listed
+            end
+        end
+    end
+    return nil
+end
+
 local function addSetLine(tt, data)
     -- Der Schalter wird HIER geprueft, nicht beim Setzen des Hooks: ein
     -- Hook laesst sich nicht wieder loesen.
@@ -195,6 +225,13 @@ local function addSetLine(tt, data)
 
     local names = setsForLink(link)
     if not names then return end
+    local listed = namesInBlizzardLine(data)
+    if listed then
+        for i = #names, 1, -1 do
+            if listed[names[i]] then table.remove(names, i) end
+        end
+        if #names == 0 then return end
+    end
     if alreadyShown(tt, link) then return end
 
     tt:AddLine(" ")

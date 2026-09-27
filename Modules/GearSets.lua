@@ -661,6 +661,9 @@ local function sortedLoadoutNames()
     return names
 end
 ns.SortedSetNames = sortedLoadoutNames
+-- Das Spiegeln in Blizzards Ausruestungsmanager (BlizzardSets.lua) zieht
+-- nur nach, wenn ein Set vollstaendig getragen wird.
+ns.GetSetStatus = getSetStatus
 
 -- Set an Position `newPos` der Liste stellen (1 = ganz oben). Danach tragen
 -- ALLE Sets ihre Position als `order`, damit die bisher alphabetische
@@ -722,6 +725,7 @@ local function saveAs(name, slotList)
 
     ns:Print(string.format(L["Gear set '%s' saved (%d items)."],
         name, countSlots(set)))
+    if ns.MirrorSetSaved then ns:MirrorSetSaved(name) end
 end
 
 -- Pending slot list for the StaticPopup (popups have no parameter passing on Show)
@@ -753,6 +757,7 @@ local function overwriteLoadout(name)
     loadout.slots    = captureCurrentEquipment(slotList)
     loadout.slotMask = copySlotList(slotList)
     ns:Print(string.format(L["Gear set '%s' updated with current gear."], name))
+    if ns.MirrorSetSaved then ns:MirrorSetSaved(name) end
 end
 
 local function deleteLoadout(name)
@@ -763,6 +768,7 @@ local function deleteLoadout(name)
     LO()[name] = nil
     -- Still: der Spieler hat das Set geloescht, nicht die Taste.
     if ns.ClearSetKeybind then ns:ClearSetKeybind(name, true) end
+    if ns.MirrorSetDeleted then ns:MirrorSetDeleted(name) end
     ns:Print(string.format(L["Gear set '%s' deleted."], name))
 end
 
@@ -797,6 +803,7 @@ local function renameLoadout(oldName, newName)
         formMap()[oldName] = nil
     end
     if ns.RenameSetKeybind then ns:RenameSetKeybind(oldName, newName) end
+    if ns.MirrorSetRenamed then ns:MirrorSetRenamed(oldName, newName) end
     ns:Print(string.format(L["Gear set '%s' renamed to '%s'."], oldName, newName))
     return newName
 end
@@ -2210,6 +2217,7 @@ local function showIconPicker(loadoutName, anchor)
         end
         b:SetScript("OnClick", function(self)
             loadout.iconOverride = self._iconValue  -- nil → auto
+            if ns.MirrorSetIconChanged then ns:MirrorSetIconChanged(loadoutName) end
             _iconPicker:Hide()
             refreshSidebar()
         end)
@@ -2638,6 +2646,22 @@ local function createSetRow(parent, index)
                         refreshSidebar()
                     end,
                 })
+            end
+
+            -- Forever: Blizzards Kopie des Sets auf den Mauszeiger legen,
+            -- der naechste Klick auf einen Aktionsplatz setzt sie dort ab.
+            -- Die Kopie entsteht erst, wenn das Set einmal getragen wurde.
+            if ns.BlizzMirrorActive and ns:BlizzMirrorActive() then
+                if ns:BlizzSetID(setName) then
+                    table.insert(menu, { text = L["Place on action bar"], func = function()
+                        ns:PickupBlizzSet(setName)
+                    end })
+                else
+                    table.insert(menu, {
+                        text = L["Place on action bar (equip the set once first)"],
+                        disabled = true,
+                    })
+                end
             end
 
             -- Spec-binding entries — only when dual spec is active
@@ -3800,6 +3824,23 @@ function mod:GetOptions()
           get = function() return mod.db.autoSwitchEnabled ~= false end,
           set = function(_, v) mod.db.autoSwitchEnabled = v end },
     }
+
+    -- Forever: Spiegeln in Blizzards Ausruestungsmanager, direkt vor dem
+    -- Fensterstil. Nicht als "cond and {...} or nil" in der Tabelle - das
+    -- Loch beendete ipairs mitten in der Liste.
+    if ns.isForever then
+        for i, it in ipairs(items) do
+            if it.label == L["Window style"] then
+                table.insert(items, i, {
+                    type = "toggle", label = L["Also keep sets in Blizzard's equipment manager"],
+                    tooltip = L["Mirrors every set into the equipment manager of the character window as soon as you save it or wear it completely. This gives the set a button for your action bars (right-click menu of the set), stores it on the server and lets other addons and bag windows see which items belong to it. Blizzard only allows a limited number of sets per character."],
+                    get = function() return ns:IsModuleEnabled("blizzsets") end,
+                    set = function(_, v) if ns.ToggleModule then ns:ToggleModule("blizzsets", v, true) end end,
+                })
+                break
+            end
+        end
+    end
 
     -- Dual-Spec gibt es in Classic Era gar nicht und in TBC erst nach dem
     -- Kauf. Ohne zweite Talentgruppe waere die Einstellung wirkungslos,

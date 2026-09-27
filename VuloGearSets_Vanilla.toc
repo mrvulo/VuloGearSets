@@ -29,5 +29,6 @@ Modules\SlotPicker.lua
 Modules\SocketBar.lua
 Modules\ItemTooltip.lua
 Modules\SetKeybinds.lua
+Modules\BlizzardSets.lua
 Core\Coexistence.lua
 Core\Init.lua
