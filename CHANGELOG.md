@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.14.0
+
+- **New: World of Warcraft: Forever support.** The addon now loads on the
+  Forever client and does everything it does on Anniversary: saving and
+  equipping sets, binding sets to your two talent groups, stance and form
+  switching, equipping from the bank's tabs while the bank is open, the slot
+  picker, the socket bar and the set line in item tooltips. The sidebar sits
+  next to the character window's side tabs.
+- **New: "Forever" window style**, the default on Forever. It takes the look
+  of VuloForeverUI — its colors and, with its Blizzard themes, the client's
+  metal frame. The sidebar then wears the background and border of Blizzard's
+  own equipment manager, with Blizzard's "New Set" button.
+- The "New Set" button has a new look on every client: a dark card with a thin
+  gold border, a green plus and green text.
+- **Fixed: stance and form names on Anniversary and Classic Era.** The form
+  list only showed "Form 1/2/3", and flight form was never recognized, so
+  druids never got the Charm of Swift Flight equipped in flight form. Forms
+  now show their real names.
+
 ## 1.13.0
 
 - **New: slots that were empty when a set was saved are now emptied when you
