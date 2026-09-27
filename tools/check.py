@@ -13,7 +13,7 @@ def all_tocs():
     return sorted(ADDON.glob("VuloGearSets*.toc"))
 
 # Ordner ohne Addon-Code, die der Pruefer nicht anfassen darf.
-SKIP_DIRS = {"docs", "tools"}
+SKIP_DIRS = {"docs", "tools", ".claude"}
 
 # Nur diese Datei darf VuloClassicUIs SavedVariables anfassen.
 # Geprueft werden die Globals selbst, nicht das blosse Wort "VuloClassicUI":
