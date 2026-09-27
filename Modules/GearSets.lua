@@ -1429,17 +1429,21 @@ local function getCurrentForm()
     return GetShapeshiftForm() or 0
 end
 
--- Name einer Gestalt. Auf Forever liefert GetShapeshiftFormInfo
--- (icon, active, castable, spellID) - der Name kommt dort ueber die
--- Zauber-ID. Auf den Classic-Clients bleibt es beim bisherigen Lesen des
--- zweiten Werts, damit sich dort nichts aendert.
+-- Name einer Gestalt. GetShapeshiftFormInfo liefert auf allen Clients
+-- (icon, active, castable, spellID) - so liest es auch Blizzards eigene
+-- StanceBar.lua in Classic Era und TBC Anniversary. Der zweite Wert ist
+-- also kein Name, sondern ein Wahrheitswert; der Name kommt ueber die
+-- Zauber-ID. Frueher lief das nur auf Forever so: in Classic zeigte die
+-- Auswahl deshalb nur "Gestalt 1/2/3", und die Fluggestalt wurde nie
+-- erkannt.
 local function formNameOf(formIdx)
     if not GetShapeshiftFormInfo then return nil end
     -- pcall stellt ok voran, deshalb steht der zweite Wert an dritter Stelle
     local ok, _icon, second, _castable, spellID = pcall(GetShapeshiftFormInfo, formIdx)
     if not ok then return nil end
+    -- Rueckfall fuer einen Client, der doch noch den Namen liefert.
     if type(second) == "string" and second ~= "" then return second end
-    if ns.isForever and type(spellID) == "number" then return spellName(spellID) end
+    if type(spellID) == "number" then return spellName(spellID) end
     return nil
 end
 
