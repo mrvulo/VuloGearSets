@@ -3095,7 +3095,7 @@ local function createSidebar()
             mod.db.sidebarXOffset or 0, statsColumnShift()))
     end
 
-    ns.UI:SkinFrame(sidebar, "window")
+    ns.UI:SkinFrame(sidebar, "sidebar")
 
     -- =========================================================
     -- Scrollbereich fuer die Set-Liste
@@ -3200,8 +3200,86 @@ local function createSidebar()
     end)
     sidebar.saveBtn = saveBtn
 
-    -- New Set button (bottom)
-    local newBtn = ns.UI:CreateButton(sidebar, "", 100, 24)
+    -- "Neues Set" unten: eigener Knopf statt ns.UI:CreateButton - dunkle
+    -- Flaeche, duenner abgerundeter Goldrand, gruenes Plus und gruene
+    -- Schrift, wie Blizzards "Neues Set" im Ausruestungsmanager. Die
+    -- Stilknoepfe wuerden Schrift und Grund beim Ueberfahren umfaerben.
+    local newBtn = CreateFrame("Button", nil, sidebar,
+        BackdropTemplateMixin and "BackdropTemplate")
+    newBtn:SetHeight(24)
+    if newBtn.SetBackdrop then
+        newBtn:SetBackdrop({
+            bgFile   = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            edgeSize = 12,
+            insets   = { left = 3, right = 3, top = 3, bottom = 3 },
+        })
+    end
+    newBtn.icon = newBtn:CreateTexture(nil, "ARTWORK")
+    newBtn.icon:SetTexture("Interface\\AddOns\\VuloGearSets\\Media\\Icons\\plus")
+    newBtn.icon:SetSize(15, 15)
+    newBtn.icon:SetPoint("LEFT", newBtn, "LEFT", 9, 0)
+    newBtn.icon:SetVertexColor(0.15, 0.85, 0.15)
+    newBtn.label = newBtn:CreateFontString(nil, "OVERLAY")
+    ns.UI.Font(newBtn.label, 12)
+    newBtn.label:SetPoint("LEFT", newBtn.icon, "RIGHT", 6, 0)
+    newBtn.label:SetPoint("RIGHT", newBtn, "RIGHT", -8, 0)
+    newBtn.label:SetJustifyH("LEFT")
+    newBtn.label:SetTextColor(0.25, 1, 0.25)
+
+    -- Rand im modernen Stil in dessen Randfarbe, sonst Gold; beim
+    -- Ueberfahren heller.
+    local function paintNewBtn(hovered)
+        if not newBtn.SetBackdropColor then return end
+        local shade = hovered and 0.10 or 0.03
+        newBtn:SetBackdropColor(shade, shade, shade, 0.95)
+        if ns:GetStyle() == "modern" then
+            local b = hovered and ns.COLORS.accent or ns.COLORS.border
+            newBtn:SetBackdropBorderColor(b.r, b.g, b.b, 1)
+        elseif hovered then
+            newBtn:SetBackdropBorderColor(1, 0.82, 0, 1)
+        else
+            newBtn:SetBackdropBorderColor(0.78, 0.62, 0.28, 1)
+        end
+    end
+    paintNewBtn(false)
+    newBtn:SetScript("OnEnter", function() paintNewBtn(true) end)
+    newBtn:SetScript("OnLeave", function() paintNewBtn(false) end)
+    newBtn.label:SetText(L["New Set"])
+    newBtn:SetScript("OnClick", function() promptSaveWithSlots(nil) end)
+
+    -- Auf Forever gibt es das Original: Blizzards "Neues Set"-Knopf aus dem
+    -- Ausruestungsmanager (Vorlage samt eigener Beschriftung) mit dem
+    -- gruenen Plus. Er ersetzt den nachgebauten, solange die Leiste die
+    -- Ausruestungsmanager-Art traegt (ns:UsesCharacterPaneArt).
+    local blizzNewBtn
+    if ns.isForever then
+        local ok, b = pcall(CreateFrame, "Button", nil, sidebar,
+            "PaperDollTertiaryButtonTemplate")
+        if ok and b then
+            blizzNewBtn = b
+            blizzNewBtn:SetHeight(34)
+            local plus = blizzNewBtn:CreateTexture(nil, "ARTWORK")
+            plus:SetAtlas("UI-Character-Info-Icon-Add", true)
+            plus:SetPoint("LEFT", blizzNewBtn, "LEFT", 13, 0)
+            blizzNewBtn:SetScript("OnClick", function() promptSaveWithSlots(nil) end)
+            blizzNewBtn:Hide()
+        end
+    end
+
+    -- Blizzards Doppellinie unter der Liste, ebenfalls nur in dieser Art.
+    local scrollLine = sidebar:CreateTexture(nil, "BORDER")
+    if ns.isForever then scrollLine:SetAtlas("UI-Character-Info-ScrollLine") end
+    scrollLine:SetHeight(7)
+    scrollLine:Hide()
+
+    -- Welcher "Neues Set"-Knopf gerade gilt.
+    local function activeNewBtn()
+        if blizzNewBtn and ns:UsesCharacterPaneArt() then return blizzNewBtn end
+        return newBtn
+    end
+
+    ns:OnStyleChanged(function() paintNewBtn(false) end)
 
     -- Die drei Knoepfe spannen sich zwischen den Raendern auf, statt eine
     -- feste Breite zu haben - so halten sie in beiden Stilen denselben
@@ -3235,13 +3313,24 @@ local function createSidebar()
         saveBtn:SetWidth(half)
         saveBtn:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -pad, -pad)
 
-        newBtn:ClearAllPoints()
-        newBtn:SetPoint("BOTTOMLEFT",  sidebar, "BOTTOMLEFT",  pad, pad)
-        newBtn:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -pad, pad)
+        -- Nur einer der beiden "Neues Set"-Knoepfe ist sichtbar.
+        local active = activeNewBtn()
+        newBtn:SetShown(active == newBtn)
+        if blizzNewBtn then blizzNewBtn:SetShown(active == blizzNewBtn) end
+        active:ClearAllPoints()
+        active:SetPoint("BOTTOMLEFT",  sidebar, "BOTTOMLEFT",  pad, pad)
+        active:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -pad, pad)
+        local newH = active:GetHeight() or 24
 
         -- Der Scrollbereich spannt sich zwischen die beiden Knopfreihen.
         local topEdge = pad + 22 + 6                   -- unter Anlegen/Speichern
-        local botEdge = pad + 24 + 6                   -- ueber "+ Neues Set"
+        local botEdge = pad + newH + 6                 -- ueber "Neues Set"
+
+        -- Die Doppellinie sitzt in der Luecke ueber "Neues Set".
+        scrollLine:ClearAllPoints()
+        scrollLine:SetPoint("BOTTOMLEFT",  sidebar, "BOTTOMLEFT",  pad, pad + newH + 1)
+        scrollLine:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -pad, pad + newH + 1)
+        scrollLine:SetShown(active == blizzNewBtn)
 
         scroll:ClearAllPoints()
         scroll:SetPoint("TOPLEFT",     sidebar, "TOPLEFT",     pad, -topEdge)
@@ -3253,8 +3342,6 @@ local function createSidebar()
         sbar:SetPoint("TOPRIGHT",    sidebar, "TOPRIGHT",    -pad, -topEdge)
         sbar:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -pad, botEdge)
     end
-    newBtn:SetText("+ " .. L["New Set"])
-    newBtn:SetScript("OnClick", function() promptSaveWithSlots(nil) end)
     sidebar.newBtn = newBtn
     mod._layoutSidebarButtons()
 

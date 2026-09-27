@@ -261,8 +261,65 @@ local function applyForever(frame, kind)
     frame:SetBackdropBorderColor(b.r, b.g, b.b, hasMetal and 0 or 1)
 end
 
+-- =========================================================
+-- Forever: die Set-Leiste im Look von Blizzards Ausruestungsmanager
+--
+-- Forever zeichnet seinen eigenen Ausruestungsmanager (rechte Haelfte des
+-- Charakterfensters) aus diesen Atlanten: dunkelbrauner Grund mit
+-- Zierecken, darum ein schmaler verzierter Rahmen. Gilt fuer den
+-- Forever-Stil mit den Blizzard-Themes; die flachen Themes behalten ihre
+-- flache Leiste.
+-- =========================================================
+local PANE_BG     = "UI-Character-Info-Stat-BG"
+local PANE_BORDER = "common-insideframe"
+
+local function atlasExists(name)
+    local ti = _G.C_Texture
+    return ti and ti.GetAtlasInfo and ti.GetAtlasInfo(name) ~= nil
+end
+
+function ns:UsesCharacterPaneArt()
+    return ns:GetStyle() == "forever" and foreverHasButtonArt()
+        and atlasExists(PANE_BG) and atlasExists(PANE_BORDER)
+end
+
+local paneArt = setmetatable({}, { __mode = "k" })   -- [frame] = { bg, border }
+
+local function setPaneArt(frame, on)
+    local art = paneArt[frame]
+    if not on then
+        if art then art.bg:Hide(); art.border:Hide() end
+        return
+    end
+    if not art then
+        art = {}
+        art.bg = frame:CreateTexture(nil, "BACKGROUND")
+        art.bg:SetAtlas(PANE_BG)
+        art.bg:SetAllPoints(frame)
+        -- Versatz wie bei Blizzards eigenem Bereich.
+        art.border = frame:CreateTexture(nil, "BORDER")
+        art.border:SetAtlas(PANE_BORDER)
+        art.border:SetPoint("TOPLEFT", frame, "TOPLEFT", 1, 1)
+        art.border:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -1, -1)
+        paneArt[frame] = art
+    end
+    art.bg:Show(); art.border:Show()
+end
+
 local function apply(frame, kind, style)
     if not frame or not frame.SetBackdrop then return end
+    -- "sidebar" ist ein Fenster wie jedes andere - ausser im Forever-Stil
+    -- mit den Blizzard-Themes, dort traegt es die Ausruestungsmanager-Art.
+    if kind == "sidebar" then
+        if ns:UsesCharacterPaneArt() then
+            setMetal(frame, false)
+            frame:SetBackdrop(nil)
+            setPaneArt(frame, true)
+            return
+        end
+        setPaneArt(frame, false)
+        kind = "window"
+    end
     if style == "forever" then
         applyForever(frame, kind)
         return
@@ -333,6 +390,7 @@ end
 -- Set-Leiste rueckt um so viel ab, damit das Metall nicht auf den Reitern
 -- des Charakterfensters liegt.
 function ns:WindowArtReach()
+    if ns:UsesCharacterPaneArt() then return 0 end
     if ns:GetStyle() == "forever" and foreverHasMetal() then return 5 end
     return 0
 end
