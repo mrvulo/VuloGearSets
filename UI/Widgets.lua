@@ -10,19 +10,73 @@ local C  = ns.COLORS
 -- Dieselbe Schrift wie VuloClassicUI.
 local FONT_PATH = "Interface\\AddOns\\VuloGearSets\\Media\\Fonts\\Expressway.TTF"
 
--- Frueher wurde die Schrift beim Start gemessen und bei Breite 0 auf Arial
--- Narrow ausgewichen. Die Messung ergab dabei stets 0 - vermutlich, weil
--- sie lief, bevor der Client die Datei geladen hatte - und Expressway kam
--- nie zum Zug.
--- VuloClassicUI und VuloForeverUI setzen dieselbe Datei direkt und sie
--- rendert dort auf beiden Clients. Also hier genauso.
---
--- Gemessen wird nur noch fuer /vgsfont, und zwar erst beim Aufruf.
-local FONT_CANDIDATES = {
-    FONT_PATH,
-    "Fonts\\ARIALN.TTF",
-}
+local FALLBACK_FONT = "Fonts\\ARIALN.TTF"
 
+-- Expressway rendert erst, wenn der Client die Datei geladen hat. Das ist
+-- beim Einloggen noch nicht der Fall: Texte, die dann schon Expressway
+-- bekommen (die Knoepfe der Seitenleiste), bleiben leer, spaeter gebaute
+-- (Menues) nicht. Deshalb bekommen Texte zuerst Arial Narrow - im Schnitt
+-- nah an Expressway - und werden umgestellt, sobald Expressway zeichnet.
+-- Zeichnet sie nach 15 Sekunden immer noch nicht, nimmt dieser Client
+-- keine Addon-Schriften, und es bleibt bei Arial Narrow.
+local _ready   = false
+local _waiting = setmetatable({}, { __mode = "k" })   -- FontString -> { Groesse, Flags }
+
+local function apply(fs, path, size, flags)
+    fs:SetFont(path, size, flags)
+    -- Notnagel, falls selbst diese Schrift nicht sitzt.
+    if not fs:GetFont() then
+        fs:SetFont("Fonts\\FRIZQT__.TTF", size, flags)
+    end
+end
+
+function UI.Font(fs, size, flags)
+    size, flags = size or 12, flags or ""
+    if _ready then
+        apply(fs, FONT_PATH, size, flags)
+    else
+        apply(fs, FALLBACK_FONT, size, flags)
+        _waiting[fs] = { size, flags }
+    end
+    return fs
+end
+
+-- Laeuft ab dem Laden der Datei. Erst auf eine andere Schrift und dann
+-- zurueck, damit jede Pruefung wirklich neu setzt statt nur zu bestaetigen.
+do
+    local probe   = UIParent:CreateFontString(nil, "BACKGROUND")
+    local elapsed, nextCheck = 0, 0
+    local watcher = CreateFrame("Frame")
+    watcher:SetScript("OnUpdate", function(self, dt)
+        elapsed = elapsed + dt
+        if elapsed < nextCheck then return end
+        nextCheck = elapsed + 0.2
+
+        probe:SetFont(FALLBACK_FONT, 12, "")
+        probe:SetFont(FONT_PATH, 12, "")
+        probe:SetText("VuloGearSets")
+        local drawn = (probe:GetStringWidth() or 0) > 0
+        if not drawn and elapsed < 15 then return end
+
+        self:SetScript("OnUpdate", nil)
+        probe:SetText("")
+        probe:Hide()
+        if drawn then
+            _ready = true
+            for fs, p in pairs(_waiting) do
+                apply(fs, FONT_PATH, p[1], p[2])
+                -- Text neu setzen, damit er mit der neuen Schrift gemessen
+                -- und gezeichnet wird.
+                local text = fs:GetText()
+                if text then fs:SetText(text) end
+            end
+        end
+        wipe(_waiting)
+    end)
+end
+
+-- Nur fuer /vgsfont: welche Schrift gerade vergeben wird, und eine frische
+-- Messung beider Kandidaten.
 local function measure(path)
     local fs = UIParent:CreateFontString(nil, "BACKGROUND")
     fs:SetFont(path, 12, "")
@@ -33,23 +87,15 @@ local function measure(path)
     return w
 end
 
--- Nur fuer die Diagnose. Zweiter Rueckgabewert heisst "Expressway
--- rendert gerade".
 function UI.GetResolvedFont()
-    local probe = { candidates = {}, fallback = measure(STANDARD_TEXT_FONT) }
-    for i, path in ipairs(FONT_CANDIDATES) do
-        probe.candidates[i] = { path = path, width = measure(path) }
-    end
-    return FONT_PATH, probe.candidates[1].width > 0, probe
-end
-
-function UI.Font(fs, size, flags)
-    fs:SetFont(FONT_PATH, size or 12, flags or "")
-    -- Notnagel, falls selbst die Standardschrift nicht sitzt.
-    if not fs:GetFont() then
-        fs:SetFont("Fonts\\FRIZQT__.TTF", size or 12, flags or "")
-    end
-    return fs
+    local probe = {
+        candidates = {
+            { path = FONT_PATH,     width = measure(FONT_PATH) },
+            { path = FALLBACK_FONT, width = measure(FALLBACK_FONT) },
+        },
+        fallback = measure(STANDARD_TEXT_FONT),
+    }
+    return _ready and FONT_PATH or FALLBACK_FONT, _ready, probe
 end
 
 function UI.SetColorBG(frame, r, g, b, a, layer)
