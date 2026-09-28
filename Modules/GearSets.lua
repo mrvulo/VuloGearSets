@@ -3442,6 +3442,22 @@ local function createSidebar()
         PaperDollFrame:HookScript("OnShow", updateVisibility)
         PaperDollFrame:HookScript("OnHide", function() sidebar:Hide() end)
     end
+
+    -- Blizzards Symbolauswahl fuer ein neues Set oeffnet rechts neben dem
+    -- Charakterfenster, genau dort, wo die Leiste liegt. Solange sie offen
+    -- ist, rutscht die Leiste in deren Schicht und die Auswahl nach oben.
+    for _, name in ipairs({ "GearManagerPopupFrame", "GearManagerDialogPopup" }) do
+        local popup = _G[name]
+        if popup and popup.HookScript then
+            popup:HookScript("OnShow", function(self)
+                sidebar:SetFrameStrata(self:GetFrameStrata())
+                self:Raise()
+            end)
+            popup:HookScript("OnHide", function()
+                sidebar:SetFrameStrata("HIGH")
+            end)
+        end
+    end
     updateVisibility()
 
     if ns:IsMoverEditMode() then sidebar.mover:Show() end
