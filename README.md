@@ -20,6 +20,10 @@ click. Runs on its own, no other addons required.
   window with all of them.
 - **Action bar buttons** — right-click a set and choose "Place on action bar"; the set
   lands on your cursor as a macro (on Forever as Blizzard's own equipment set)
+- **Back to previous gear** — one click, key or `/gearset back` puts back whatever
+  the last set switch replaced; press it again to switch forward
+- **Put a set in the bank** — with the bank open, right-click a set and choose "Put in
+  bank" to move its pieces from your bags into free bank slots
 - **Automatic switching** on stance and form (warrior stances, druid forms) and on
   dual spec
 - **Blizzard's equipment manager on Forever** — sets are also kept in the character
@@ -36,6 +40,8 @@ click. Runs on its own, no other addons required.
 | `/gearset save <name>` | save your current equipment as a set |
 | `/gearset equip <name>` | equip a set |
 | `/gearset delete <name>` | delete a set |
+| `/gearset back` | switch back to the gear you wore before the last set switch |
+| `/gearset bank <name>` | put the set's pieces from your bags into the bank (bank must be open) |
 | `/gearset list` | list your saved sets |
 | `/gearset spec` | view and set spec bindings |
 | `/gearset config` | open the settings |

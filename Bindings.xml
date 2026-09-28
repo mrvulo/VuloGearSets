@@ -1,0 +1,5 @@
+<Bindings>
+	<Binding name="VGS_PREVIOUS_GEAR" header="VULOGEARSETS" category="ADDONS">
+		VuloGearSets_EquipPrevious()
+	</Binding>
+</Bindings>

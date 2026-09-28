@@ -858,7 +858,27 @@ end
 -- Siehe unten am Ende von equipLoadout.
 local _lastEquipOutcome
 
-local function equipLoadout(name)
+-- Vorher-Stand fuer "Zurueck": alle Slots, die ein Anlegen beruehren kann.
+-- Das sind die des Sets und jeweils ihr Partner-Slot - Ringe und Schmuck
+-- werden ueber Kreuz getauscht, und eine Zweihandwaffe raeumt die
+-- Schildhand, ohne dass das Set die Schildhand nennt.
+local PARTNER_SLOT = { [11] = 12, [12] = 11, [13] = 14, [14] = 13, [16] = 17, [17] = 16 }
+
+local function touchedSlots(loadout)
+    local seen, list = {}, {}
+    local function add(s)
+        if s and not seen[s] then seen[s] = true; list[#list + 1] = s end
+    end
+    for _, s in ipairs(loadout.slotMask or {}) do add(s); add(PARTNER_SLOT[s]) end
+    for s in pairs(loadout.slots or {}) do add(s); add(PARTNER_SLOT[s]) end
+    table.sort(list)
+    return list
+end
+
+-- `loadout` ist nur fuer "Zurueck" gesetzt: der Vorher-Stand ist kein
+-- gespeichertes Set und hat keinen Eintrag in LO(). `name` ist dann nur
+-- der Text fuer die Chatzeilen.
+local function equipLoadout(name, loadout)
     if InCombatLockdown() then
         -- Dieselbe Sperre wie am Ende der Funktion: eine Taste ist im Kampf
         -- schnell mehrfach gedrueckt, und die Absage aendert sich dabei nicht.
@@ -869,7 +889,7 @@ local function equipLoadout(name)
         end
         return
     end
-    local loadout = LO()[name]
+    loadout = loadout or LO()[name]
     if not loadout then
         ns:Print(string.format(L["Gear set '%s' does not exist."], name))
         return
@@ -878,6 +898,12 @@ local function equipLoadout(name)
         ns:Print(L["Equipment swap API not available on this client."])
         return
     end
+
+    -- Was diese Slots jetzt tragen. Gespeichert wird es erst am Ende und
+    -- nur, wenn sich wirklich etwas bewegt hat - sonst ueberschriebe ein
+    -- zweiter Klick auf ein angelegtes Set den Stand von davor.
+    local touched = touchedSlots(loadout)
+    local before  = { slots = captureCurrentEquipment(touched), slotMask = touched }
 
     applySetVisibility(loadout)
 
@@ -1003,6 +1029,13 @@ local function equipLoadout(name)
         end
     end
 
+    -- Auch "Zurueck" selbst landet hier: der Stand vor dem Zuruecklegen
+    -- wird der neue Vorher-Stand, ein zweites "Zurueck" wechselt also
+    -- wieder hin.
+    if swapped + removed > 0 then
+        charDB().previousGear = before
+    end
+
     -- Hat der Aufruf nichts bewegt, wird dieselbe Meldung nicht wiederholt:
     -- wer ein angelegtes Set noch einmal anklickt oder seine Taste zweimal
     -- drueckt, hat beim ersten Mal gelesen, warum nichts passiert. Gemerkt
@@ -1054,6 +1087,176 @@ end
 -- diesen einen Weg hinein. equipLoadout bleibt lokal.
 function ns:EquipGearSet(name)
     equipLoadout(name)
+end
+
+-- =========================================================
+-- Zurueck zur vorherigen Ausruestung
+--
+-- Jedes Anlegen, das etwas bewegt, merkt sich vorher, was in den
+-- betroffenen Slots sass (siehe equipLoadout). Dieser Stand wird wie ein
+-- Set angelegt - Slots, die vorher leer waren, werden also wieder
+-- geleert. Er liegt in der Charakter-Datenbank und uebersteht /reload.
+-- =========================================================
+local function equipPrevious()
+    local prev = charDB().previousGear
+    if not (type(prev) == "table" and type(prev.slotMask) == "table"
+            and #prev.slotMask > 0) then
+        ns:Print(L["Nothing to go back to yet — equip a set first."])
+        return
+    end
+    prev.slots = prev.slots or {}
+    equipLoadout(L["Previous gear"], prev)
+end
+
+function ns:EquipPreviousGear()
+    equipPrevious()
+end
+
+local function hasPreviousGear()
+    local prev = charDB().previousGear
+    return type(prev) == "table" and type(prev.slotMask) == "table"
+        and #prev.slotMask > 0
+end
+
+-- Blizzards Tastenbelegung (Bindings.xml) ruft ein Global auf.
+_G.BINDING_HEADER_VULOGEARSETS   = "VuloGearSets"
+_G.BINDING_NAME_VGS_PREVIOUS_GEAR = L["Back to previous gear"]
+function VuloGearSets_EquipPrevious()
+    equipPrevious()
+end
+
+-- =========================================================
+-- Ein Set in die Bank legen
+--
+-- Nur was in den Taschen liegt; Angelegtes bleibt, wo es ist. Bewegt wird
+-- per Aufnehmen und Ablegen auf ein freies Bankfach - so wie der Spieler
+-- es von Hand zieht. UseContainerItem taete es bei offener Bank auch, ist
+-- auf Forever aber nicht mehr frei aufrufbar.
+-- =========================================================
+local function freeBankSlots()
+    local list = {}
+    for _, bag in ipairs(containerIDs(true)) do
+        if isBankContainer(bag) then
+            -- Spezialbeutel in der Bank (Koecher, Kraeuter) nehmen keine
+            -- Ausruestung.
+            local family = 0
+            if GetContainerNumFreeSlots then
+                local ok, _free, fam = pcall(GetContainerNumFreeSlots, bag)
+                if ok then family = fam or 0 end
+            end
+            if family == 0 then
+                for slot = 1, (GetContainerNumSlots(bag) or 0) do
+                    if not GetContainerItemID(bag, slot) then
+                        list[#list + 1] = { bag, slot }
+                    end
+                end
+            end
+        end
+    end
+    return list
+end
+
+local function depositLoadout(name)
+    local loadout = LO()[name]
+    if not loadout then
+        ns:Print(string.format(L["Gear set '%s' does not exist."], name))
+        return
+    end
+    if not bankIsOpen() then
+        ns:Print(L["Open the bank window first."])
+        return
+    end
+    if not (_PickupContainerItem and GetContainerItemID and GetContainerNumSlots) then
+        ns:Print(L["Equipment swap API not available on this client."])
+        return
+    end
+
+    -- Getragene Exemplare zaehlen: steckt das Teil des Sets schon an der
+    -- Figur, liegt ein gleiches in der Tasche nicht fuer dieses Set dort.
+    local wornLeft = {}
+    for _, s in ipairs(EQUIP_SLOTS) do
+        local key = variantKey(GetInventoryItemLink("player", s))
+        if key then wornLeft[key] = (wornLeft[key] or 0) + 1 end
+    end
+    -- Exemplare, die exakt zu einem ANDEREN Set gehoeren. Die nimmt die
+    -- Rueckfallebene "gleiche ID reicht" nicht mit - sonst wanderten die
+    -- anders gesockelten Schultern des Nachbarsets in die Bank.
+    local otherKeys = {}
+    for other, lo in pairs(LO()) do
+        if other ~= name then
+            for _, l in pairs(lo.slots or {}) do
+                local key = variantKey(l)
+                if key then otherKeys[key] = true end
+            end
+        end
+    end
+
+    local taken = {}
+    local function findBagCopy(link, exact)
+        local wantID, wantKey = getItemIDFromLink(link), variantKey(link)
+        for _, bag in ipairs(containerIDs(false)) do
+            for slot = 1, (GetContainerNumSlots(bag) or 0) do
+                if not taken[bag .. ":" .. slot]
+                   and GetContainerItemID(bag, slot) == wantID then
+                    local key = GetContainerItemLink
+                        and variantKey(GetContainerItemLink(bag, slot))
+                    if (exact and key == wantKey)
+                       or (not exact and not otherKeys[key]) then
+                        return bag, slot
+                    end
+                end
+            end
+        end
+    end
+
+    local free = freeBankSlots()
+    local moved, noRoom, nextFree = 0, 0, 1
+    local sortedSlots = {}
+    for slot in pairs(loadout.slots or {}) do sortedSlots[#sortedSlots + 1] = slot end
+    table.sort(sortedSlots)
+
+    for _, slot in ipairs(sortedSlots) do
+        local link = loadout.slots[slot]
+        local key  = variantKey(link)
+        if key and (wornLeft[key] or 0) > 0 then
+            wornLeft[key] = wornLeft[key] - 1
+        else
+            local bag, bagSlot = findBagCopy(link, true)
+            if not bag then bag, bagSlot = findBagCopy(link, false) end
+            if bag then
+                taken[bag .. ":" .. bagSlot] = true
+                local target = free[nextFree]
+                if not target then
+                    noRoom = noRoom + 1
+                else
+                    -- Ein gesperrtes Teil (noch unterwegs) laesst sich
+                    -- nicht aufnehmen - das zaehlt dann gar nicht.
+                    ClearCursor()
+                    _PickupContainerItem(bag, bagSlot)
+                    if CursorHasItem and CursorHasItem() then
+                        _PickupContainerItem(target[1], target[2])
+                        nextFree = nextFree + 1
+                        if CursorHasItem() then
+                            ClearCursor()
+                        else
+                            moved = moved + 1
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if moved == 0 and noRoom == 0 then
+        ns:Print(string.format(L["Gear set '%s': nothing in your bags to put in the bank."], name))
+        return
+    end
+    if moved > 0 then
+        ns:Print(string.format(L["Gear set '%s': %d items put in the bank."], name, moved))
+    end
+    if noRoom > 0 then
+        ns:Print(string.format(L["%d items stayed in your bags — the bank is full."], noRoom))
+    end
 end
 
 local function listLoadouts()
@@ -1186,7 +1389,7 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
         if arg ~= "" then
             equipLoadout(arg)
         else
-            ns:Print(L["Usage: /gearset equip <name> | save <name> | delete <name> | list | config | unlock"])
+            ns:Print(L["Usage: /gearset equip <name> | save <name> | delete <name> | back | bank <name> | list | config | unlock"])
         end
     elseif cmd == "spec" then
         -- Debug: show dual-spec state
@@ -1213,6 +1416,14 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
             if dlg then dlg.data = arg end
         else
             deleteLoadout(arg)
+        end
+    elseif cmd == "back" or cmd == "undo" then
+        equipPrevious()
+    elseif cmd == "bank" or cmd == "deposit" then
+        if arg == "" then
+            ns:Print(L["Usage: /gearset bank <name>"])
+        else
+            depositLoadout(arg)
         end
     elseif cmd == "list" or cmd == "ls" then
         listLoadouts()
@@ -1279,7 +1490,7 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
         if LO()[msg] then
             equipLoadout(msg)
         else
-            ns:Print(L["Usage: /gearset equip <name> | save <name> | delete <name> | list | config | unlock"])
+            ns:Print(L["Usage: /gearset equip <name> | save <name> | delete <name> | back | bank <name> | list | config | unlock"])
         end
     end
 end
@@ -1322,6 +1533,9 @@ local function showLoadoutMenu(anchor)
         end
     end
 
+    table.insert(entries, { separator = true })
+    table.insert(entries, { text = L["Back to previous gear"],
+        disabled = not hasPreviousGear(), func = equipPrevious })
     table.insert(entries, { separator = true })
     table.insert(entries, { text = L["Save current as new..."], func = function() promptSaveWithSlots(nil) end })
     table.insert(entries, { text = L["Save trinkets only..."],  func = function() promptSaveWithSlots(SLOT_GROUPS.trinkets) end })
@@ -2605,6 +2819,13 @@ local function createSetRow(parent, index)
                     promptRename(setName)
                 end },
             }
+            -- Direkt unter "Anlegen", und nur solange die Bank offen ist -
+            -- sonst gibt es kein Ziel.
+            if bankIsOpen() then
+                table.insert(menu, 3, { text = L["Put in bank"], func = function()
+                    depositLoadout(setName)
+                end })
+            end
 
             -- Helm/Umhang: der Eintrag zeigt den Zustand, ein Klick schaltet
             -- weiter. Das Menue schliesst danach; die Leiste wird neu
