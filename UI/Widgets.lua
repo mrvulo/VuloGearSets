@@ -10,31 +10,18 @@ local C  = ns.COLORS
 -- Dieselbe Schrift wie VuloClassicUI.
 local FONT_PATH = "Interface\\AddOns\\VuloGearSets\\Media\\Fonts\\Expressway.TTF"
 
--- Gemessen auf dem Anniversary-Client: Schriftdateien aus Addon-Ordnern
--- werden NICHT geladen - weder unsere noch dieselbe oder eine andere Datei
--- aus fremden Addon-Ordnern (Textbreite jeweils 0). Es liegt also nicht an
--- unserem Pfad. Client-interne Schriften laden dagegen problemlos.
--- Pruefen mit /vgsfont.
+-- Frueher wurde die Schrift beim Start gemessen und bei Breite 0 auf Arial
+-- Narrow ausgewichen. Die Messung ergab dabei stets 0 - vermutlich, weil
+-- sie lief, bevor der Client die Datei geladen hatte - und Expressway kam
+-- nie zum Zug.
+-- VuloClassicUI und VuloForeverUI setzen dieselbe Datei direkt und sie
+-- rendert dort auf beiden Clients. Also hier genauso.
 --
--- Deshalb der Reihe nach:
---   1. die eigene Expressway - falls ein Client sie doch annimmt
---   2. Arial Narrow, client-intern und im Schnitt nah an Expressway
---   3. die Standardschrift als Notnagel
+-- Gemessen wird nur noch fuer /vgsfont, und zwar erst beim Aufruf.
 local FONT_CANDIDATES = {
     FONT_PATH,
     "Fonts\\ARIALN.TTF",
 }
-
--- Laesst sich die Schriftdatei nicht laden, rendert der Client den Text
--- kommentarlos leer - das Fenster sieht dann aus, als fehle jede Beschriftung.
---
--- Die Pruefung laeuft bewusst FUNKTIONAL statt ueber Rueckgabewerte:
---   FontString:GetFont() liefert den gesetzten Pfad auch dann, wenn die Datei
---   nie geladen wurde. Font:SetFont() liefert je nach Client gar nichts.
--- Verlaesslich ist nur: Text setzen und messen. Hat er Breite, rendert die
--- Schrift wirklich. Einmal pruefen, Ergebnis merken.
-local _resolved
-local _probeResult
 
 local function measure(path)
     local fs = UIParent:CreateFontString(nil, "BACKGROUND")
@@ -46,37 +33,18 @@ local function measure(path)
     return w
 end
 
-local function resolveFont()
-    if _resolved then return _resolved end
-
-    _probeResult = { candidates = {}, fallback = measure(STANDARD_TEXT_FONT) }
-    for i, path in ipairs(FONT_CANDIDATES) do
-        local w = measure(path)
-        _probeResult.candidates[i] = { path = path, width = w }
-        if w > 0 and not _resolved then
-            _resolved = path
-            _probeResult.usedIndex = i
-        end
-    end
-
-    if not _resolved then
-        _resolved = STANDARD_TEXT_FONT
-    end
-    -- Bewusst keine Chatmeldung: dass dieser Client keine Addon-Schriften
-    -- laedt, ist nichts, was der Nutzer abstellen koennte. Wer es wissen
-    -- will, ruft /vgsfont auf.
-    return _resolved
-end
-
--- Nur fuer die Diagnose interessant. Zweiter Rueckgabewert heisst
--- "Expressway laeuft", egal aus welchem der Kandidatenpfade.
+-- Nur fuer die Diagnose. Zweiter Rueckgabewert heisst "Expressway
+-- rendert gerade".
 function UI.GetResolvedFont()
-    resolveFont()
-    return _resolved, (_resolved ~= STANDARD_TEXT_FONT), _probeResult
+    local probe = { candidates = {}, fallback = measure(STANDARD_TEXT_FONT) }
+    for i, path in ipairs(FONT_CANDIDATES) do
+        probe.candidates[i] = { path = path, width = measure(path) }
+    end
+    return FONT_PATH, probe.candidates[1].width > 0, probe
 end
 
 function UI.Font(fs, size, flags)
-    fs:SetFont(resolveFont(), size or 12, flags or "")
+    fs:SetFont(FONT_PATH, size or 12, flags or "")
     -- Notnagel, falls selbst die Standardschrift nicht sitzt.
     if not fs:GetFont() then
         fs:SetFont("Fonts\\FRIZQT__.TTF", size or 12, flags or "")

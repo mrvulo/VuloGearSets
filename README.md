@@ -79,16 +79,11 @@ once per session in chat. If it bothers you, disable one of them.
 
 Sets are stored per character because they reference that character's equipment.
 
-## Known limitation: font
+## Font
 
-The addon ships Expressway, the same font VuloClassicUI uses. The Anniversary client,
-however, does not load font files from addon folders at all — measured against several
-font files from different addons, including ones that are known to render on other
-clients, the text width came back as 0 in every case. So this is not specific to our
-copy of the file. Arial Narrow from the client is used instead, which has a similarly
-narrow cut. If a client does accept Expressway, it is picked up automatically.
-
-`/vgsfont` shows which font is active and what the measurement returns.
+The addon ships Expressway, the same font VuloClassicUI and VuloForeverUI use, and sets
+it directly on all its own texts. `/vgsfont` shows the path in use and measures whether
+the client renders it.
 
 ## Contributing
 
