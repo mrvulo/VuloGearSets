@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.15.0
+
+- **New: back to your previous gear.** Every set switch remembers what the
+  affected slots held before. "Back to previous gear" puts it back on — from
+  the minimap menu, from its own key in Blizzard's key bindings (under
+  VuloGearSets) or with `/gearset back`. Press it again to switch forward.
+- **New: put a set in the bank.** With the bank open, right-click a set and
+  choose "Put in bank": the set's pieces in your bags move into free bank
+  slots. What you are wearing stays on. Also as `/gearset bank <name>`.
+- **New: place a set on your action bar.** Right-click a set and choose
+  "Place on action bar". On Forever you get Blizzard's copy of the set,
+  otherwise a macro with the set's icon. Renaming, deleting or changing the
+  icon keeps the macro in step; a macro you rewrote yourself is left alone.
+- **New on Forever: sets are also kept in Blizzard's equipment manager** as
+  soon as you save or fully wear them, so they are stored on the server and
+  other addons and bag windows see which items belong to them. Renaming,
+  deleting and icon changes follow along; Blizzard sets that are not ours
+  stay untouched. Switch: "Also keep sets in Blizzard's equipment manager",
+  on by default. Item tooltips no longer list a set twice when Blizzard's own
+  line already names it.
+- The addon's own texts — menus, buttons, the settings window — now use the
+  Expressway font. It was bundled all along but never picked up.
+- The automatic set icon is now always the one of the first item in slot
+  order instead of a random one, and set names are trimmed at the edges when
+  saving, like when renaming.
+- **Fixed:** Blizzard's icon picker for a new set in the equipment manager
+  opened underneath the gear sets sidebar.
+- After updating, restart the game once: this version brings new files,
+  which a `/reload` does not load.
+
 ## 1.14.0
 
 - **New: World of Warcraft: Forever support.** The addon now loads on the
