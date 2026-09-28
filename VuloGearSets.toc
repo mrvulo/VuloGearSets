@@ -30,5 +30,6 @@ Modules\SocketBar.lua
 Modules\ItemTooltip.lua
 Modules\SetKeybinds.lua
 Modules\BlizzardSets.lua
+Modules\SetMacros.lua
 Core\Coexistence.lua
 Core\Init.lua

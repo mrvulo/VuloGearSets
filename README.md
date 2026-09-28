@@ -1,7 +1,8 @@
 # VuloGearSets
 
-Equipment set manager for WoW TBC Classic Anniversary (interface 20506) and
-Classic Era / Season of Discovery (interface 11509).
+Equipment set manager for WoW TBC Classic Anniversary (interface 20506),
+Classic Era / Season of Discovery (interface 11509) and World of Warcraft: Forever
+(interface 16001).
 
 Save your current equipment as named gear sets and switch between them with a single
 click. Runs on its own, no other addons required.
@@ -17,8 +18,13 @@ click. Runs on its own, no other addons required.
 - **Slot picker** — hover an equipment slot and the matching items from your bags
   appear right next to it; click one to equip. A configurable click opens the full
   window with all of them.
+- **Action bar buttons** — right-click a set and choose "Place on action bar"; the set
+  lands on your cursor as a macro (on Forever as Blizzard's own equipment set)
 - **Automatic switching** on stance and form (warrior stances, druid forms) and on
   dual spec
+- **Blizzard's equipment manager on Forever** — sets are also kept in the character
+  window's equipment manager as soon as you save or fully wear them, so they are stored
+  on the server and other addons and bag windows see which items belong to them
 - **Combat lock** — nothing is swapped during combat; a switch triggered mid-fight is
   carried out as soon as combat ends
 - English and German
@@ -63,7 +69,7 @@ once per session in chat. If it bothers you, disable one of them.
 | SavedVariable | Contents |
 |---|---|
 | `VuloGearSetsDB` | account-wide: display options, minimap button, slot picker |
-| `VuloGearSetsCharDB` | per character: sets, spec and form bindings, sidebar position |
+| `VuloGearSetsCharDB` | per character: sets, spec and form bindings, keybinds, sidebar position, which sets are mirrored into Blizzard's equipment manager |
 
 Sets are stored per character because they reference that character's equipment.
 

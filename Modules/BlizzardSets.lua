@@ -24,6 +24,8 @@
 --     false  der Spieler hat unsere Kopie in Blizzards Fenster geloescht
 --            oder umbenannt; nicht wieder anlegen, bis er das Set in
 --            VuloGearSets erneut speichert
+--     "rejected"  Blizzard hat das Anlegen abgelehnt (meist der Name);
+--            erst ein erneutes Speichern oder Umbenennen versucht es wieder
 --     nil    nie gespiegelt
 --   Ein Blizzard-Set gleichen Namens, das nicht von uns stammt, wird nur
 --   beim ausdruecklichen Speichern uebernommen (dann meint der Spieler
@@ -200,8 +202,8 @@ end
 -- Schreiben
 -- =========================================================
 local _pendingCreate = {}   -- Name -> true, bis Blizzard das Set meldet
-local _gaveUp        = {}   -- Name -> true: Anlegen scheiterte, diese Sitzung nicht wieder
 local _seen          = {}   -- Name -> true: diese Sitzung bei Blizzard gesehen
+local _triedCreate   = {}   -- Name -> true: diese Sitzung von uns angelegt
 local _fullWarned    = false
 
 -- Die Liste der beim Speichern ignorierten Slots gibt es im Client nur
@@ -239,8 +241,12 @@ local function writeMirror(name, loadout)
         return withIgnoredSlots(loadout, function() CES.SaveEquipmentSet(setID, icon) end)
     end
 
-    if _gaveUp[name] or _pendingCreate[name] then return false end
-    if numBlizzSets() >= maxSets() then
+    if _pendingCreate[name] then return false end
+    -- Noch nicht bestaetigte Anlagen zaehlen mit: werden mehrere Sets auf
+    -- einmal vollstaendig getragen, darf nicht jedes die letzte Luecke sehen.
+    local pending = 0
+    for _ in pairs(_pendingCreate) do pending = pending + 1 end
+    if numBlizzSets() + pending >= maxSets() then
         if not _fullWarned then
             _fullWarned = true
             ns:Print(string.format(
@@ -250,10 +256,11 @@ local function writeMirror(name, loadout)
         return false
     end
     _pendingCreate[name] = true
+    _triedCreate[name] = true
     local ok = withIgnoredSlots(loadout, function() CES.CreateEquipmentSet(name, icon) end)
     -- Blizzard lehnt manche Namen ab (zu lang, verbotene Zeichen), ohne
-    -- einen Fehler zu werfen. Kommt das Set nicht an, nicht bei jedem
-    -- Ausruestungswechsel neu versuchen.
+    -- einen Fehler zu werfen. Kommt das Set nicht an, wird das gemerkt -
+    -- ueber die Sitzung hinaus, sonst kaeme die Meldung bei jedem Login.
     C_Timer.After(2, function()
         if not _pendingCreate[name] then return end   -- schon gemeldet
         _pendingCreate[name] = nil
@@ -261,9 +268,9 @@ local function writeMirror(name, loadout)
             mirrorMap()[name] = true
             _seen[name] = true
         else
-            _gaveUp[name] = true
+            if ourSets()[name] then mirrorMap()[name] = "rejected" end
             ns:Print(string.format(
-                L["'%s' could not be added to Blizzard's equipment manager."], name))
+                L["'%s' could not be added to Blizzard's equipment manager, possibly because the name is too long. It stays in VuloGearSets; on the action bar it becomes a macro."], name))
         end
     end)
     return ok
@@ -286,8 +293,7 @@ local function syncSet(name, adopt)
         -- das erst noch angelegt werden muss, gehoert uns, sobald Blizzard
         -- es meldet (siehe writeMirror/onSetsChanged).
         map[name] = setID and true or nil
-        _gaveUp[name] = nil
-    elseif map[name] == false then
+    elseif map[name] == false or map[name] == "rejected" then
         return
     elseif setID and map[name] ~= true then
         return   -- fremdes Set gleichen Namens: nicht anfassen
@@ -330,7 +336,7 @@ function ns:MirrorSetDeleted(name)
     local map = mirrorMap()
     local owned = map[name]
     map[name] = nil
-    _gaveUp[name], _seen[name], _pendingCreate[name] = nil, nil, nil
+    _seen[name], _pendingCreate[name] = nil, nil
     -- Loeschen und Umbenennen sind bei Blizzard nicht kampfgesperrt - nur
     -- das Speichern aus der Ausruestung wartet (siehe syncSet).
     if owned ~= true or not available() then return end
@@ -344,9 +350,10 @@ function ns:MirrorSetRenamed(oldName, newName)
     local map = mirrorMap()
     local owned = map[oldName]
     map[oldName] = nil
-    _gaveUp[oldName], _gaveUp[newName] = nil, nil
     _seen[oldName], _pendingCreate[oldName] = nil, nil
-    if owned == nil then return end
+    -- Ein abgelehnter Name ist mit dem Umbenennen erledigt: der neue
+    -- bekommt einen frischen Versuch.
+    if owned == nil or owned == "rejected" then return end
     if owned == false then map[newName] = false return end
     if not available() then return end
 
@@ -412,6 +419,16 @@ local function onSetsChanged()
         if blizzID(name) then
             _pendingCreate[name] = nil
             map[name] = true
+        end
+    end
+    -- Kam die Bestaetigung erst nach Ablauf der Wartezeit, steht das Set
+    -- schon als "abgelehnt" da. Hat diese Sitzung es selbst angelegt und
+    -- Blizzard kennt es jetzt, ist es doch unseres.
+    for name in pairs(_triedCreate) do
+        if map[name] == "rejected" and blizzID(name) then
+            map[name] = true
+            ns:Print(string.format(
+                L["'%s' has arrived in Blizzard's equipment manager after all."], name))
         end
     end
     -- Unsere eigenen Loeschungen tauchen hier nicht auf: MirrorSetDeleted

@@ -708,6 +708,9 @@ local function copySlotList(list)
 end
 
 local function saveAs(name, slotList)
+    -- Leerzeichen am Rand abschneiden wie beim Umbenennen: "Tank " und
+    -- "Tank" waeren sonst zwei Sets, die gleich aussehen.
+    name = name and name:match("^%s*(.-)%s*$")
     if not name or name == "" then
         ns:Print(L["Please provide a name for the gear set."])
         return
@@ -769,6 +772,7 @@ local function deleteLoadout(name)
     -- Still: der Spieler hat das Set geloescht, nicht die Taste.
     if ns.ClearSetKeybind then ns:ClearSetKeybind(name, true) end
     if ns.MirrorSetDeleted then ns:MirrorSetDeleted(name) end
+    if ns.DeleteSetMacro then ns:DeleteSetMacro(name) end
     ns:Print(string.format(L["Gear set '%s' deleted."], name))
 end
 
@@ -804,6 +808,7 @@ local function renameLoadout(oldName, newName)
     end
     if ns.RenameSetKeybind then ns:RenameSetKeybind(oldName, newName) end
     if ns.MirrorSetRenamed then ns:MirrorSetRenamed(oldName, newName) end
+    if ns.RenameSetMacro then ns:RenameSetMacro(oldName, newName) end
     ns:Print(string.format(L["Gear set '%s' renamed to '%s'."], oldName, newName))
     return newName
 end
@@ -2036,10 +2041,15 @@ local function getSetIcon(name)
     local loadout = mod.db and LO() and LO()[name]
     if not loadout or not loadout.slots then return "Interface\\Icons\\INV_Misc_QuestionMark" end
     if loadout.iconOverride then return loadout.iconOverride end
-    -- Auto-pick first item's icon
+    -- Automatisch: das Symbol des ersten Teils nach Slot-Reihenfolge. Nicht
+    -- per pairs - dessen Reihenfolge ist zufaellig, und die Leiste zeigte
+    -- dann ein anderes Symbol als Makro und Blizzards Kopie des Sets.
     if GetItemInfoInstant then
-        for _, link in pairs(loadout.slots) do
-            local _, _, _, _, icon = GetItemInfoInstant(link)
+        local slots = {}
+        for s in pairs(loadout.slots) do slots[#slots + 1] = s end
+        table.sort(slots)
+        for _, s in ipairs(slots) do
+            local _, _, _, _, icon = GetItemInfoInstant(loadout.slots[s])
             if icon then return icon end
         end
     end
@@ -2218,6 +2228,7 @@ local function showIconPicker(loadoutName, anchor)
         b:SetScript("OnClick", function(self)
             loadout.iconOverride = self._iconValue  -- nil → auto
             if ns.MirrorSetIconChanged then ns:MirrorSetIconChanged(loadoutName) end
+            if ns.UpdateSetMacroIcon then ns:UpdateSetMacroIcon(loadoutName) end
             _iconPicker:Hide()
             refreshSidebar()
         end)
@@ -2648,20 +2659,13 @@ local function createSetRow(parent, index)
                 })
             end
 
-            -- Forever: Blizzards Kopie des Sets auf den Mauszeiger legen,
-            -- der naechste Klick auf einen Aktionsplatz setzt sie dort ab.
-            -- Die Kopie entsteht erst, wenn das Set einmal getragen wurde.
-            if ns.BlizzMirrorActive and ns:BlizzMirrorActive() then
-                if ns:BlizzSetID(setName) then
-                    table.insert(menu, { text = L["Place on action bar"], func = function()
-                        ns:PickupBlizzSet(setName)
-                    end })
-                else
-                    table.insert(menu, {
-                        text = L["Place on action bar (equip the set once first)"],
-                        disabled = true,
-                    })
-                end
+            -- Das Set auf den Mauszeiger legen; der naechste Klick auf einen
+            -- Aktionsplatz setzt es dort ab. Auf Forever Blizzards Kopie,
+            -- sonst ein Makro (siehe SetMacros.lua).
+            if ns.PlaceSetOnActionBar then
+                table.insert(menu, { text = L["Place on action bar"], func = function()
+                    ns:PlaceSetOnActionBar(setName)
+                end })
             end
 
             -- Spec-binding entries — only when dual spec is active
@@ -3464,7 +3468,9 @@ local _origDelete    = deleteLoadout
 saveAs = function(name, slotList)
     _origSaveAs(name, slotList)
     if sidebar then
-        sidebarSelected = name
+        -- Derselbe Zuschnitt wie in saveAs, sonst zeigte die Auswahl auf
+        -- "Tank " statt auf das gespeicherte "Tank".
+        sidebarSelected = name and name:match("^%s*(.-)%s*$")
         refreshSidebar()
     end
     if ns.RefreshOptions then ns:RefreshOptions() end
