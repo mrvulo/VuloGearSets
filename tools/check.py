@@ -212,9 +212,9 @@ def check_locales():
         return
     # Solange die portierten Module fehlen, greift die Locale-Datei ihnen vor -
     # dann sind verwaiste Keys erwartbar und werden nur gezaehlt.
-    if not (ADDON / "Modules" / "GearSets.lua").exists():
+    if not (ADDON / "Modules" / "GearSets" / "Sets.lua").exists():
         print(f"Hinweis: {len(orphans)} Keys noch ungenutzt "
-              f"(Modules/GearSets.lua fehlt - erwartet bis zur Portierung)")
+              f"(Modules/GearSets fehlt - erwartet bis zur Portierung)")
         return
     for k in orphans:
         errors.append(f"Verwaister Key in deDE.lua: {k!r}")
