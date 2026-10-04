@@ -131,238 +131,333 @@ end
 
 -- =========================================================
 -- Set-icon picker popup
--- Grid of: [Auto] + every item icon in the set + a few generic role icons.
--- Click sets loadout.iconOverride (or clears it for Auto).
+-- Gitter aus: [Auto] + die Symbole der Teile im Set + alle Symbole, die
+-- auch Blizzards eigene Symbolauswahl (Makros, Ausruestungsmanager)
+-- anbietet. Klick setzt loadout.iconOverride (Auto loescht es).
+--
+-- Das sind tausende Symbole. Es gibt deshalb nur so viele Knoepfe, wie
+-- sichtbar sind; beim Scrollen bekommen sie neue Symbole.
 -- =========================================================
 local _iconPicker
 local _iconBtns = {}
 local ICON_SIZE = 30
-local ICON_COLS = 8
+local ICON_COLS = 10
 local ICON_PAD  = 3
 -- Sichtbare Zeilen des Auswahlfensters; alles darueber hinaus scrollt.
 local ICON_VISIBLE_ROWS = 8
 local ICON_SCROLLBAR_W  = 4
+local ICON_WHEEL_ROWS   = 3
+local FILTER_H          = 18
+local FILTER_GAP        = 4
 
--- Der zerlegte Symbolbogen: Media/Icons/sets/set_1.tga .. set_N.tga.
--- Die Zahl muss zur Anzahl der Dateien im Ordner passen.
-local SHEET_ICON_COUNT = 209
-local SHEET_ICON_PATH  = "Interface\\AddOns\\VuloGearSets\\Media\\Icons\\sets\\set_"
+-- Platzhalter fuer "Auto" in der Symbolliste.
+local AUTO_ICON = {}
 
--- A few hand-picked generic icons (roles/specs) so a set can use a symbol
--- that isn't one of its items.
-local GENERIC_ICONS = {
-    "Interface\\Icons\\Spell_Holy_PowerWordShield",
-    "Interface\\Icons\\Spell_Shadow_ShadowWordPain",
-    "Interface\\Icons\\Spell_Holy_HolyBolt",
-    "Interface\\Icons\\Spell_Nature_Lightning",
-    "Interface\\Icons\\Ability_Warrior_OffensiveStance",
-    "Interface\\Icons\\Ability_Warrior_DefensiveStance",
-    "Interface\\Icons\\Ability_Rogue_Sprint",
-    "Interface\\Icons\\Spell_Frost_FrostBolt02",
-    "Interface\\Icons\\Spell_Fire_FlameBolt",
-    "Interface\\Icons\\Spell_Nature_HealingTouch",
-    "Interface\\Icons\\INV_Sword_27",
-    "Interface\\Icons\\INV_Shield_06",
-    "Interface\\Icons\\INV_Misc_Gem_Diamond_03",
-    "Interface\\Icons\\Achievement_PVP_A_A",
-}
+-- Blizzards Symbolliste: dieselben vier Aufrufe, aus denen Blizzards
+-- Symbolauswahl ihre Liste fuellt - Zaubersymbole und Gegenstandssymbole.
+-- Bewusst nicht ueber Blizzards IconDataProviderMixin: dessen
+-- Zwischenspeicher teilen sich alle Fenster, die ihn benutzen, und ein
+-- Zugriff aus Addon-Code kann Blizzards Ausruestungsmanager und
+-- Makrofenster mit Taint belegen.
+local function loadGameIcons()
+    local spells, items = {}, {}
+    if GetLooseMacroIcons     then GetLooseMacroIcons(spells)    end
+    if GetLooseMacroItemIcons then GetLooseMacroItemIcons(items) end
+    if GetMacroIcons          then GetMacroIcons(spells)         end
+    if GetMacroItemIcons      then GetMacroItemIcons(items)      end
+    -- Wie bei Blizzard: Datei-IDs, auf manchen Builds aber Dateinamen
+    -- ohne Pfad.
+    for _, list in ipairs({ spells, items }) do
+        for i = 1, #list do
+            list[i] = tonumber(list[i]) or ("Interface\\Icons\\" .. list[i])
+        end
+    end
+    return spells, items
+end
 
-local function getIconPickerButton(idx)
-    local b = _iconBtns[idx]
-    if b then return b end
-    -- Die Knoepfe liegen im Scroll-Kind, damit der ScrollFrame sie am
-    -- Rand des Sichtfensters abschneidet.
-    b = CreateFrame("Button", nil, _iconPicker.scrollChild)
-    b:SetSize(ICON_SIZE, ICON_SIZE)
-    b.tex = b:CreateTexture(nil, "ARTWORK")
-    b.tex:SetAllPoints(b)
-    b.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    b.hl = b:CreateTexture(nil, "HIGHLIGHT")
-    b.hl:SetAllPoints(b)
-    b.hl:SetColorTexture(ns:HoverColor())
-    b:RegisterForClicks("LeftButtonUp")
-    _iconBtns[idx] = b
-    return b
+-- Die Abschnitte der Liste je Filter, in Blizzards Reihenfolge: erst die
+-- eigenen Symbole, dann Zauber, dann Gegenstaende.
+local function buildIconSections(p)
+    local f = p.filter
+    local s = { { AUTO_ICON } }
+    if f ~= "spell" then s[#s + 1] = p.setIcons end
+    if f ~= "item"  then s[#s + 1] = p.spells   end
+    if f ~= "spell" then s[#s + 1] = p.items    end
+    local total = 0
+    for _, list in ipairs(s) do total = total + #list end
+    p.sections, p.total = s, total
+end
+
+local function iconAt(idx)
+    for _, list in ipairs(_iconPicker.sections) do
+        local n = #list
+        if idx <= n then return list[idx] end
+        idx = idx - n
+    end
+    return nil
+end
+
+local function indexOfIcon(icon)
+    if icon == nil then return 1 end  -- Auto
+    local base = 0
+    for _, list in ipairs(_iconPicker.sections) do
+        for i = 1, #list do
+            if list[i] == icon then return base + i end
+        end
+        base = base + #list
+    end
+    return nil
+end
+
+local function refreshIconGrid()
+    local p = _iconPicker
+    local first = p.offset * ICON_COLS
+    for k, b in ipairs(_iconBtns) do
+        local idx  = first + k
+        local icon = iconAt(idx)
+        if icon == nil then
+            b:Hide()
+        else
+            if icon == AUTO_ICON then
+                b.tex:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+                b.tex:SetVertexColor(0.7, 0.7, 0.7)
+                b._iconValue = nil  -- nil = auto
+            else
+                b.tex:SetTexture(icon)
+                b.tex:SetVertexColor(1, 1, 1)
+                b._iconValue = icon
+            end
+            b.sel:SetShown(idx == p.selected)
+            b:Show()
+        end
+    end
+
+    if p.maxOffset > 0 then
+        local thumbH = math.max(16, p.viewH * ICON_VISIBLE_ROWS / p.numRows)
+        p.thumb:SetHeight(thumbH)
+        p.thumb:ClearAllPoints()
+        p.thumb:SetPoint("TOP", p.sbar, "TOP", 0,
+            -(p.offset / p.maxOffset) * (p.viewH - thumbH))
+    end
+end
+
+local function setIconOffset(row)
+    local p = _iconPicker
+    if row < 0 then row = 0 elseif row > p.maxOffset then row = p.maxOffset end
+    if row == p.offset then return end
+    p.offset = row
+    refreshIconGrid()
+end
+
+local function applyIconFilter(key)
+    local p = _iconPicker
+    p.filter = key
+    buildIconSections(p)
+    p.numRows   = math.ceil(p.total / ICON_COLS)
+    p.maxOffset = math.max(0, p.numRows - ICON_VISIBLE_ROWS)
+    p.selected  = indexOfIcon(p.current)
+    -- Das gewaehlte Symbol in die Mitte holen, wie Blizzards Auswahl es
+    -- beim Oeffnen tut.
+    local row = p.selected and math.floor((p.selected - 1) / ICON_COLS) or 0
+    p.offset = math.max(0, math.min(p.maxOffset, row - math.floor(ICON_VISIBLE_ROWS / 2)))
+    p.sbar:SetShown(p.maxOffset > 0)
+    for _, fb in ipairs(p.filterBtns) do
+        fb.mark:SetColorTexture(ns:AccentColor())
+        fb.mark:SetShown(fb.key == key)
+    end
+    refreshIconGrid()
+end
+
+local function onIconClick(self)
+    local name    = _iconPicker.setName
+    local loadout = LO()[name]
+    if loadout then
+        loadout.iconOverride = self._iconValue  -- nil → auto
+        if ns.MirrorSetIconChanged then ns:MirrorSetIconChanged(name) end
+        if ns.UpdateSetMacroIcon then ns:UpdateSetMacroIcon(name) end
+    end
+    _iconPicker:Hide()
+    refreshSidebar()
+end
+
+local function createIconPicker()
+    local p = CreateFrame("Frame", "VGS_GearSetIconPicker", UIParent,
+        BackdropTemplateMixin and "BackdropTemplate")
+    _iconPicker = p
+    p:SetFrameStrata("FULLSCREEN_DIALOG")
+    p:Hide()
+    p:EnableMouse(true)
+    p:SetClampedToScreen(true)
+    ns.UI:SkinFrame(p, "window")
+    tinsert(UISpecialFrames, "VGS_GearSetIconPicker")
+    -- Blizzards Liste nur halten, solange das Fenster offen ist.
+    p:SetScript("OnHide", function(self)
+        self.spells, self.items, self.sections = nil, nil, nil
+    end)
+
+    p.title = p:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    p.title:SetTextColor(1, 0.82, 0)
+
+    p.close = ns.UI:CreateButton(p, "X", 18, 18)
+    p.close:SetOnClick(function() p:Hide() end)
+
+    -- Filter wie in Blizzards Symbolauswahl.
+    p.filterBtns = {}
+    for i, f in ipairs({
+        { key = "all",   text = L["All icons"] },
+        { key = "spell", text = L["Spells"] },
+        { key = "item",  text = L["Items"] },
+    }) do
+        local fb = ns.UI:CreateButton(p, f.text, 100, FILTER_H)
+        fb.key = f.key
+        fb.mark = fb:CreateTexture(nil, "OVERLAY")
+        fb.mark:SetHeight(2)
+        fb.mark:SetPoint("BOTTOMLEFT", fb, "BOTTOMLEFT", 3, 1)
+        fb.mark:SetPoint("BOTTOMRIGHT", fb, "BOTTOMRIGHT", -3, 1)
+        fb:SetOnClick(function() applyIconFilter(f.key) end)
+        p.filterBtns[i] = fb
+    end
+
+    p.grid = CreateFrame("Frame", nil, p)
+    p.grid:EnableMouseWheel(true)
+    local function onWheel(_, delta)
+        setIconOffset(p.offset - delta * ICON_WHEEL_ROWS)
+    end
+    p.grid:SetScript("OnMouseWheel", onWheel)
+
+    for k = 1, ICON_COLS * ICON_VISIBLE_ROWS do
+        local b = CreateFrame("Button", nil, p.grid)
+        b:SetSize(ICON_SIZE, ICON_SIZE)
+        b.tex = b:CreateTexture(nil, "ARTWORK")
+        b.tex:SetAllPoints(b)
+        b.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        b.sel = b:CreateTexture(nil, "OVERLAY")
+        b.sel:SetAllPoints(b)
+        b.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight")
+        b.sel:SetBlendMode("ADD")
+        b.hl = b:CreateTexture(nil, "HIGHLIGHT")
+        b.hl:SetAllPoints(b)
+        b.hl:SetColorTexture(ns:HoverColor())
+        b:RegisterForClicks("LeftButtonUp")
+        b:SetScript("OnClick", onIconClick)
+        b:SetPoint("TOPLEFT", p.grid, "TOPLEFT",
+            ((k - 1) % ICON_COLS) * (ICON_SIZE + ICON_PAD),
+            -(math.floor((k - 1) / ICON_COLS) * (ICON_SIZE + ICON_PAD)))
+        _iconBtns[k] = b
+    end
+
+    -- Schmaler Balken, gleiche Machart wie die Seitenleiste. Bei tausenden
+    -- Symbolen kaeme man mit dem Mausrad allein kaum ans Ende: ein Klick
+    -- auf den Balken springt dorthin, Gedrueckthalten zieht mit.
+    local sbar = CreateFrame("Frame", nil, p)
+    sbar:SetWidth(ICON_SCROLLBAR_W)
+    sbar:SetHitRectInsets(-4, -4, 0, 0)
+    sbar:EnableMouse(true)
+    sbar:EnableMouseWheel(true)
+    sbar:SetScript("OnMouseWheel", onWheel)
+    local track = sbar:CreateTexture(nil, "BACKGROUND")
+    track:SetAllPoints(sbar)
+    track:SetColorTexture(0, 0, 0, 0.25)
+    p.thumb = sbar:CreateTexture(nil, "ARTWORK")
+    p.thumb:SetWidth(ICON_SCROLLBAR_W)
+
+    local function dragTo(self)
+        if not IsMouseButtonDown("LeftButton") then
+            self:SetScript("OnUpdate", nil)
+            return
+        end
+        local _, y   = GetCursorPosition()
+        local top    = self:GetTop()
+        local thumbH = p.thumb:GetHeight() or 0
+        if not top or p.viewH <= thumbH then return end
+        y = y / self:GetEffectiveScale()
+        local frac = (top - y - thumbH / 2) / (p.viewH - thumbH)
+        setIconOffset(math.floor(frac * p.maxOffset + 0.5))
+    end
+    sbar:SetScript("OnMouseDown", function(self, button)
+        if button ~= "LeftButton" then return end
+        self:SetScript("OnUpdate", dragTo)
+        dragTo(self)
+    end)
+    sbar:SetScript("OnMouseUp", function(self) self:SetScript("OnUpdate", nil) end)
+    sbar:SetScript("OnHide",    function(self) self:SetScript("OnUpdate", nil) end)
+    p.sbar = sbar
 end
 
 local function showIconPicker(loadoutName, anchor)
     local loadout = LO()[loadoutName]
     if not loadout then return end
 
-    if not _iconPicker then
-        _iconPicker = CreateFrame("Frame", "VGS_GearSetIconPicker", UIParent,
-            BackdropTemplateMixin and "BackdropTemplate")
-        _iconPicker:SetFrameStrata("FULLSCREEN_DIALOG")
-        _iconPicker:Hide()
-        _iconPicker:EnableMouse(true)
-        _iconPicker:SetClampedToScreen(true)
-        ns.UI:SkinFrame(_iconPicker, "window")
-        tinsert(UISpecialFrames, "VGS_GearSetIconPicker")
-        _iconPicker.title = _iconPicker:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        _iconPicker.title:SetPoint("TOPLEFT", _iconPicker, "TOPLEFT", 8, -6)
-        _iconPicker.title:SetTextColor(1, 0.82, 0)
+    if not _iconPicker then createIconPicker() end
+    local p = _iconPicker
+    p.setName = loadoutName
+    p.current = loadout.iconOverride
+    p.title:SetText(string.format(L["Icon for: %s"], loadoutName))
 
-        _iconPicker.close = ns.UI:CreateButton(_iconPicker, "X", 18, 18)
-        _iconPicker.close:SetOnClick(function() _iconPicker:Hide() end)
-
-        -- Scrollbereich: mit dem Symbolbogen sind es weit ueber 200
-        -- Symbole - als starres Gitter waere das Fenster bildschirmhoch.
-        -- Mausrad plus schmaler Balken, gleiche Machart wie die
-        -- Seitenleiste.
-        local scroll = CreateFrame("ScrollFrame", nil, _iconPicker)
-        local child  = CreateFrame("Frame", nil, scroll)
-        child:SetSize(1, 1)
-        scroll:SetScrollChild(child)
-        scroll:EnableMouseWheel(true)
-
-        local sbar = CreateFrame("Frame", nil, _iconPicker)
-        sbar:SetWidth(ICON_SCROLLBAR_W)
-        sbar:Hide()
-        local track = sbar:CreateTexture(nil, "BACKGROUND")
-        track:SetAllPoints(sbar)
-        track:SetColorTexture(0, 0, 0, 0.25)
-        local thumb = sbar:CreateTexture(nil, "ARTWORK")
-        thumb:SetWidth(ICON_SCROLLBAR_W)
-
-        local function updateThumb()
-            local viewH    = scroll:GetHeight() or 0
-            local contentH = scroll._contentH or 0
-            local maxS     = scroll._maxScroll or 0
-            if maxS <= 0 or viewH <= 0 or contentH <= 0 then return end
-            local thumbH = math.min(viewH, math.max(16, viewH * (viewH / contentH)))
-            local frac   = scroll:GetVerticalScroll() / maxS
-            thumb:SetHeight(thumbH)
-            thumb:ClearAllPoints()
-            thumb:SetPoint("TOP", sbar, "TOP", 0, -(frac * (viewH - thumbH)))
-        end
-        scroll:SetScript("OnVerticalScroll", updateThumb)
-        scroll:SetScript("OnMouseWheel", function(self, delta)
-            local maxS = self._maxScroll or 0
-            if maxS <= 0 then return end
-            local new = self:GetVerticalScroll() - delta * (ICON_SIZE + ICON_PAD) * 2
-            if new < 0 then new = 0 elseif new > maxS then new = maxS end
-            self:SetVerticalScroll(new)
-        end)
-
-        _iconPicker.scroll, _iconPicker.scrollChild = scroll, child
-        _iconPicker.sbar, _iconPicker.thumb = sbar, thumb
-        _iconPicker.updateThumb = updateThumb
-    end
-
-    _iconPicker.title:SetText(string.format(L["Icon for: %s"], loadoutName))
-
-    -- Build the icon list: Auto first, then set items, then generics (de-duped)
-    local icons = {}           -- { tex = path or nil (=auto), isAuto = bool }
-    local seen  = {}
-    table.insert(icons, { isAuto = true })
+    -- Symbole der Teile im Set, stabil nach Slot sortiert, ohne Doppelte.
+    local setIcons, seen = {}, {}
     if GetItemInfoInstant and loadout.slots then
-        -- stable order by slot
         local slots = {}
-        for s in pairs(loadout.slots) do table.insert(slots, s) end
+        for s in pairs(loadout.slots) do slots[#slots + 1] = s end
         table.sort(slots)
         for _, s in ipairs(slots) do
             local _, _, _, _, ic = GetItemInfoInstant(loadout.slots[s])
             if ic and not seen[ic] then
                 seen[ic] = true
-                table.insert(icons, { tex = ic })
+                setIcons[#setIcons + 1] = ic
             end
         end
     end
-    for _, ic in ipairs(GENERIC_ICONS) do
-        if not seen[ic] then
-            seen[ic] = true
-            table.insert(icons, { tex = ic })
-        end
-    end
-    -- Zum Schluss der zerlegte Symbolbogen.
-    for i = 1, SHEET_ICON_COUNT do
-        local path = SHEET_ICON_PATH .. i
-        if not seen[path] then
-            seen[path] = true
-            table.insert(icons, { tex = path })
-        end
-    end
+    p.setIcons = setIcons
+    if not p.spells then p.spells, p.items = loadGameIcons() end
 
-    -- Hide leftover buttons
-    for _, b in ipairs(_iconBtns) do b:Hide() end
+    -- Layout: der Innenabstand haengt am Stil (Classic-Rahmen ist
+    -- breiter), deshalb wird hier bei jedem Oeffnen neu verankert.
+    local inset   = ns:FrameInset()
+    local pad     = 6 + inset
+    local filterY = 24 + inset
+    local gridY   = filterY + FILTER_H + 6
+    local gridW   = ICON_COLS * (ICON_SIZE + ICON_PAD) - ICON_PAD
+    p.viewH       = ICON_VISIBLE_ROWS * (ICON_SIZE + ICON_PAD) - ICON_PAD
 
-    for i, entry in ipairs(icons) do
-        local b = getIconPickerButton(i)
-        b:Show()
-        if entry.isAuto then
-            b.tex:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-            b.tex:SetVertexColor(0.7, 0.7, 0.7)
-            b._iconValue = nil  -- nil = auto
-        else
-            b.tex:SetTexture(entry.tex)
-            b.tex:SetVertexColor(1, 1, 1)
-            b._iconValue = entry.tex
-        end
-        b:SetScript("OnClick", function(self)
-            loadout.iconOverride = self._iconValue  -- nil → auto
-            if ns.MirrorSetIconChanged then ns:MirrorSetIconChanged(loadoutName) end
-            if ns.UpdateSetMacroIcon then ns:UpdateSetMacroIcon(loadoutName) end
-            _iconPicker:Hide()
-            refreshSidebar()
-        end)
-        local col = (i - 1) % ICON_COLS
-        local row = math.floor((i - 1) / ICON_COLS)
-        b:ClearAllPoints()
-        b:SetPoint("TOPLEFT", _iconPicker.scrollChild, "TOPLEFT",
-            col * (ICON_SIZE + ICON_PAD),
-            -(row * (ICON_SIZE + ICON_PAD)))
-    end
+    p.title:ClearAllPoints()
+    p.title:SetPoint("TOPLEFT", p, "TOPLEFT", 8 + inset, -6 - inset)
 
-    -- Layout: das Sichtfenster zeigt hoechstens ICON_VISIBLE_ROWS Zeilen,
-    -- der Rest scrollt. Der Innenabstand haengt am Stil (Classic-Rahmen
-    -- ist breiter), deshalb wird hier bei jedem Oeffnen neu verankert.
-    local inset    = ns:FrameInset()
-    local pad      = 6 + inset
-    local startY   = 24 + inset
-    local numRows  = math.ceil(#icons / ICON_COLS)
-    local visRows  = math.min(numRows, ICON_VISIBLE_ROWS)
-    local gridW    = ICON_COLS * (ICON_SIZE + ICON_PAD) - ICON_PAD
-    local viewH    = visRows * (ICON_SIZE + ICON_PAD) - ICON_PAD
-    local contentH = numRows * (ICON_SIZE + ICON_PAD) - ICON_PAD
-
-    local scroll, child, sbar = _iconPicker.scroll, _iconPicker.scrollChild, _iconPicker.sbar
-    scroll:ClearAllPoints()
-    scroll:SetPoint("TOPLEFT", _iconPicker, "TOPLEFT", pad, -startY)
-    scroll:SetSize(gridW, viewH)
-    child:SetSize(gridW, math.max(contentH, viewH))
-
-    sbar:ClearAllPoints()
-    sbar:SetPoint("TOPLEFT",    scroll, "TOPRIGHT", 3, 0)
-    sbar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", 3, 0)
-
-    local maxS = math.max(0, contentH - viewH)
-    scroll._contentH, scroll._maxScroll = contentH, maxS
-    scroll:SetVerticalScroll(0)
-    _iconPicker.thumb:SetColorTexture(ns:AccentColor())
-    sbar:SetShown(maxS > 0)
-    _iconPicker.updateThumb()
-
-    _iconPicker.title:ClearAllPoints()
-    _iconPicker.title:SetPoint("TOPLEFT", _iconPicker, "TOPLEFT", 8 + inset, -6 - inset)
-
-    _iconPicker.close:ClearAllPoints()
-    _iconPicker.close:SetPoint("TOPRIGHT", _iconPicker, "TOPRIGHT", -(3 + inset), -(3 + inset))
+    p.close:ClearAllPoints()
+    p.close:SetPoint("TOPRIGHT", p, "TOPRIGHT", -(3 + inset), -(3 + inset))
     -- Lange Set-Namen duerfen nicht unter den X-Button laufen.
-    _iconPicker.title:SetPoint("RIGHT", _iconPicker.close, "LEFT", -4, 0)
-    _iconPicker.title:SetWordWrap(false)
-    _iconPicker.title:SetJustifyH("LEFT")
+    p.title:SetPoint("RIGHT", p.close, "LEFT", -4, 0)
+    p.title:SetWordWrap(false)
+    p.title:SetJustifyH("LEFT")
 
-    _iconPicker:SetSize(
-        pad * 2 + gridW + ((maxS > 0) and (ICON_SCROLLBAR_W + 3) or 0),
-        startY + viewH + pad)
-
-    _iconPicker:ClearAllPoints()
-    if anchor and anchor.GetLeft then
-        _iconPicker:SetPoint("TOPRIGHT", anchor, "TOPLEFT", -4, 0)
-    else
-        _iconPicker:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    local fbW = (gridW - FILTER_GAP * (#p.filterBtns - 1)) / #p.filterBtns
+    for i, fb in ipairs(p.filterBtns) do
+        fb:ClearAllPoints()
+        fb:SetSize(fbW, FILTER_H)
+        fb:SetPoint("TOPLEFT", p, "TOPLEFT", pad + (i - 1) * (fbW + FILTER_GAP), -filterY)
     end
-    _iconPicker:Show()
+
+    p.grid:ClearAllPoints()
+    p.grid:SetPoint("TOPLEFT", p, "TOPLEFT", pad, -gridY)
+    p.grid:SetSize(gridW, p.viewH)
+
+    p.sbar:ClearAllPoints()
+    p.sbar:SetPoint("TOPLEFT",    p.grid, "TOPRIGHT", 3, 0)
+    p.sbar:SetPoint("BOTTOMLEFT", p.grid, "BOTTOMRIGHT", 3, 0)
+    p.thumb:SetColorTexture(ns:AccentColor())
+
+    p:SetSize(pad * 2 + gridW + ICON_SCROLLBAR_W + 3, gridY + p.viewH + pad)
+
+    -- Wie Blizzard: beim Oeffnen immer alle Symbole.
+    applyIconFilter("all")
+
+    p:ClearAllPoints()
+    if anchor and anchor.GetLeft then
+        p:SetPoint("TOPRIGHT", anchor, "TOPLEFT", -4, 0)
+    else
+        p:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    end
+    p:Show()
 end
 
 -- Fuer OnDisable (Lifecycle.lua).

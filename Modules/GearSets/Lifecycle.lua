@@ -43,6 +43,14 @@ function mod:OnEnable()
             table.sort(mask)
             loadout.slotMask = mask
         end
+        -- Die eigenen Symbole aus Media/Icons/sets gibt es nicht mehr, die
+        -- Auswahl bietet jetzt Blizzards Symbolliste. Wer eines davon hatte,
+        -- bekommt wieder das automatische Symbol statt eines gruenen Felds.
+        local ov = loadout and loadout.iconOverride
+        if type(ov) == "string"
+           and ov:lower():find("^interface\\addons\\vulogearsets\\media\\icons\\sets\\") then
+            loadout.iconOverride = nil
+        end
     end
 
     -- Die Seitenleiste schliesst jetzt buendig an das Charakterfenster an.
