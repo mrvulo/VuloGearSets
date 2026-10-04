@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.16.0
+
+- **The icon picker now offers the game's own icons** — the same list
+  Blizzard's equipment manager and macro window use: every spell and item
+  icon of your client, after "Auto" and the icons of the set's items. Filter
+  between all icons, spells and items; the current icon is marked and in view
+  when the picker opens. Drag the scroll bar to get through the list quickly.
+- A chosen game icon now also shows on the set's macro and, on Forever, on
+  Blizzard's copy of the set.
+- The 209 bundled set icons are gone. A set that used one of them falls back
+  to its automatic icon — pick a new one from the game's list.
+- **Forever:** with the Blizzard themes the icon picker looks like Blizzard's
+  own, with its frame, item-slot backgrounds, filter dropdown and scroll bar.
+  The slot flyout on the character frame has a slim frame in your theme's
+  colour and sits tighter around the items.
+
 ## 1.15.0
 
 - **New: back to your previous gear.** Every set switch remembers what the
