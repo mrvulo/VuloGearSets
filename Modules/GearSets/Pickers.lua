@@ -140,9 +140,7 @@ end
 -- =========================================================
 local _iconPicker
 local _iconBtns = {}
-local ICON_SIZE = 30
 local ICON_COLS = 10
-local ICON_PAD  = 3
 -- Sichtbare Zeilen des Auswahlfensters; alles darueber hinaus scrollt.
 local ICON_VISIBLE_ROWS = 8
 local ICON_SCROLLBAR_W  = 4
@@ -150,8 +148,23 @@ local ICON_WHEEL_ROWS   = 3
 local FILTER_H          = 18
 local FILTER_GAP        = 4
 
+-- Zwei Aussehen. Im Forever-Stil mit den Blizzard-Themes wie Blizzards
+-- Symbolauswahl: Blizzards Rahmen, groessere Symbole auf leeren
+-- Taschenplaetzen, Blizzards Auswahlliste und Scrollbalken. Sonst flach
+-- wie die Set-Leiste.
+local FLAT  = { size = 30, pad = 3, rowH = FILTER_H }
+local BLIZZ = { size = 36, pad = 9, rowH = 26 }
+
 -- Platzhalter fuer "Auto" in der Symbolliste.
 local AUTO_ICON = {}
+
+-- Filter wie in Blizzards Symbolauswahl.
+local FILTERS = { "all", "spell", "item" }
+local function filterText(key)
+    if key == "spell" then return L["Spells"] end
+    if key == "item"  then return L["Items"] end
+    return L["All icons"]
+end
 
 -- Blizzards Symbolliste: dieselben vier Aufrufe, aus denen Blizzards
 -- Symbolauswahl ihre Liste fuellt - Zaubersymbole und Gegenstandssymbole.
@@ -232,7 +245,13 @@ local function refreshIconGrid()
         end
     end
 
-    if p.maxOffset > 0 then
+    if p.useBlizzBar then
+        -- Kam die Aenderung vom Balken selbst, ihn nicht zuruecksetzen:
+        -- sonst rastete der gezogene Griff bei jeder Zeile ein.
+        if not p.fromBar then
+            p.blizzBar:SetScrollPercentage(p.maxOffset > 0 and p.offset / p.maxOffset or 0, true)
+        end
+    elseif p.maxOffset > 0 then
         local thumbH = math.max(16, p.viewH * ICON_VISIBLE_ROWS / p.numRows)
         p.thumb:SetHeight(thumbH)
         p.thumb:ClearAllPoints()
@@ -260,7 +279,13 @@ local function applyIconFilter(key)
     -- beim Oeffnen tut.
     local row = p.selected and math.floor((p.selected - 1) / ICON_COLS) or 0
     p.offset = math.max(0, math.min(p.maxOffset, row - math.floor(ICON_VISIBLE_ROWS / 2)))
-    p.sbar:SetShown(p.maxOffset > 0)
+    if p.useBlizzBar then
+        p.blizzBar:SetVisibleExtentPercentage(
+            p.numRows > 0 and math.min(1, ICON_VISIBLE_ROWS / p.numRows) or 1)
+        p.blizzBar:SetPanExtentPercentage(p.maxOffset > 0 and 1 / p.maxOffset or 1)
+    else
+        p.sbar:SetShown(p.maxOffset > 0)
+    end
     for _, fb in ipairs(p.filterBtns) do
         fb.mark:SetColorTexture(ns:AccentColor())
         fb.mark:SetShown(fb.key == key)
@@ -280,6 +305,53 @@ local function onIconClick(self)
     refreshSidebar()
 end
 
+-- Blizzards Bedienelemente fuer den Forever-Look, erst bei Bedarf und
+-- jedes einzeln abgesichert: fehlt eine Vorlage, bleibt das flache
+-- Gegenstueck stehen.
+local function createBlizzWidgets(p)
+    if p.blizzTried then return end
+    p.blizzTried = true
+
+    local ok, dd = pcall(CreateFrame, "DropdownButton", nil, p, "WowStyle1DropdownTemplate")
+    if ok and dd and dd.SetupMenu then
+        dd:SetWidth(150)
+        dd:SetupMenu(function(_, root)
+            for _, key in ipairs(FILTERS) do
+                root:CreateRadio(filterText(key),
+                    function(k) return p.filter == k end,
+                    function(k) applyIconFilter(k) end,
+                    key)
+            end
+        end)
+        p.dropdown = dd
+        if type(_G.MACRO_POPUP_CHOOSE_ICON) == "string" then
+            p.chooseText = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            p.chooseText:SetText(_G.MACRO_POPUP_CHOOSE_ICON)
+        end
+    elseif ok and dd then
+        dd:Hide()
+    end
+
+    local okBar, bar = pcall(CreateFrame, "EventFrame", nil, p, "MinimalScrollBar")
+    if okBar and bar and bar.SetScrollPercentage and bar.RegisterCallback then
+        bar:RegisterCallback("OnScroll", function(_, pct)
+            if p.maxOffset <= 0 then return end
+            p.fromBar = true
+            setIconOffset(math.floor(pct * p.maxOffset + 0.5))
+            p.fromBar = false
+        end, p)
+        p.blizzBar = bar
+    elseif okBar and bar then
+        bar:Hide()
+    end
+
+    local okClose, close = pcall(CreateFrame, "Button", nil, p, "UIPanelCloseButton")
+    if okClose and close then
+        close:SetScript("OnClick", function() p:Hide() end)
+        p.blizzClose = close
+    end
+end
+
 local function createIconPicker()
     local p = CreateFrame("Frame", "VGS_GearSetIconPicker", UIParent,
         BackdropTemplateMixin and "BackdropTemplate")
@@ -288,7 +360,7 @@ local function createIconPicker()
     p:Hide()
     p:EnableMouse(true)
     p:SetClampedToScreen(true)
-    ns.UI:SkinFrame(p, "window")
+    ns.UI:SkinFrame(p, "selector")
     tinsert(UISpecialFrames, "VGS_GearSetIconPicker")
     -- Blizzards Liste nur halten, solange das Fenster offen ist.
     p:SetScript("OnHide", function(self)
@@ -301,20 +373,15 @@ local function createIconPicker()
     p.close = ns.UI:CreateButton(p, "X", 18, 18)
     p.close:SetOnClick(function() p:Hide() end)
 
-    -- Filter wie in Blizzards Symbolauswahl.
     p.filterBtns = {}
-    for i, f in ipairs({
-        { key = "all",   text = L["All icons"] },
-        { key = "spell", text = L["Spells"] },
-        { key = "item",  text = L["Items"] },
-    }) do
-        local fb = ns.UI:CreateButton(p, f.text, 100, FILTER_H)
-        fb.key = f.key
+    for i, key in ipairs(FILTERS) do
+        local fb = ns.UI:CreateButton(p, filterText(key), 100, FILTER_H)
+        fb.key = key
         fb.mark = fb:CreateTexture(nil, "OVERLAY")
         fb.mark:SetHeight(2)
         fb.mark:SetPoint("BOTTOMLEFT", fb, "BOTTOMLEFT", 3, 1)
         fb.mark:SetPoint("BOTTOMRIGHT", fb, "BOTTOMRIGHT", -3, 1)
-        fb:SetOnClick(function() applyIconFilter(f.key) end)
+        fb:SetOnClick(function() applyIconFilter(key) end)
         p.filterBtns[i] = fb
     end
 
@@ -327,22 +394,20 @@ local function createIconPicker()
 
     for k = 1, ICON_COLS * ICON_VISIBLE_ROWS do
         local b = CreateFrame("Button", nil, p.grid)
-        b:SetSize(ICON_SIZE, ICON_SIZE)
+        -- Leerer Taschenplatz hinter dem Symbol, wie bei Blizzard.
+        b.slot = b:CreateTexture(nil, "BACKGROUND")
+        b.slot:SetTexture("Interface\\Buttons\\UI-EmptySlot-Disabled")
+        b.slot:SetTexCoord(0.140625, 0.84375, 0.140625, 0.84375)
         b.tex = b:CreateTexture(nil, "ARTWORK")
         b.tex:SetAllPoints(b)
-        b.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
         b.sel = b:CreateTexture(nil, "OVERLAY")
         b.sel:SetAllPoints(b)
         b.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight")
         b.sel:SetBlendMode("ADD")
         b.hl = b:CreateTexture(nil, "HIGHLIGHT")
         b.hl:SetAllPoints(b)
-        b.hl:SetColorTexture(ns:HoverColor())
         b:RegisterForClicks("LeftButtonUp")
         b:SetScript("OnClick", onIconClick)
-        b:SetPoint("TOPLEFT", p.grid, "TOPLEFT",
-            ((k - 1) % ICON_COLS) * (ICON_SIZE + ICON_PAD),
-            -(math.floor((k - 1) / ICON_COLS) * (ICON_SIZE + ICON_PAD)))
         _iconBtns[k] = b
     end
 
@@ -411,45 +476,105 @@ local function showIconPicker(loadoutName, anchor)
     p.setIcons = setIcons
     if not p.spells then p.spells, p.items = loadGameIcons() end
 
+    -- Aussehen bei jedem Oeffnen neu bestimmen: Stil und Theme koennen
+    -- sich zwischendurch geaendert haben.
+    local blizz = ns:UsesSelectorArt()
+    if blizz then createBlizzWidgets(p) end
+    local look     = blizz and BLIZZ or FLAT
+    local dropdown = blizz and p.dropdown
+    local close    = (blizz and p.blizzClose) or p.close
+    p.useBlizzBar  = (blizz and p.blizzBar) and true or false
+
     -- Layout: der Innenabstand haengt am Stil (Classic-Rahmen ist
     -- breiter), deshalb wird hier bei jedem Oeffnen neu verankert.
-    local inset   = ns:FrameInset()
-    local pad     = 6 + inset
-    local filterY = 24 + inset
-    local gridY   = filterY + FILTER_H + 6
-    local gridW   = ICON_COLS * (ICON_SIZE + ICON_PAD) - ICON_PAD
-    p.viewH       = ICON_VISIBLE_ROWS * (ICON_SIZE + ICON_PAD) - ICON_PAD
+    local inset   = ns:FrameInset("selector")
+    local pad     = (blizz and 4 or 6) + inset
+    local filterY = (blizz and 22 or 24) + inset
+    local gridY   = filterY + look.rowH + (blizz and 10 or 6)
+    local pitch   = look.size + look.pad
+    local gridW   = ICON_COLS * pitch - look.pad
+    p.viewH       = ICON_VISIBLE_ROWS * pitch - look.pad
+    local barW    = p.useBlizzBar and 8 or ICON_SCROLLBAR_W
+    local barGap  = p.useBlizzBar and 10 or 3
 
     p.title:ClearAllPoints()
-    p.title:SetPoint("TOPLEFT", p, "TOPLEFT", 8 + inset, -6 - inset)
+    p.title:SetPoint("TOPLEFT", p, "TOPLEFT", (blizz and 4 or 8) + inset, -(blizz and 4 or 6) - inset)
 
-    p.close:ClearAllPoints()
-    p.close:SetPoint("TOPRIGHT", p, "TOPRIGHT", -(3 + inset), -(3 + inset))
+    p.close:SetShown(close == p.close)
+    if p.blizzClose then p.blizzClose:SetShown(close == p.blizzClose) end
+    close:ClearAllPoints()
+    if close == p.blizzClose then
+        -- Ueber Blizzards Rahmen, der selbst ueber dem Inhalt liegt.
+        close:SetFrameLevel(p:GetFrameLevel() + 40)
+        close:SetPoint("TOPRIGHT", p, "TOPRIGHT", -2, -2)
+    else
+        close:SetPoint("TOPRIGHT", p, "TOPRIGHT", -(3 + inset), -(3 + inset))
+    end
     -- Lange Set-Namen duerfen nicht unter den X-Button laufen.
-    p.title:SetPoint("RIGHT", p.close, "LEFT", -4, 0)
+    p.title:SetPoint("RIGHT", close, "LEFT", -4, 0)
     p.title:SetWordWrap(false)
     p.title:SetJustifyH("LEFT")
 
-    local fbW = (gridW - FILTER_GAP * (#p.filterBtns - 1)) / #p.filterBtns
-    for i, fb in ipairs(p.filterBtns) do
-        fb:ClearAllPoints()
-        fb:SetSize(fbW, FILTER_H)
-        fb:SetPoint("TOPLEFT", p, "TOPLEFT", pad + (i - 1) * (fbW + FILTER_GAP), -filterY)
+    -- Filter: Blizzards Auswahlliste oder die drei flachen Knoepfe.
+    for _, fb in ipairs(p.filterBtns) do fb:SetShown(not dropdown) end
+    if p.dropdown then p.dropdown:SetShown(dropdown and true or false) end
+    if p.chooseText then p.chooseText:SetShown(dropdown and true or false) end
+    if dropdown then
+        dropdown:ClearAllPoints()
+        dropdown:SetPoint("TOPRIGHT", p, "TOPLEFT", pad + gridW + barGap + barW, -filterY)
+        if p.chooseText then
+            p.chooseText:ClearAllPoints()
+            p.chooseText:SetPoint("LEFT", p, "TOPLEFT", pad, -filterY - look.rowH / 2)
+        end
+    else
+        local fbW = (gridW - FILTER_GAP * (#p.filterBtns - 1)) / #p.filterBtns
+        for i, fb in ipairs(p.filterBtns) do
+            fb:ClearAllPoints()
+            fb:SetSize(fbW, FILTER_H)
+            fb:SetPoint("TOPLEFT", p, "TOPLEFT", pad + (i - 1) * (fbW + FILTER_GAP), -filterY)
+        end
     end
 
     p.grid:ClearAllPoints()
     p.grid:SetPoint("TOPLEFT", p, "TOPLEFT", pad, -gridY)
     p.grid:SetSize(gridW, p.viewH)
 
-    p.sbar:ClearAllPoints()
-    p.sbar:SetPoint("TOPLEFT",    p.grid, "TOPRIGHT", 3, 0)
-    p.sbar:SetPoint("BOTTOMLEFT", p.grid, "BOTTOMRIGHT", 3, 0)
+    for k, b in ipairs(_iconBtns) do
+        b:SetSize(look.size, look.size)
+        b:ClearAllPoints()
+        b:SetPoint("TOPLEFT", p.grid, "TOPLEFT",
+            ((k - 1) % ICON_COLS) * pitch,
+            -(math.floor((k - 1) / ICON_COLS) * pitch))
+        if blizz then
+            -- Wie bei Blizzard: ganzes Symbol, Taschenplatz dahinter,
+            -- Blizzards Leuchten beim Ueberfahren.
+            b.slot:SetSize(look.size * 1.25, look.size * 1.25)
+            b.slot:SetPoint("CENTER", b, "CENTER", 0, -1)
+            b.slot:Show()
+            b.tex:SetTexCoord(0, 1, 0, 1)
+            b.hl:SetTexture("Interface\\Buttons\\ButtonHilight-Square")
+            b.hl:SetBlendMode("ADD")
+        else
+            b.slot:Hide()
+            b.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+            b.hl:SetColorTexture(ns:HoverColor())
+            b.hl:SetBlendMode("BLEND")
+        end
+    end
+
+    p.sbar:SetShown(not p.useBlizzBar)
+    if p.blizzBar then p.blizzBar:SetShown(p.useBlizzBar) end
+    local bar = p.useBlizzBar and p.blizzBar or p.sbar
+    bar:ClearAllPoints()
+    bar:SetPoint("TOPLEFT",    p.grid, "TOPRIGHT", barGap, 0)
+    bar:SetPoint("BOTTOMLEFT", p.grid, "BOTTOMRIGHT", barGap, 0)
     p.thumb:SetColorTexture(ns:AccentColor())
 
-    p:SetSize(pad * 2 + gridW + ICON_SCROLLBAR_W + 3, gridY + p.viewH + pad)
+    p:SetSize(pad * 2 + gridW + barGap + barW, gridY + p.viewH + pad)
 
     -- Wie Blizzard: beim Oeffnen immer alle Symbole.
     applyIconFilter("all")
+    if dropdown and dropdown.GenerateMenu then dropdown:GenerateMenu() end
 
     p:ClearAllPoints()
     if anchor and anchor.GetLeft then

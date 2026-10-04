@@ -146,13 +146,13 @@ local function createPopup()
     popup:EnableMouse(true)
     popup:SetClampedToScreen(true)
     popup:SetMovable(true)
-    ns.UI:SkinFrame(popup, "window")
+    ns.UI:SkinFrame(popup, "flyout")
     tinsert(UISpecialFrames, "VGS_SlotPickerPopup")
 
     -- Draggable via title bar
     local title = popup:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     popup.titleAnchor = function()
-        local i = ns:FrameInset()
+        local i = ns:FrameInset("flyout")
         title:ClearAllPoints()
         title:SetPoint("TOPLEFT", popup, "TOPLEFT", 8 + i, -6 - i)
     end
@@ -164,7 +164,7 @@ local function createPopup()
     local closeBtn = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
     closeBtn:SetSize(22, 22)
     popup.closeAnchor = function()
-        local i = ns:FrameInset()
+        local i = ns:FrameInset("flyout")
         closeBtn:ClearAllPoints()
         closeBtn:SetPoint("TOPRIGHT", popup, "TOPRIGHT", -i, -i)
     end
@@ -286,9 +286,9 @@ local function showSlotPicker(slotID, anchorBtn)
         local rows = math.ceil(#results / cols)
         -- Der Classic-Rahmen ist breiter und braucht mehr Innenabstand,
         -- sonst sitzen die Symbole im Rahmen.
-        local inset     = ns:FrameInset()
-        local padding   = (compact and 6 or 8) + inset
-        local gridStart = (compact and 6 or 28) + inset
+        local inset     = ns:FrameInset("flyout")
+        local padding   = (compact and 4 or 8) + inset
+        local gridStart = (compact and 4 or 28) + inset
         local btnPad    = 4
 
         local width  = cols * (BTN_SIZE + btnPad) - btnPad + padding * 2

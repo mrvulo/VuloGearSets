@@ -306,8 +306,74 @@ local function setPaneArt(frame, on)
     art.bg:Show(); art.border:Show()
 end
 
+-- =========================================================
+-- Forever: die Symbolauswahl im Look von Blizzards Symbolauswahl
+--
+-- "selector" traegt dort den Rahmen von Blizzards Symbolauswahl (Makros,
+-- Ausruestungsmanager) auf schwarzem Grund. Gilt wie die Set-Leiste nur
+-- fuer den Forever-Stil mit den Blizzard-Themes. Fuer kleine Fenster
+-- taugt der Rahmen nicht: seine Ecken sind ueber 70 px hoch.
+-- =========================================================
+local SELECTOR_LAYOUT = "SelectionFrameTemplate"
+-- Wie weit Blizzard den Grund unter den Rahmen einrueckt, und wo der
+-- Inhalt beginnt.
+local SELECTOR_EDGE   = 7
+local SELECTOR_INSET  = 11
+
+function ns:UsesSelectorArt()
+    return ns:UsesCharacterPaneArt() and _G.NineSliceUtil ~= nil
+        and atlasExists("macropopup-topleft")
+end
+
+local selectorArt = setmetatable({}, { __mode = "k" })   -- [frame] = { bg, border } | false
+
+local function setSelectorArt(frame, on)
+    local art = selectorArt[frame]
+    if not on then
+        if art then art.bg:Hide(); art.border:Hide() end
+        return false
+    end
+    if art == nil then
+        -- Rahmen ueber dem Inhalt wie beim Metall; der Inhalt ist
+        -- eingerueckt und bleibt frei.
+        local border = CreateFrame("Frame", nil, frame)
+        border:SetAllPoints(frame)
+        border:EnableMouse(false)
+        if not pcall(NineSliceUtil.ApplyLayoutByName, border, SELECTOR_LAYOUT) then
+            border:Hide()
+            selectorArt[frame] = false
+            return false
+        end
+        local bg = frame:CreateTexture(nil, "BACKGROUND")
+        bg:SetPoint("TOPLEFT", frame, "TOPLEFT", SELECTOR_EDGE, -SELECTOR_EDGE)
+        bg:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -SELECTOR_EDGE, SELECTOR_EDGE)
+        bg:SetColorTexture(0, 0, 0, 0.8)
+        art = { bg = bg, border = border }
+        selectorArt[frame] = art
+    end
+    if not art then return false end
+    art.border:SetFrameLevel((frame:GetFrameLevel() or 1) + 30)
+    art.bg:Show(); art.border:Show()
+    return true
+end
+
 local function apply(frame, kind, style)
     if not frame or not frame.SetBackdrop then return end
+    -- "flyout" = kleines Aufklappfenster am Charakterfenster. Im
+    -- Forever-Stil nur der schmale Rand des Themes, ohne Metall und
+    -- Fels - das Metall ist dicker als der Inhalt hoch.
+    if kind == "flyout" then
+        kind = (style == "forever") and "pane" or "window"
+    end
+    if kind == "selector" then
+        if ns:UsesSelectorArt() and setSelectorArt(frame, true) then
+            setMetal(frame, false)
+            frame:SetBackdrop(nil)
+            return
+        end
+        setSelectorArt(frame, false)
+        kind = "window"
+    end
     -- "sidebar" ist ein Fenster wie jedes andere - ausser im Forever-Stil
     -- mit den Blizzard-Themes, dort traegt es die Ausruestungsmanager-Art.
     if kind == "sidebar" then
@@ -334,7 +400,7 @@ end
 -- =========================================================
 
 -- Frame skinnen und fuer spaetere Stilwechsel merken.
--- kind: "window" (Standard) oder "pane"
+-- kind: "window" (Standard), "pane", "sidebar", "selector" oder "flyout"
 function UI:SkinFrame(frame, kind)
     if not frame then return frame end
     kind = kind or "window"
@@ -379,8 +445,14 @@ end
 -- Blizzards Dialograhmen ist deutlich breiter als der duenne Rand des
 -- modernen Stils; ohne den Aufschlag sitzt der Inhalt im Rahmen. Der
 -- Metallrahmen im Forever-Stil ist aehnlich stark.
-function ns:FrameInset()
+--
+-- kind wie bei UI:SkinFrame; ohne Angabe gilt "window".
+function ns:FrameInset(kind)
     local style = ns:GetStyle()
+    if kind == "selector" and ns:UsesSelectorArt() then return SELECTOR_INSET end
+    if kind == "flyout" and style == "forever" then
+        return tonumber((foreverSource()).edge) or 1
+    end
     if style == "classic" then return 8 end
     if style == "forever" and foreverHasMetal() then return 8 end
     return 0
