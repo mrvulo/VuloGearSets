@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.17.0
+
+- **New languages: French, Spanish, Russian and Simplified Chinese**, next to
+  English and German. Spanish covers both the European and the Mexican
+  client. On Russian, Chinese and Korean clients the addon's own texts use
+  Blizzard's font, since the bundled font has no Cyrillic or Chinese letters.
+- **Fixed:** the "Equip" and "Save" buttons in the sidebar sometimes showed no
+  text after logging in.
+- **Fixed:** dropdown lists in the settings opened partly behind the window.
+  They now open on top, right below the list.
+- On Forever the socket bar's tooltip no longer mentions an addon that does
+  not exist there.
+
 ## 1.16.0
 
 - **The icon picker now offers the game's own icons** — the same list
