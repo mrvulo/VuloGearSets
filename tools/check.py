@@ -220,6 +220,22 @@ def check_locales():
         errors.append(f"Verwaister Key in deDE.lua: {k!r}")
 
 
+def check_translations():
+    """Die uebrigen Sprachen gegen deDE: gleiche Keys, gleiche Platzhalter.
+
+    deDE ist die Referenz, weil check_locales sie gegen den Code prueft.
+    Fehlt in einer Sprache ein Key, faellt das Spiel dort still auf
+    Englisch zurueck - deshalb ist das hier ein Fehler, kein Hinweis.
+    """
+    from check_locale_file import problems
+    for p in sorted((ADDON / "Locales").glob("*.lua")):
+        if p.name in ("enUS.lua", "deDE.lua"):
+            continue
+        found, _, _ = problems(p)
+        for e in found:
+            errors.append(f"{p.name}: {e}")
+
+
 def check_coupling():
     for p in lua_files():
         name = rel(p)
@@ -275,6 +291,7 @@ def main():
         return 1
     check_toc()
     check_locales()
+    check_translations()
     check_coupling()
     check_lua5_1()
     check_block_balance()

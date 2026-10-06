@@ -11,7 +11,7 @@ Das Repository lässt sich also unverändert ins `Interface\AddOns`-Verzeichnis 
 | `Core/` | Namespace, Locale, Datenbank, Modulregistry, Events, Popup-Menü, Mover, Start |
 | `UI/` | Widgets und das Einstellungsfenster mit dem Renderer für die Optionsliste |
 | `Modules/` | Ausrüstungssets und Slot-Auswahl |
-| `Locales/` | Englisch (leer, Schlüssel sind der Text) und Deutsch |
+| `Locales/` | Englisch (leer, Schlüssel sind der Text), Deutsch, Französisch, Spanisch, Russisch, Chinesisch |
 | `tools/` | Prüf- und Hilfsskripte |
 | `docs/` | Spezifikation und Umsetzungsplan |
 
@@ -22,11 +22,13 @@ python tools/check.py        # TOC-, Locale- und Kopplungsprüfung
 powershell tools/deploy.ps1  # ins Spielverzeichnis kopieren
 ```
 
-`tools/check.py` läuft nach jeder Änderung und prüft vier Dinge:
+`tools/check.py` läuft nach jeder Änderung und prüft fünf Dinge:
 
 - jede Lua-Datei steht in der TOC und umgekehrt
 - jeder benutzte Locale-Schlüssel hat eine deutsche Übersetzung
 - keine verwaisten Übersetzungen bleiben übrig
+- jede weitere Sprache hat dieselben Schlüssel wie `deDE.lua` und in jedem Text dieselben
+  Platzhalter und Farbcodes in derselben Reihenfolge
 - die SavedVariables von VuloClassicUI werden nur in `Core/Coexistence.lua` angefasst
 
 Lua-Kommentare werden vor der Prüfung entfernt, damit erklärender Text keine Befunde
@@ -42,6 +44,15 @@ Die Schlüssel **sind** der englische Text. `Locales/enUS.lua` bleibt leer, der
 Metatable-Fallback in `Core/Locale.lua` gibt bei fehlender Übersetzung den Schlüssel
 zurück. Eine Textänderung am Englischen ist deshalb immer auch ein Schlüsselwechsel und
 muss gleichzeitig in `Locales/deDE.lua` passieren — `check.py` fängt Fehler dabei ab.
+
+`deDE.lua` ist die Referenz für alle weiteren Sprachen (`frFR`, `esES` für esES und esMX,
+`ruRU`, `zhCN`). Ein neuer Schlüssel gehört deshalb in alle Sprachdateien; einzeln prüfen
+lässt sich eine Datei mit `python tools/check_locale_file.py Locales/frFR.lua`.
+`string.format` kennt keine Positionsangaben — die Platzhalter müssen in jeder Sprache in
+derselben Reihenfolge stehen wie im englischen Text.
+
+Expressway hat weder kyrillische noch chinesische Zeichen. Auf ruRU-, zhCN-, zhTW- und
+koKR-Clients nimmt `UI.Font` deshalb Blizzards Standardschrift.
 
 ## Veröffentlichung
 

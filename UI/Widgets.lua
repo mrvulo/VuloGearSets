@@ -30,8 +30,19 @@ local function apply(fs, path, size, flags)
     end
 end
 
+-- Expressway und Arial Narrow kennen weder Kyrillisch noch chinesische
+-- oder koreanische Schriftzeichen - die Texte blieben dort leer. Auf
+-- solchen Clients bleibt es bei Blizzards Standardschrift, die der Client
+-- passend zur Sprache mitbringt.
+local NON_LATIN = { ruRU = true, zhCN = true, zhTW = true, koKR = true }
+local _gameFontOnly = GetLocale and NON_LATIN[GetLocale()] or false
+
 function UI.Font(fs, size, flags)
     size, flags = size or 12, flags or ""
+    if _gameFontOnly then
+        apply(fs, STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", size, flags)
+        return fs
+    end
     if _ready then
         apply(fs, FONT_PATH, size, flags)
     else

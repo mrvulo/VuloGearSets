@@ -15,6 +15,10 @@ Core\Compat.lua
 Core\Locale.lua
 Locales\enUS.lua
 Locales\deDE.lua
+Locales\frFR.lua
+Locales\esES.lua
+Locales\ruRU.lua
+Locales\zhCN.lua
 Core\Database.lua
 Core\Modules.lua
 Core\Events.lua

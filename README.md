@@ -33,7 +33,7 @@ click. Runs on its own, no other addons required.
   see which items belong to them
 - **Combat lock** — nothing is swapped during combat; a switch triggered mid-fight is
   carried out as soon as combat ends
-- English and German
+- English, German, French, Spanish, Russian and Simplified Chinese
 
 ## Slash commands
 
