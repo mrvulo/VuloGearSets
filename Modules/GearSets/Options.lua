@@ -137,7 +137,10 @@ function mod:GetOptions()
         { type = "section", title = L["Socket Bar"], collapsed = false, items = {
             { type = "desc", text = L["|cffaaaaaaA strip with every socket on your equipped gear, hung under the sidebar. Click an empty socket to pick a gem from your bags and set it.|r"] },
             { type = "toggle", label = L["Show the socket bar"],
-              tooltip = L["Only appears when your gear actually has sockets. If VuloClassicUI shows the same strip, this one steps back so there are not two of them."],
+              -- Auf Forever gibt es VuloClassicUI nicht, der zweite Satz
+              -- waere dort nur verwirrend.
+              tooltip = ns.isForever and L["Only appears when your gear actually has sockets."]
+                  or L["Only appears when your gear actually has sockets. If VuloClassicUI shows the same strip, this one steps back so there are not two of them."],
               get = function() return ns:IsModuleEnabled("socketbar") end,
               set = function(_, v)
                   if ns.ToggleModule then ns:ToggleModule("socketbar", v, true) end

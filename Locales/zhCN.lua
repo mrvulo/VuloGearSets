@@ -143,6 +143,7 @@ ns:RegisterLocale("zhCN", {
     ["Not found:"] = "未找到：",
     ["Not possible in combat."] = "战斗中无法进行。",
     ["Off Hand"] = "副手",
+    ["Only appears when your gear actually has sockets."] = "仅在你的装备确实有插槽时显示。",
     ["Only appears when your gear actually has sockets. If VuloClassicUI shows the same strip, this one steps back so there are not two of them."] = "仅在你的装备确实有插槽时显示。如果VuloClassicUI显示了相同的栏，此栏会自动隐藏，避免出现两个。",
     ["Overwrite"] = "覆盖",
     ["Please provide a name for the gear set."] = "请输入装备方案的名称。",

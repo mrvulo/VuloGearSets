@@ -143,6 +143,7 @@ ns:RegisterLocale("ruRU", {
     ["Not found:"] = "Не найдено:",
     ["Not possible in combat."] = "Невозможно в бою.",
     ["Off Hand"] = "Левая рука",
+    ["Only appears when your gear actually has sockets."] = "Появляется, только если в вашей экипировке действительно есть гнезда.",
     ["Only appears when your gear actually has sockets. If VuloClassicUI shows the same strip, this one steps back so there are not two of them."] = "Появляется, только если в вашей экипировке действительно есть гнезда. Если VuloClassicUI показывает такую же полосу, эта скрывается, чтобы их не было две.",
     ["Overwrite"] = "Заменить",
     ["Please provide a name for the gear set."] = "Введите название комплекта.",

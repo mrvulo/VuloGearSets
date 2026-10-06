@@ -144,6 +144,7 @@ ns:RegisterLocale("deDE", {
     ["Not found:"] = "Nicht auffindbar:",
     ["Not possible in combat."] = "Im Kampf nicht möglich.",
     ["Off Hand"] = "Schildhand",
+    ["Only appears when your gear actually has sockets."] = "Erscheint nur, wenn deine Ausrüstung wirklich Sockel hat.",
     ["Only appears when your gear actually has sockets. If VuloClassicUI shows the same strip, this one steps back so there are not two of them."] = "Erscheint nur, wenn deine Ausrüstung wirklich Sockel hat. Zeigt VuloClassicUI dieselbe Leiste, tritt diese zurück, damit es nicht zwei gibt.",
     ["Overwrite"] = "Überschreiben",
     ["Please provide a name for the gear set."] = "Bitte einen Namen für das Set angeben.",

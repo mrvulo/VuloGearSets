@@ -143,6 +143,7 @@ local T = {
     ["Not found:"] = "No encontrado:",
     ["Not possible in combat."] = "No es posible en combate.",
     ["Off Hand"] = "Mano izquierda",
+    ["Only appears when your gear actually has sockets."] = "Solo aparece si tu equipo tiene ranuras.",
     ["Only appears when your gear actually has sockets. If VuloClassicUI shows the same strip, this one steps back so there are not two of them."] = "Solo aparece si tu equipo tiene ranuras. Si VuloClassicUI muestra la misma barra, esta se retira para que no haya dos.",
     ["Overwrite"] = "Sobrescribir",
     ["Please provide a name for the gear set."] = "Introduce un nombre para el conjunto.",

@@ -143,6 +143,7 @@ ns:RegisterLocale("frFR", {
     ["Not found:"] = "Introuvable :",
     ["Not possible in combat."] = "Impossible en combat.",
     ["Off Hand"] = "Main gauche",
+    ["Only appears when your gear actually has sockets."] = "N'apparaît que si votre équipement a réellement des châsses.",
     ["Only appears when your gear actually has sockets. If VuloClassicUI shows the same strip, this one steps back so there are not two of them."] = "N'apparaît que si votre équipement a réellement des châsses. Si VuloClassicUI affiche la même barre, celle-ci s'efface pour qu'il n'y en ait pas deux.",
     ["Overwrite"] = "Remplacer",
     ["Please provide a name for the gear set."] = "Veuillez indiquer un nom pour l'ensemble.",
