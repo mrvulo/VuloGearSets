@@ -5,6 +5,8 @@
 --
 -- Usage:
 --   ns:ShowPopupMenu(entries, anchorFrame)
+--   ns:ShowPopupMenu(entries, anchorFrame, true)   -- unter dem Anker,
+--                                                     wie eine Auswahlliste
 --
 -- Entry shape:
 --   { title     = true,  text = "Header" }              — section header
@@ -23,7 +25,13 @@ local function createMenuFrame()
     if _menuFrame then return _menuFrame end
     _menuFrame = CreateFrame("Frame", "VGS_SharedPopupMenu", UIParent,
         BackdropTemplateMixin and "BackdropTemplate")
-    _menuFrame:SetFrameStrata("DIALOG")
+    -- Ueber allen Fenstern des Addons: Einstellungen und Slot-Auswahl
+    -- liegen auf DIALOG, und der Metallrahmen des Forever-Stils sitzt
+    -- dort noch 30 Stufen ueber seinem Fenster - auf derselben Ebene lag
+    -- das Menue darunter. Die Stufe vor den Knoepfen setzen, die erben sie.
+    _menuFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+    _menuFrame:SetFrameLevel(100)
+    _menuFrame:SetToplevel(true)
     _menuFrame:SetWidth(200)
     _menuFrame:SetHeight(30)
     _menuFrame:Hide()
@@ -102,7 +110,7 @@ local function getMenuButton(idx)
     return btn
 end
 
-function ns:ShowPopupMenu(entries, anchor)
+function ns:ShowPopupMenu(entries, anchor, below)
     if type(entries) ~= "table" then return end
     local menu = createMenuFrame()
 
@@ -169,12 +177,18 @@ function ns:ShowPopupMenu(entries, anchor)
 
     -- Auto-size width based on widest label (with some padding for checkmark + margins)
     local desiredWidth = math.min(360, math.max(180, maxTextWidth + 40))
+    -- Unter einer Auswahlliste mindestens so breit wie sie.
+    if below and anchor and anchor.GetWidth then
+        desiredWidth = math.max(desiredWidth, anchor:GetWidth() or 0)
+    end
     menu:SetWidth(desiredWidth)
     menu:SetHeight(-y + 6)
 
     -- Position relative to anchor
     menu:ClearAllPoints()
-    if anchor and anchor.GetLeft then
+    if below and anchor and anchor.GetLeft then
+        menu:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
+    elseif anchor and anchor.GetLeft then
         menu:SetPoint("TOPRIGHT", anchor, "BOTTOMLEFT", -2, 0)
     else
         menu:SetPoint("CENTER", UIParent, "CENTER", 0, 0)

@@ -438,8 +438,9 @@ function UI:CreateDropdown(parent, label, values)
                 end,
             })
         end
-        -- Achtung: entries kommt ZUERST, dann der Anker.
-        ns:ShowPopupMenu(entries, f.button)
+        -- Achtung: entries kommt ZUERST, dann der Anker. Aufklappen
+        -- unter der Liste, wie man es von einer Auswahlliste erwartet.
+        ns:ShowPopupMenu(entries, f.button, true)
     end)
     return f
 end
