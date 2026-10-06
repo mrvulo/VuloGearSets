@@ -21,6 +21,8 @@ local FALLBACK_FONT = "Fonts\\ARIALN.TTF"
 -- keine Addon-Schriften, und es bleibt bei Arial Narrow.
 local _ready   = false
 local _waiting = setmetatable({}, { __mode = "k" })   -- FontString -> { Groesse, Flags }
+-- Alle Texte, die Expressway tragen - fuer redraw().
+local _onFont  = setmetatable({}, { __mode = "k" })   -- FontString -> { Groesse, Flags }
 
 local function apply(fs, path, size, flags)
     fs:SetFont(path, size, flags)
@@ -45,11 +47,27 @@ function UI.Font(fs, size, flags)
     end
     if _ready then
         apply(fs, FONT_PATH, size, flags)
+        _onFont[fs] = { size, flags }
     else
         apply(fs, FALLBACK_FONT, size, flags)
         _waiting[fs] = { size, flags }
     end
     return fs
+end
+
+-- Zeichnet alle Expressway-Texte neu. Ein SetFont mit denselben Werten
+-- und ein SetText mit demselben Text uebergeht der Client - deshalb erst
+-- eine andere Groesse und ein leerer Text, dann zurueck.
+local function redraw()
+    for fs, p in pairs(_onFont) do
+        local text = fs:GetText()
+        fs:SetFont(FONT_PATH, p[1] + 1, p[2])
+        apply(fs, FONT_PATH, p[1], p[2])
+        if text then
+            fs:SetText("")
+            fs:SetText(text)
+        end
+    end
 end
 
 -- Laeuft ab dem Laden der Datei. Erst auf eine andere Schrift und dann
@@ -76,13 +94,25 @@ do
             _ready = true
             for fs, p in pairs(_waiting) do
                 apply(fs, FONT_PATH, p[1], p[2])
-                -- Text neu setzen, damit er mit der neuen Schrift gemessen
-                -- und gezeichnet wird.
-                local text = fs:GetText()
-                if text then fs:SetText(text) end
+                _onFont[fs] = p
+            end
+            redraw()
+            -- Die Messung kann schon Breite liefern, bevor die Schrift
+            -- wirklich zeichnet - dann blieben gerade die frueh gebauten
+            -- Knoepfe der Seitenleiste nach dem Einloggen leer. Deshalb
+            -- noch zweimal nachzeichnen.
+            if C_Timer and C_Timer.After then
+                C_Timer.After(1, redraw)
+                C_Timer.After(5, redraw)
             end
         end
         wipe(_waiting)
+    end)
+
+    -- Nach jedem Ladebildschirm ebenfalls einmal nachzeichnen.
+    watcher:RegisterEvent("PLAYER_ENTERING_WORLD")
+    watcher:SetScript("OnEvent", function()
+        if _ready and C_Timer and C_Timer.After then C_Timer.After(1, redraw) end
     end)
 end
 
