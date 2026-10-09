@@ -9,6 +9,7 @@ ignore:
   - tools
   - README.md
   - CONTRIBUTING.md
+  - CLAUDE.md
 
 # Keine externen Bibliotheken - das Addon kommt ohne Libs aus.
 enable-nolib-creation: no

@@ -22,7 +22,9 @@ python tools/check.py        # TOC-, Locale- und Kopplungsprüfung
 powershell tools/deploy.ps1  # ins Spielverzeichnis kopieren
 ```
 
-`tools/check.py` läuft nach jeder Änderung und prüft fünf Dinge:
+Verbindliche Regeln, Datenmodell und Ladereihenfolge stehen in [CLAUDE.md](CLAUDE.md).
+
+`tools/check.py` läuft nach jeder Änderung und prüft:
 
 - jede Lua-Datei steht in der TOC und umgekehrt
 - jeder benutzte Locale-Schlüssel hat eine deutsche Übersetzung
@@ -30,6 +32,9 @@ powershell tools/deploy.ps1  # ins Spielverzeichnis kopieren
 - jede weitere Sprache hat dieselben Schlüssel wie `deDE.lua` und in jedem Text dieselben
   Platzhalter und Farbcodes in derselben Reihenfolge
 - die SavedVariables von VuloClassicUI werden nur in `Core/Coexistence.lua` angefasst
+- jeder feste Pfad auf eine Grafik oder Schrift existiert, und jede Datei unter `Media/` wird benutzt
+- keine versehentlich globalen Funktionen (`local` vergessen)
+- Lua-5.1-Syntax und ausgeglichene Blockstruktur
 
 Lua-Kommentare werden vor der Prüfung entfernt, damit erklärender Text keine Befunde
 erzeugt.

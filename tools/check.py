@@ -236,6 +236,69 @@ def check_translations():
             errors.append(f"{p.name}: {e}")
 
 
+MEDIA_EXTS = (".tga", ".blp", ".png", ".jpg", ".ttf", ".otf", ".ogg", ".mp3")
+
+
+def media_file(rel_path):
+    """Datei zu einem Addon-Pfad ohne oder mit Endung, unabhaengig von Gross-
+    und Kleinschreibung (der Client unterscheidet sie unter Windows nicht)."""
+    target = rel_path.replace("\\", "/").lower()
+    for f in ADDON.rglob("*"):
+        if not f.is_file() or set(f.relative_to(ADDON).parts) & SKIP_DIRS:
+            continue
+        r = f.relative_to(ADDON).as_posix().lower()
+        if r == target or (Path(r).suffix in MEDIA_EXTS and r[: -len(Path(r).suffix)] == target):
+            return f
+    return None
+
+
+def check_media():
+    """Jeder feste Pfad auf eine Grafik oder Schrift des Addons muss existieren.
+
+    Fehlt die Datei, zeigt der Client ein gruenes Feld oder leeren Text -
+    ohne Fehlermeldung. Genau so gingen frueher geloeschte Symbole erst im
+    Spiel auf. Pfade, die erst zur Laufzeit zusammengesetzt werden, deckt
+    die Gegenprobe ab: jede Datei unter Media/ muss irgendwo genannt sein.
+    """
+    path_re = re.compile(r'Interface\\\\AddOns\\\\VuloGearSets\\\\([^"\']+)', re.I)
+    toc_re = re.compile(r'Interface\\AddOns\\VuloGearSets\\(\S+)', re.I)
+    sources = [(p, code_of(p), path_re) for p in lua_files()]
+    sources += [(t, t.read_text(encoding="utf-8"), toc_re) for t in all_tocs()]
+    alltext = "\n".join(text for _, text, _ in sources)
+    for p, text, rx in sources:
+        for m in rx.finditer(text):
+            rp = m.group(1)
+            if rp.endswith("\\"):
+                continue  # Ordnerpraefix, wird zur Laufzeit ergaenzt
+            if not media_file(rp.replace("\\\\", "\\")):
+                errors.append(f"{rel(p)}: Datei fehlt: {rp}")
+    for f in sorted((ADDON / "Media").rglob("*")):
+        if f.is_file() and f.stem not in alltext:
+            errors.append(f"{rel(f)} wird nirgends benutzt (loeschen oder einbinden)")
+
+
+def check_globals():
+    """Keine versehentlich globalen Funktionen.
+
+    'function name()' ohne 'local' legt ein Global an - es kollidiert mit
+    anderen Addons und fiel schon einmal fast durch. Erlaubt sind eine
+    vorab deklarierte lokale Variable gleichen Namens und Globals mit dem
+    Praefix VuloGearSets_ (Tastenbelegung aus Bindings.xml).
+    """
+    fn_re = re.compile(r"^\s*function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", re.M)
+    for p in lua_files():
+        code = code_of(p)
+        for m in fn_re.finditer(code):
+            name = m.group(1)
+            if name.startswith("VuloGearSets_"):
+                continue
+            before = code[: m.start()]
+            if re.search(r"\blocal\s+(?:[A-Za-z_][A-Za-z0-9_]*\s*,\s*)*" + name + r"\b", before):
+                continue
+            line = code.count("\n", 0, m.start()) + 1
+            errors.append(f"{rel(p)}:{line}: globale Funktion '{name}' - 'local' vergessen?")
+
+
 def check_coupling():
     for p in lua_files():
         name = rel(p)
@@ -292,6 +355,8 @@ def main():
     check_toc()
     check_locales()
     check_translations()
+    check_media()
+    check_globals()
     check_coupling()
     check_lua5_1()
     check_block_balance()
