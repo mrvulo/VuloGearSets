@@ -91,6 +91,8 @@ ablegen), `iconOverride` (nil = auto, Zahl = Datei-ID, Text = Pfad), `order`, `s
 - **Fensterarten** (`UI:SkinFrame(frame, kind)`, Innenabstand `ns:FrameInset(kind)`): `window`,
   `pane`, `sidebar` (Forever: Ausrüstungsmanager-Grafik), `selector` (Forever: Rahmen von Blizzards
   Symbolauswahl, nur für große Fenster – Ecken über 70 px), `flyout` (Forever: schmaler Theme-Rand).
+  Der Schlagschatten (`UI:CreateShadow`) erscheint im Forever-Stil nicht – um Metall und
+  Blizzard-Ränder wirkte er wie ein grauer Rand.
 - **Symbole:** Die Symbolauswahl holt ihre Liste mit `GetLooseMacroIcons`, `GetLooseMacroItemIcons`,
   `GetMacroIcons`, `GetMacroItemIcons`. **Nicht** `IconDataProviderMixin` benutzen – dessen geteilter
   Zwischenspeicher würde Blizzards Ausrüstungsmanager und Makrofenster mit Taint belegen. Keine

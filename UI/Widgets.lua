@@ -147,6 +147,15 @@ function UI.SetColorBG(frame, r, g, b, a, layer)
 end
 
 -- Weicher Schatten aus mehreren halbtransparenten Ringen.
+-- Im Forever-Stil ohne Schatten: um den Metallrahmen und Blizzards
+-- Raender wirkte er wie ein grauer Rand ums Fenster.
+local shadowed = setmetatable({}, { __mode = "k" })   -- [frame] = true
+
+local function applyShadow(frame, style)
+    local shown = (style ~= "forever")
+    for _, t in ipairs(frame._vgsShadow) do t:SetShown(shown) end
+end
+
 function UI:CreateShadow(frame)
     if frame._vgsShadow then return end
     frame._vgsShadow = {}
@@ -158,7 +167,13 @@ function UI:CreateShadow(frame)
         t:SetColorTexture(0, 0, 0, l[2])
         frame._vgsShadow[i] = t
     end
+    shadowed[frame] = true
+    applyShadow(frame, ns:GetStyle())
 end
+
+ns:OnStyleChanged(function(style)
+    for frame in pairs(shadowed) do applyShadow(frame, style) end
+end)
 
 -- Hintergrund und Rand. Das Aussehen bestimmt Core/Skin.lua, damit sich
 -- der Stil zur Laufzeit umschalten laesst.
