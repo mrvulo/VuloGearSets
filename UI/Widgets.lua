@@ -269,9 +269,23 @@ function UI:CreateButton(parent, text, width, height)
     b.bg = b:CreateTexture(nil, "BACKGROUND")
     b.bg:SetPoint("TOPLEFT", 1, -1)
     b.bg:SetPoint("BOTTOMRIGHT", -1, 1)
-    b:SetText(text or "")
-    b.text = b:GetFontString()
+    -- Eigener Text statt Blizzards Knopftext. Die Vorlage setzt die
+    -- Schrift ihres Textes bei jedem Zustandswechsel (an, aus, Hover)
+    -- selbst neu; mit Expressway darauf blieben "Anlegen" und "Speichern"
+    -- nach dem Einloggen immer wieder leer. Ein eigener FontString gehoert
+    -- nur uns - so wie bei "Neues Set", das nie betroffen war.
+    b:SetText("")
+    b.text = b:CreateFontString(nil, "OVERLAY")
+    b.text:SetPoint("LEFT", 4, 0)
+    b.text:SetPoint("RIGHT", -4, 0)
+    b.text:SetJustifyH("CENTER")
+    b.text:SetWordWrap(false)
     UI.Font(b.text, 12)
+    b.text:SetText(text or "")
+    -- SetText/GetText des Knopfes auf den eigenen Text umleiten, damit
+    -- Aufrufer nicht wissen muessen, wo er steckt.
+    function b:SetText(t) self.text:SetText(t) end
+    function b:GetText() return self.text:GetText() end
     buttons[b] = true
     styleButton(b, ns:GetStyle(), false)
 
