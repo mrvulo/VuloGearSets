@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.17.1
+
+- **Fixed:** the "Equip" and "Save" buttons in the sidebar could still come up
+  without text after logging in. Every button of the addon now draws its own
+  label.
+- **Forever:** windows and menus no longer have a soft shadow around them; it
+  looked like a grey rim around the metal frame. Classic and Modern keep it.
+
 ## 1.17.0
 
 - **New languages: French, Spanish, Russian and Simplified Chinese**, next to
