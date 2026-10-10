@@ -1,0 +1,48 @@
+# Gespeicherte Daten
+
+Namen fest (I-01). Felder nie ohne Migration umbenennen oder entfernen (I-02).
+Migrationen laufen in `Modules/GearSets/Lifecycle.lua` (`mod:OnEnable`); Modul-Migrationen in
+der jeweiligen Datei (z. B. `Modules/SlotPicker.lua`).
+
+## `VuloGearSetsDB` (Konto)
+
+- `style` – `"classic"` | `"modern"` | `"forever"` (nur Forever, dort Standard); `Core/Skin.lua`
+- `debug` – nur von Hand gesetzt
+- `modules[key]` – Defaults jedes Moduls (`ns:RegisterModule`, `Core/Database.lua`)
+  - `gearsets`: `confirmDelete`, `minimap{hidden,angle}`, `autoSwitchEnabled`,
+    `specSwitchEnabled`, `ridingCropEnabled`, `sidebarEnabled`, `sidebarTopOffset`,
+    `sidebarBottomOffset`, `sidebarXOffset`, `sidebarStatsGap`, `sidebarPos` (Alias der
+    Charakterkopie), Migrationsmarke `_offsetMigrated_v3`
+  - `slotpicker`: `modifier` (`right` | `shift-right` | `alt-right` | `ctrl-right`), `cols`,
+    Migrationsmarke `_defaultMigrated_v2`
+  - `socketbar`: `markEmpty`, `confirmOverwrite`
+  - `setkeybinds`, `blizzsets`, `itemtooltip`: nur `enabled` (die echte An/Aus-Wahl steht je
+    Charakter in `modEnabled`)
+
+## `VuloGearSetsCharDB` (Charakter)
+
+- `sets[name]` – ein Set (unten)
+- `specMapping[name]` – Talentgruppe, je Gruppe höchstens ein Set
+- `formMapping[name]` – Gestalt/Haltung, je Gestalt höchstens ein Set
+- `keybinds[name]` – Override-Taste, z. B. `"SHIFT-1"`
+- `modEnabled[moduleKey]` – An/Aus je Charakter, schlägt `mod.db.enabled`
+- `blizzMirror[name]` – `true` | `false` | `"rejected"` (Forever; Bedeutung im Kopf von
+  `Modules/BlizzardSets.lua`)
+- `imported` – Übernahme aus VuloClassicUI erledigt (`Core/Coexistence.lua`)
+- `previousGear{slots,slotMask}` – Stand für „Zurück zur vorherigen Ausrüstung“
+- `cropState{slot,prevLink}` – Reitgerte gerade angelegt
+- `sidebarPos{x,y}` – Versatz der Set-Leiste
+
+## Ein Set `sets[name]`
+
+| Feld | Bedeutung |
+|---|---|
+| `slots{[slot]=itemLink}` | gespeicherte Teile; leere Slots fehlen |
+| `slotMask{slot…}` | Slots, die das Set verwaltet; Slot im Mask ohne Teil = ablegen |
+| `iconOverride` | nil = automatisch, Zahl = Datei-ID, Text = Pfad |
+| `order` | Position in der Leiste, nil bis zum ersten Umsortieren |
+| `showHelm` / `showCloak` | nil = lassen, true/false = zeigen/verbergen |
+| `createdAt` | Zeitstempel der Anlage |
+
+Umbenennen zieht `specMapping`, `formMapping`, `keybinds`, `blizzMirror`, Makro und die Auswahl in
+der Leiste mit (Rename-Hüllen in `Modules/GearSets/Sets.lua`).

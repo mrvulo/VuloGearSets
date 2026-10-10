@@ -1,5 +1,8 @@
 """Struktur- und Kopplungspruefung fuer VuloGearSets."""
+import os
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -277,26 +280,81 @@ def check_media():
             errors.append(f"{rel(f)} wird nirgends benutzt (loeschen oder einbinden)")
 
 
-def check_globals():
-    """Keine versehentlich globalen Funktionen.
+def find_luaparse():
+    """node und luaparse suchen. luaparse liegt bei VuloClassicUI; ohne beide
+    wird die Parser-Pruefung uebersprungen und das auch so gemeldet."""
+    node = shutil.which("node") or str(Path.home() / ".local/node/bin/node")
+    if not Path(node).exists():
+        return None, None
+    for nm in (ADDON / "tools" / "node_modules",
+               Path.home() / "addons" / "VuloClassicUI" / "tools" / "node_modules"):
+        if (nm / "luaparse").exists():
+            return node, nm
+    return node, None
 
-    'function name()' ohne 'local' legt ein Global an - es kollidiert mit
-    anderen Addons und fiel schon einmal fast durch. Erlaubt sind eine
-    vorab deklarierte lokale Variable gleichen Namens und Globals mit dem
-    Praefix VuloGearSets_ (Tastenbelegung aus Bindings.xml).
+
+def check_globals():
+    """Syntax und versehentliche Globals ueber einen echten Lua-Parser
+    (tools/lua_check.cjs, Invariante I-11).
+
+    'name = ...' oder 'function name()' ohne 'local' legt ein Global an -
+    es kollidiert mit anderen Addons und fiel schon einmal fast durch.
+    Erlaubt sind VuloGearSets_* (Bindings.xml), SLASH_* und BINDING_*.
     """
-    fn_re = re.compile(r"^\s*function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", re.M)
+    node, nm = find_luaparse()
+    if not (node and nm):
+        print("Hinweis: node/luaparse nicht gefunden - Syntax- und Global-Pruefung "
+              "uebersprungen (luaparse liegt unter VuloClassicUI/tools/node_modules)")
+        return
+    files = [str(p) for p in lua_files()]
+    env = dict(os.environ, NODE_PATH=str(nm))
+    out = subprocess.run([node, str(ADDON / "tools" / "lua_check.cjs"), *files],
+                         capture_output=True, text=True, env=env)
+    for line in out.stdout.splitlines():
+        if line.strip():
+            errors.append(line.replace(str(ADDON) + "/", ""))
+    if out.returncode not in (0, 1):
+        errors.append(f"lua_check.cjs ist abgestuerzt: {out.stderr.strip()[:200]}")
+
+
+# Feste Namen der SavedVariables (Invariante I-01). Umbenennen loescht die
+# Sets und Einstellungen aller Spieler.
+SAVED_VARIABLES = {
+    "SavedVariables": "VuloGearSetsDB",
+    "SavedVariablesPerCharacter": "VuloGearSetsCharDB",
+}
+
+
+def check_saved_variables():
+    for toc in all_tocs():
+        text = toc.read_text(encoding="utf-8")
+        for key, want in SAVED_VARIABLES.items():
+            m = re.search(rf"(?mi)^##\s*{key}:\s*(\S+)\s*$", text)
+            if not m or m.group(1) != want:
+                errors.append(f"{toc.name}: '## {key}' muss '{want}' sein (I-01)")
+
+
+# Regeln aus docs/pro/invariants.md, die sich als Text-Regel pruefen lassen:
+# (Muster, erlaubte Dateien, Meldung)
+CODE_RULES = [
+    (r"Fonts\\\\Expressway|SetFont\s*\([^)\n]*FONT_PATH", {"UI/Widgets.lua"},
+     "Expressway nur ueber UI.Font setzen - sonst bleibt der Text nach Login leer (I-05, R-Schrift)"),
+    (r":GetFontString\s*\(", set(),
+     "nicht Blizzards Knopftext stylen, eigener FontString ueber UI:CreateButton (I-06)"),
+    (r"IconDataProviderMixin", set(),
+     "IconDataProviderMixin belegt Blizzards Symbolauswahl mit Taint (I-09)"),
+]
+def check_code_rules():
     for p in lua_files():
-        code = code_of(p)
-        for m in fn_re.finditer(code):
-            name = m.group(1)
-            if name.startswith("VuloGearSets_"):
+        name = rel(p)
+        code = strip_comments(p.read_text(encoding="utf-8"))
+        for pattern, allowed_files, msg in CODE_RULES:
+            if name in allowed_files or name.startswith("Locales/"):
                 continue
-            before = code[: m.start()]
-            if re.search(r"\blocal\s+(?:[A-Za-z_][A-Za-z0-9_]*\s*,\s*)*" + name + r"\b", before):
-                continue
-            line = code.count("\n", 0, m.start()) + 1
-            errors.append(f"{rel(p)}:{line}: globale Funktion '{name}' - 'local' vergessen?")
+            m = re.search(pattern, code)
+            if m:
+                line = code.count("\n", 0, m.start()) + 1
+                errors.append(f"{name}:{line}: {msg}")
 
 
 def check_coupling():
@@ -357,6 +415,8 @@ def main():
     check_translations()
     check_media()
     check_globals()
+    check_saved_variables()
+    check_code_rules()
     check_coupling()
     check_lua5_1()
     check_block_balance()

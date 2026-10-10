@@ -22,7 +22,8 @@ python tools/check.py        # TOC-, Locale- und Kopplungsprüfung
 powershell tools/deploy.ps1  # ins Spielverzeichnis kopieren
 ```
 
-Verbindliche Regeln, Datenmodell und Ladereihenfolge stehen in [CLAUDE.md](CLAUDE.md).
+Aufbau und Arbeitsablauf stehen in [CLAUDE.md](CLAUDE.md), die verbindlichen Regeln, das
+Datenmodell, Features und behobene Fehler unter [docs/pro/](docs/pro/).
 
 `tools/check.py` läuft nach jeder Änderung und prüft:
 
@@ -33,8 +34,10 @@ Verbindliche Regeln, Datenmodell und Ladereihenfolge stehen in [CLAUDE.md](CLAUD
   Platzhalter und Farbcodes in derselben Reihenfolge
 - die SavedVariables von VuloClassicUI werden nur in `Core/Coexistence.lua` angefasst
 - jeder feste Pfad auf eine Grafik oder Schrift existiert, und jede Datei unter `Media/` wird benutzt
-- keine versehentlich globalen Funktionen (`local` vergessen)
-- Lua-5.1-Syntax und ausgeglichene Blockstruktur
+- Lua-5.1-Syntax und versehentliche Globals über einen echten Parser (`tools/lua_check.cjs`,
+  braucht Node und luaparse; fehlt beides, wird die Prüfung übersprungen und gemeldet)
+- feste SavedVariables-Namen und die Code-Regeln aus `docs/pro/invariants.md`
+- ausgeglichene Blockstruktur
 
 Lua-Kommentare werden vor der Prüfung entfernt, damit erklärender Text keine Befunde
 erzeugt.

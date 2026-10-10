@@ -1,130 +1,70 @@
-# VuloGearSets – Projektregeln
+# VuloGearSets
 
 Ausrüstungs-Set-Manager für **TBC Classic Anniversary** (`VuloGearSets.toc`, Interface 20506),
-**World of Warcraft: Forever** (gleiche TOC, Interface 16001, `ns.isForever`) und **Classic Era**
-(`VuloGearSets_Vanilla.toc`). Der Repo-Wurzelordner ist der Addon-Ordner.
+**World of Warcraft: Forever** (gleiche TOC, Interface 16001, erkannt als `ns.isForever`) und
+**Classic Era** (`VuloGearSets_Vanilla.toc`). Der Repo-Wurzelordner ist der Addon-Ordner.
+Veröffentlicht über GitHub, CurseForge (1629333) und Wago (b6mv8yKP).
+Der Nutzer schreibt Deutsch; antworte auf Deutsch, kurz.
 
-Diese Datei ist verbindlich. Vor jeder Änderung den passenden Abschnitt lesen; wer eine Regel
-bricht, schreibt hier vorher hinein, warum.
+## Projektgedächtnis – vor jeder Änderung lesen
 
-## Arbeitsablauf
+- [docs/pro/invariants.md](docs/pro/invariants.md) – was nicht kaputtgehen darf
+- [docs/pro/regressions.md](docs/pro/regressions.md) – schon behobene Fehler, nach Bereich
+- [docs/pro/features.md](docs/pro/features.md) – Features, Status, offene Ideen
+- [docs/pro/decisions.md](docs/pro/decisions.md) – was der Nutzer wann entschieden hat
+- [docs/pro/savedvariables.md](docs/pro/savedvariables.md) – gespeicherte Daten
+- [docs/pro/smoke-test.md](docs/pro/smoke-test.md) – Kurztest im Spiel
 
-1. Ändern. Neue Lua-Datei → in **beide** TOCs eintragen.
-2. `python3 tools/check.py` muss `OK` melden. Er prüft TOC ↔ Dateien, Versionen, Locale-Keys in
-   allen Sprachen, Platzhalter-Reihenfolge, fehlende/unbenutzte Media-Dateien, versehentliche
-   globale Funktionen, Blockstruktur und Lua-5.1-Syntax.
-3. Syntax der geänderten Dateien:
-   `NODE_PATH=~/addons/VuloClassicUI/tools/node_modules node -e 'require("luaparse").parse(require("fs").readFileSync("<datei>","utf8"),{luaVersion:"5.1"})'`
-   (Node unter `~/.local/node/bin`).
-4. Thematischer Commit auf `main`, deutsche Botschaft, Kommentare/Commits ASCII-transliteriert
-   (ue/ae/oe), **kein Co-Authored-By**, nie ein fremdes Addon nennen.
-5. Speichern = Deploy (Syncthing → Gaming-PC). Fertigmeldung mit `/reload`-Hinweis und 1–3
-   konkreten Dingen zum Prüfen im Spiel.
-6. Release nur auf ausdrückliches „release“: Changelog-Block (Englisch) oben in `CHANGELOG.md`,
-   `python3 tools/release.py <x.y.z>`, Commit `v<x.y.z>: …`, `git push`, annotierter Tag, Tag pushen,
-   Workflow `release.yml` abwarten.
+Gedächtnis im selben Commit wie der Code nachführen. „Was ist offen?“ beantwortet `features.md`.
+Ein Fix ist erst `done`, wenn der Nutzer ihn im Spiel bestätigt hat (bis dahin `test-in-game`).
 
-## Aufbau und Ladereihenfolge
+## Vor jedem Commit
 
-Reihenfolge = TOC. Spätere Dateien dürfen frühere benutzen, nie umgekehrt (außer zur Laufzeit
-über `GS.*`/`ns.*`).
+`python3 tools/check.py` muss `OK` melden. Er prüft TOC ↔ Dateien, Versionen, Lua-Syntax und
+Globals über einen echten Parser (`tools/lua_check.cjs` mit luaparse aus
+`~/addons/VuloClassicUI/tools/node_modules`, Node unter `~/.local/node/bin`), SavedVariables-Namen,
+Locale-Keys in allen Sprachen samt Platzhaltern, Media-Pfade und die Code-Regeln der Invarianten.
+Grün ist kein Spieltest: Nichttriviales bekommt ein Review, dann testet der Nutzer.
 
-| Datei | Aufgabe |
+Commits thematisch auf `main`, deutsche Botschaft, ASCII-transliteriert (ue/ae/oe), ohne
+`Co-Authored-By`. Speichern = Deploy (Syncthing → Gaming-PC). Der Feature-Commit steht **vor** der
+Fertigmeldung (die mit `/reload` und 1–3 Dingen zum Prüfen); der Release-Commit trägt nur Changelog
+und Version. Release nur auf „release“: englischer Block oben in `CHANGELOG.md`,
+`python3 tools/release.py <x.y.z>`, Commit `v<x.y.z>: …`, Push, annotierter Tag, Tag pushen,
+Workflow `release.yml` abwarten.
+
+## Aufbau (Ladereihenfolge = TOC)
+
+Spätere Dateien dürfen frühere benutzen, nie umgekehrt – außer zur Laufzeit über `GS.*`/`ns.*`.
+
+| Pfad | Aufgabe |
 |---|---|
-| `Core/Namespace.lua` | `ns`, Version, Farben, Client-Erkennung (`ns.isForever`) |
-| `Core/Compat.lua` | API-Shims |
-| `Core/Locale.lua`, `Locales/*.lua` | `ns.L`, Keys = englischer Text |
-| `Core/Database.lua` | SavedVariables anlegen, Modul-Defaults |
-| `Core/Modules.lua` | Modulregistry, An/Aus je Charakter |
-| `Core/Events.lua`, `Core/Slash.lua` | Ereignisverteiler, allgemeine Slash-Befehle |
-| `Core/Skin.lua` | Stile classic/modern/forever, Fensterarten (siehe unten) |
-| `Core/PopupMenu.lua` | gemeinsames Rechtsklick-/Auswahlmenü |
-| `Core/Mover.lua` | verschiebbare Rahmen im Bearbeiten-Modus |
-| `UI/Widgets.lua` | Schrift (`UI.Font`), Knöpfe, Schalter, Regler, Auswahllisten |
-| `UI/OptionsFrame.lua` | Einstellungsfenster `/vgs`, rendert `mod:GetOptions()` |
-| `Modules/GearSets/*` | Kernmodul, aufgeteilt: `Shared` (Daten, Helfer) → `Sets` (Speichern, Anlegen, Zurück, Bank) → `AutoSwitch` → `Minimap` → `Pickers` (Slot- und Symbolauswahl) → `Sidebar` → `Lifecycle` (Migrationen, Events) → `Options` |
-| `Modules/SlotPicker.lua` | Flyout am Ausrüstungsslot |
-| `Modules/SocketBar.lua` | Sockel-Leiste unter der Set-Leiste |
-| `Modules/ItemTooltip.lua` | „Sets: …“ im Item-Tooltip |
-| `Modules/SetKeybinds.lua`, `Modules/SetMacros.lua` | Tasten und Makros je Set |
+| `Core/Namespace.lua`, `Compat.lua` | `ns`, Version, Farben, Client-Erkennung, API-Shims |
+| `Core/Locale.lua`, `Locales/*.lua` | `ns.L`, Keys = englischer Text; deDE frFR esES ruRU zhCN |
+| `Core/Database.lua`, `Modules.lua` | SavedVariables, Modul-Defaults, Modulregistry |
+| `Core/Events.lua`, `Slash.lua` | Ereignisverteiler, `/vgsfont`, `/rl` |
+| `Core/Skin.lua` | Stile classic/modern/forever, Fensterarten (I-08) |
+| `Core/PopupMenu.lua`, `Mover.lua` | gemeinsames Menü (I-07), Bearbeiten-Modus |
+| `UI/Widgets.lua` | `UI.Font` (I-05), Knöpfe (I-06), Schalter, Regler, Auswahllisten, Schatten |
+| `UI/OptionsFrame.lua` | Einstellungsfenster (`/vgs`) |
+| `Modules/GearSets/` | Kernmodul: `Shared` → `Sets` (Speichern, Anlegen, Zurück, Bank, Slash) → `AutoSwitch` → `Minimap` → `Pickers` (Slot- und Symbolauswahl) → `Sidebar` → `Lifecycle` (Migrationen, Events) → `Options` |
+| `Modules/SlotPicker.lua`, `SocketBar.lua` | Flyout am Slot, Sockel-Leiste |
+| `Modules/ItemTooltip.lua` | „Sets:“ im Tooltip (I-10) |
+| `Modules/SetKeybinds.lua`, `SetMacros.lua` | Tasten und Makros je Set |
 | `Modules/BlizzardSets.lua` | nur Forever: Spiegel in Blizzards Ausrüstungsmanager |
-| `Core/Coexistence.lua` | einziger Ort, der VuloClassicUIs SavedVariables liest |
-| `Core/Init.lua` | Start: DB → Import → Module |
+| `Core/Coexistence.lua`, `Init.lua` | Übernahme aus VuloClassicUI (I-17), Start |
+| `Media/` | Expressway, vier Symbole (I-13) |
+| `docs/`, `tools/`, `.github/`, `CLAUDE.md` | nie ausgeliefert, nicht auf den PC gespiegelt |
 
-Die GearSets-Dateien teilen Helfer über die Tabelle `GS` (Export am Dateiende, Import als
-`local x = GS.x` oben). Eine Funktion, die eine *früher* geladene Datei braucht, ruft sie zur
-Laufzeit über `GS.name()` auf.
+GearSets-Dateien teilen Helfer über `GS` (Export am Dateiende, Import als `local x = GS.x`).
 
-## Gespeicherte Daten – nie still brechen
+## Härteste Regeln
 
-Felder werden **nie** umbenannt oder entfernt ohne Migration in `Modules/GearSets/Lifecycle.lua`
-(`mod:OnEnable`). Spieler verlieren sonst Sets.
-
-**`VuloGearSetsDB`** (Konto): `style`, `debug` (nur von Hand), `modules[key]` mit den Defaults
-jedes Moduls. `gearsets`: `confirmDelete`, `minimap{hidden,angle}`, `autoSwitchEnabled`,
-`specSwitchEnabled`, `ridingCropEnabled`, `sidebarEnabled`, `sidebarTopOffset`,
-`sidebarBottomOffset`, `sidebarXOffset`, `sidebarStatsGap`, `sidebarPos` (Alias der Charakterkopie),
-`_offsetMigrated_v3`. `slotpicker`: `modifier`, `cols`, `_defaultMigrated_v2`. `socketbar`:
-`markEmpty`, `confirmOverwrite`.
-
-**`VuloGearSetsCharDB`** (Charakter): `sets`, `specMapping`, `formMapping`, `keybinds`,
-`modEnabled`, `blizzMirror` (true/false/"rejected", siehe Kopf von BlizzardSets.lua), `imported`,
-`previousGear{slots,slotMask}`, `cropState{slot,prevLink}`, `sidebarPos{x,y}`.
-
-**Ein Set** `sets[name]`: `slots{[slot]=itemLink}`, `slotMask{slot…}` (leerer Slot im Mask =
-ablegen), `iconOverride` (nil = auto, Zahl = Datei-ID, Text = Pfad), `order`, `showHelm`/`showCloak`
-(nil/true/false), `createdAt`. Umbenennen muss `specMapping`, `formMapping`, `keybinds`,
-`blizzMirror`, Makro und Sidebar-Auswahl mitziehen (siehe `Sets.lua`, Rename-Hüllen).
-
-## Feste Regeln (aus Fehlern gelernt)
-
-- **Schrift:** Eigene Texte über `UI.Font` (Expressway, erst wenn sie zeichnet). Setnamen in der
-  Leiste und Fenstertitel bleiben Blizzard-Schrift (`GameFontNormal`). Auf ruRU/zhCN/zhTW/koKR
-  immer `STANDARD_TEXT_FONT` – Expressway hat dort keine Zeichen.
-- **Leere Expressway-Texte nach Login/Reload:** Texte, die während des Ladebildschirms Expressway
-  bekommen (die Set-Leiste wird dort gebaut), bleiben leer, bis sie neu gezeichnet werden. Feste
-  Zeitpunkte reichen nicht. `UI.Font` merkt sich jeden Text und zeichnet ihn bei jedem `OnShow`
-  seines Fensters und nach `LOADING_SCREEN_DISABLED` neu. Eigene Texte deshalb **immer** über
-  `UI.Font`, nie direkt `SetFont` mit Expressway. Auf Forever ist das sichtbare „Neues Set“
-  Blizzards Original-Knopf mit Blizzard-Schrift – kein Beweis, dass Expressway geladen ist.
-- **Knöpfe:** `UI:CreateButton` hat einen *eigenen* FontString `b.text` (nicht Blizzards Knopftext,
-  den die Vorlage bei Zustandswechseln umsetzt). `b:SetText`/`b:GetText` sind umgeleitet.
-- **Ebenen:** Set-Leiste `HIGH`, Einstellungen und Slot-Flyout `DIALOG`, Symbolauswahl und
-  Sockel-Auswahl `FULLSCREEN_DIALOG`, gemeinsames Menü `FULLSCREEN_DIALOG` Stufe 100. Der
-  Forever-Metallrahmen liegt 30 Stufen über seinem Fenster – was darüber erscheinen soll, braucht
-  eine höhere Ebene.
-- **Fensterarten** (`UI:SkinFrame(frame, kind)`, Innenabstand `ns:FrameInset(kind)`): `window`,
-  `pane`, `sidebar` (Forever: Ausrüstungsmanager-Grafik), `selector` (Forever: Rahmen von Blizzards
-  Symbolauswahl, nur für große Fenster – Ecken über 70 px), `flyout` (Forever: schmaler Theme-Rand).
-  Der Schlagschatten (`UI:CreateShadow`) erscheint im Forever-Stil nicht – um Metall und
-  Blizzard-Ränder wirkte er wie ein grauer Rand.
-- **Symbole:** Die Symbolauswahl holt ihre Liste mit `GetLooseMacroIcons`, `GetLooseMacroItemIcons`,
-  `GetMacroIcons`, `GetMacroItemIcons`. **Nicht** `IconDataProviderMixin` benutzen – dessen geteilter
-  Zwischenspeicher würde Blizzards Ausrüstungsmanager und Makrofenster mit Taint belegen. Keine
-  eigenen Symbol-Dateien mehr ausliefern.
-- **Item-Tooltip:** Die „Sets:“-Zeile kommt sofort im `TooltipDataProcessor`-Rückruf, ohne
-  eigenes `Show()` und ohne Verzögerung. Händler- und Taschen-Tooltips bauen sich alle 0,2 s neu
-  auf; eine verzögerte Zeile flackert. Taint ist dort kein Grund: Blizzard ruft Addon-Rückrufe auf
-  allen drei Clients abgeschottet auf und vermisst danach selbst.
-- **Forever/Classic:** Was es nur auf Forever gibt (`C_EquipmentSet`-Spiegel, Forever-Stil), hinter
-  `ns.isForever`. Texte, die VuloClassicUI erwähnen, auf Forever nicht zeigen.
-- **Kampf:** Nichts tauschen in `InCombatLockdown()`; aufschieben bis `PLAYER_REGEN_ENABLED`.
-- **Bank:** „In die Bank legen“ nimmt nur Teile aus den Taschen, getragene bleiben an.
-- **Globale Namen:** Alles `local`. Einzige Ausnahme: `VuloGearSets_*` für `Bindings.xml`, und
-  Frame-Namen mit Präfix `VGS_`.
-- **Übersetzungen:** Neuer Text = neuer Key in **allen** Sprachdateien (`deDE`, `frFR`, `esES` –
-  gilt auch für esMX –, `ruRU`, `zhCN`), alphabetisch einsortiert, Reihenfolge der übrigen nicht
-  anfassen. Platzhalter in derselben Reihenfolge wie im Englischen (`string.format` kennt keine
-  Positionen). Umlaute echt, Lua-Kommentare ASCII.
-- **Media:** Jede Datei unter `Media/` muss benutzt werden, jeder Pfad im Code muss existieren
-  (`check.py`). Neue `.tga` brauchen einen Spiel-Neustart, nicht nur `/reload`.
-- **Löschen:** Keine Funktion, Option oder Datei entfernen, ohne dass der Nutzer es gesagt hat.
-  Ersetzte Funktionen bekommen eine Migration für gespeicherte Werte.
-
-## Im Spiel prüfen (Kurztest nach größeren Änderungen)
-
-1. Einloggen, Charakterfenster: Set-Leiste mit Texten auf „Anlegen“/„Speichern“, Statuspunkte.
-2. Set anlegen, speichern, umbenennen, Symbol ändern, löschen.
-3. Rechtsklick-Menü eines Sets und Auswahllisten in `/vgs` liegen vorne.
-4. Über einen Ausrüstungsslot fahren: Flyout mit passenden Teilen.
-5. Forever: Set erscheint auch in Blizzards Ausrüstungsmanager.
+- SavedVariables-Namen fest, Felder nur mit Migration ändern (I-01, I-02)
+- Nichts ohne Auftrag entfernen (I-03)
+- Expressway nur über `UI.Font`, Knöpfe mit eigenem FontString (I-05, I-06) – leere Texte kamen sechsmal zurück
+- Ebenen und Fensterarten wie festgelegt (I-07, I-08)
+- Symbole nur über Blizzards Makro-Symbolfunktionen, nie `IconDataProviderMixin` (I-09)
+- Tooltip-Zeile sofort, ohne Verzögerung und eigenes `Show()` (I-10)
+- Jeder Text in allen fünf Sprachen (I-12)
+- Forever-Eigenes hinter `ns.isForever` (I-14); nie ein fremdes Addon nennen (I-18)
