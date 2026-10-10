@@ -97,6 +97,10 @@ ablegen), `iconOverride` (nil = auto, Zahl = Datei-ID, Text = Pfad), `order`, `s
   `GetMacroIcons`, `GetMacroItemIcons`. **Nicht** `IconDataProviderMixin` benutzen – dessen geteilter
   Zwischenspeicher würde Blizzards Ausrüstungsmanager und Makrofenster mit Taint belegen. Keine
   eigenen Symbol-Dateien mehr ausliefern.
+- **Item-Tooltip:** Die „Sets:“-Zeile kommt sofort im `TooltipDataProcessor`-Rückruf, ohne
+  eigenes `Show()` und ohne Verzögerung. Händler- und Taschen-Tooltips bauen sich alle 0,2 s neu
+  auf; eine verzögerte Zeile flackert. Taint ist dort kein Grund: Blizzard ruft Addon-Rückrufe auf
+  allen drei Clients abgeschottet auf und vermisst danach selbst.
 - **Forever/Classic:** Was es nur auf Forever gibt (`C_EquipmentSet`-Spiegel, Forever-Stil), hinter
   `ns.isForever`. Texte, die VuloClassicUI erwähnen, auf Forever nicht zeigen.
 - **Kampf:** Nichts tauschen in `InCombatLockdown()`; aufschieben bis `PLAYER_REGEN_ENABLED`.

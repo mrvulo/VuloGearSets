@@ -214,7 +214,10 @@ local function namesInBlizzardLine(data)
     return nil
 end
 
-local function addSetLine(tt, data)
+-- remeasure: nur fuer den alten Hook ohne TooltipDataProcessor. Der
+-- Prozessor ruft nach allen Rueckrufen selbst Show() auf; ein eigenes
+-- Show() mittendrin loeste dort nur einen zweiten Aufbau aus.
+local function addSetLine(tt, data, remeasure)
     -- Der Schalter wird HIER geprueft, nicht beim Setzen des Hooks: ein
     -- Hook laesst sich nicht wieder loesen.
     if not ns:IsModuleEnabled("itemtooltip") then return end
@@ -238,7 +241,7 @@ local function addSetLine(tt, data)
     tt:AddLine(string.format("|cff9b6cff%s|r %s", L["Sets:"], table.concat(names, ", ")),
         1, 1, 1)
     -- Neu vermessen, sonst reicht der Rahmen nicht bis zur neuen Zeile.
-    if tt.Show then tt:Show() end
+    if remeasure and tt.Show then tt:Show() end
 end
 
 -- =========================================================
@@ -253,34 +256,20 @@ local function installHooks()
     local TDP = _G.TooltipDataProcessor
     local itemType = _G.Enum and _G.Enum.TooltipDataType and _G.Enum.TooltipDataType.Item
     if TDP and TDP.AddTooltipPostCall and itemType then
-        if ns.isForever then
-            -- Auf Forever verseucht Addon-Code, der INNERHALB des Aufrufs
-            -- laeuft, den ganzen Tooltip-Aufbau (gemessen von anderen
-            -- Autoren). Deshalb einen Frame spaeter anhaengen - und nur,
-            -- wenn der Tooltip dann noch dasselbe Teil zeigt.
-            TDP.AddTooltipPostCall(itemType, function(tt, data)
-                C_Timer.After(0, function()
-                    if not (tt.IsShown and tt:IsShown()) then return end
-                    -- Nur, wenn der Tooltip noch dasselbe Teil zeigt. Ueber
-                    -- die Item-ID verglichen: data kennt manchmal nur die
-                    -- ID, GetItem liefert den vollen Link.
-                    local want = linkFromTooltip(nil, data)
-                    local now  = linkFromTooltip(tt, nil)
-                    if want and (not now or now:match("item:(%d+)") ~= want:match("item:(%d+)")) then
-                        return
-                    end
-                    addSetLine(tt, data)
-                end)
-            end)
-        else
-            TDP.AddTooltipPostCall(itemType, addSetLine)
-        end
+        -- Sofort anhaengen, auf allen Clients. Frueher kam die Zeile auf
+        -- Forever einen Frame spaeter (Vorsicht wegen Taint). Haendler-
+        -- und Taschen-Tooltips bauen sich aber alle 0,2 s neu auf - dann
+        -- stand der Tooltip jedes Mal einen Frame ohne Zeile da und
+        -- flackerte. Die Vorsicht ist unnoetig: Forever ruft Rueckrufe von
+        -- Addons ueber einen abgeschotteten Frame auf (TooltipDataHandler,
+        -- InsecureTooltipPostCalls), Taint laeuft nicht in den Aufbau zurueck.
+        TDP.AddTooltipPostCall(itemType, function(tt, data) addSetLine(tt, data, false) end)
         return
     end
 
     for _, tt in ipairs({ _G.GameTooltip, _G.ItemRefTooltip }) do
         if tt and tt.HookScript then
-            tt:HookScript("OnTooltipSetItem", function(self) addSetLine(self, nil) end)
+            tt:HookScript("OnTooltipSetItem", function(self) addSetLine(self, nil, true) end)
         end
     end
 end
