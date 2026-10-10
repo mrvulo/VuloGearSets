@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.17.2
+
+- **Fixed for good:** the "Equip" and "Save" buttons in the sidebar came up
+  without text after logging in or reloading. The sidebar is built while the
+  loading screen is still up, before the addon's font can draw; every text of
+  the addon is now redrawn as soon as its window appears.
+- **Fixed:** item tooltips flickered on Forever while hovering an item at a
+  vendor or in your bags that belongs to a gear set.
+
 ## 1.17.1
 
 - **Fixed:** the "Equip" and "Save" buttons in the sidebar could still come up
