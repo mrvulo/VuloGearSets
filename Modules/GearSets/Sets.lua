@@ -1008,7 +1008,13 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
 
     if cmd == "save" then
         saveAs(arg)
-    elseif cmd == "equip" or cmd == "" then
+    elseif cmd == "" then
+        -- /vgs bzw. /gearset allein oeffnen die Einstellungen; die Hilfe
+        -- gibt es unter /vgs help.
+        ns:ToggleOptions()
+    elseif cmd == "help" or cmd == "?" then
+        ns:Print(L["Usage: /gearset equip <name> | save <name> | delete <name> | back | bank <name> | list | config | unlock"])
+    elseif cmd == "equip" then
         if arg ~= "" then
             equipLoadout(arg)
         else

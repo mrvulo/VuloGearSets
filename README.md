@@ -39,6 +39,8 @@ click. Runs on its own, no other addons required.
 
 | Command | Effect |
 |---|---|
+| `/vgs` or `/gearset` | open the settings |
+| `/gearset help` | list all commands |
 | `/gearset save <name>` | save your current equipment as a set |
 | `/gearset equip <name>` | equip a set |
 | `/gearset delete <name>` | delete a set |
