@@ -81,9 +81,14 @@ ablegen), `iconOverride` (nil = auto, Zahl = Datei-ID, Text = Pfad), `order`, `s
 - **Schrift:** Eigene Texte über `UI.Font` (Expressway, erst wenn sie zeichnet). Setnamen in der
   Leiste und Fenstertitel bleiben Blizzard-Schrift (`GameFontNormal`). Auf ruRU/zhCN/zhTW/koKR
   immer `STANDARD_TEXT_FONT` – Expressway hat dort keine Zeichen.
-- **Knöpfe:** `UI:CreateButton` hat einen *eigenen* FontString `b.text`. Nie Blizzards Knopftext
-  (`GetFontString`) stylen – die Vorlage setzt dessen Schrift bei jedem Zustandswechsel neu, und
-  „Anlegen“/„Speichern“ blieben nach dem Einloggen leer. `b:SetText`/`b:GetText` sind umgeleitet.
+- **Leere Expressway-Texte nach Login/Reload:** Texte, die während des Ladebildschirms Expressway
+  bekommen (die Set-Leiste wird dort gebaut), bleiben leer, bis sie neu gezeichnet werden. Feste
+  Zeitpunkte reichen nicht. `UI.Font` merkt sich jeden Text und zeichnet ihn bei jedem `OnShow`
+  seines Fensters und nach `LOADING_SCREEN_DISABLED` neu. Eigene Texte deshalb **immer** über
+  `UI.Font`, nie direkt `SetFont` mit Expressway. Auf Forever ist das sichtbare „Neues Set“
+  Blizzards Original-Knopf mit Blizzard-Schrift – kein Beweis, dass Expressway geladen ist.
+- **Knöpfe:** `UI:CreateButton` hat einen *eigenen* FontString `b.text` (nicht Blizzards Knopftext,
+  den die Vorlage bei Zustandswechseln umsetzt). `b:SetText`/`b:GetText` sind umgeleitet.
 - **Ebenen:** Set-Leiste `HIGH`, Einstellungen und Slot-Flyout `DIALOG`, Symbolauswahl und
   Sockel-Auswahl `FULLSCREEN_DIALOG`, gemeinsames Menü `FULLSCREEN_DIALOG` Stufe 100. Der
   Forever-Metallrahmen liegt 30 Stufen über seinem Fenster – was darüber erscheinen soll, braucht

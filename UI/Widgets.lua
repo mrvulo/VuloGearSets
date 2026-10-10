@@ -39,6 +39,55 @@ end
 local NON_LATIN = { ruRU = true, zhCN = true, zhTW = true, koKR = true }
 local _gameFontOnly = GetLocale and NON_LATIN[GetLocale()] or false
 
+-- Zeichnet einen Expressway-Text neu. Ein SetFont mit denselben Werten
+-- und ein SetText mit demselben Text uebergeht der Client - deshalb erst
+-- eine andere Groesse und ein leerer Text, dann zurueck.
+local function redrawOne(fs, p)
+    local text = fs:GetText()
+    fs:SetFont(FONT_PATH, p[1] + 1, p[2])
+    apply(fs, FONT_PATH, p[1], p[2])
+    if text then
+        fs:SetText("")
+        fs:SetText(text)
+    end
+end
+
+local function redraw()
+    for fs, p in pairs(_onFont) do redrawOne(fs, p) end
+end
+
+-- WARUM NEU ZEICHNEN BEIM SICHTBARWERDEN
+--   Die Set-Leiste wird beim Einloggen gebaut, waehrend noch der
+--   Ladebildschirm laeuft. Texte, die dann Expressway bekommen, bleiben
+--   leer, bis sie neu gezeichnet werden - feste Zeitpunkte (1 s, 5 s nach
+--   dem Umschalten) lagen bei langem Ladebildschirm noch mitten darin.
+--   Spaeter gebaute Texte (Einstellungsfenster) waren nie betroffen. Wird
+--   ein Fenster sichtbar, ist die Schrift sicher geladen: deshalb zeichnet
+--   jedes Fenster seine Expressway-Texte bei jedem OnShow neu.
+local _byParent = setmetatable({}, { __mode = "k" })   -- Frame -> { [FontString] = true }
+
+local function onParentShow(self)
+    if not _ready then return end
+    local set = _byParent[self]
+    if not set then return end
+    for fs in pairs(set) do
+        local p = _onFont[fs]
+        if p then redrawOne(fs, p) end
+    end
+end
+
+local function watchParent(fs)
+    local parent = fs.GetParent and fs:GetParent()
+    if not (parent and parent.HookScript) then return end
+    local set = _byParent[parent]
+    if not set then
+        set = setmetatable({}, { __mode = "k" })
+        _byParent[parent] = set
+        parent:HookScript("OnShow", onParentShow)
+    end
+    set[fs] = true
+end
+
 function UI.Font(fs, size, flags)
     size, flags = size or 12, flags or ""
     if _gameFontOnly then
@@ -52,22 +101,8 @@ function UI.Font(fs, size, flags)
         apply(fs, FALLBACK_FONT, size, flags)
         _waiting[fs] = { size, flags }
     end
+    watchParent(fs)
     return fs
-end
-
--- Zeichnet alle Expressway-Texte neu. Ein SetFont mit denselben Werten
--- und ein SetText mit demselben Text uebergeht der Client - deshalb erst
--- eine andere Groesse und ein leerer Text, dann zurueck.
-local function redraw()
-    for fs, p in pairs(_onFont) do
-        local text = fs:GetText()
-        fs:SetFont(FONT_PATH, p[1] + 1, p[2])
-        apply(fs, FONT_PATH, p[1], p[2])
-        if text then
-            fs:SetText("")
-            fs:SetText(text)
-        end
-    end
 end
 
 -- Laeuft ab dem Laden der Datei. Erst auf eine andere Schrift und dann
@@ -97,22 +132,19 @@ do
                 _onFont[fs] = p
             end
             redraw()
-            -- Die Messung kann schon Breite liefern, bevor die Schrift
-            -- wirklich zeichnet - dann blieben gerade die frueh gebauten
-            -- Knoepfe der Seitenleiste nach dem Einloggen leer. Deshalb
-            -- noch zweimal nachzeichnen.
-            if C_Timer and C_Timer.After then
-                C_Timer.After(1, redraw)
-                C_Timer.After(5, redraw)
-            end
         end
         wipe(_waiting)
     end)
 
-    -- Nach jedem Ladebildschirm ebenfalls einmal nachzeichnen.
-    watcher:RegisterEvent("PLAYER_ENTERING_WORLD")
+    -- Zusaetzlich nach jedem Ladebildschirm, fuer Texte, die schon
+    -- sichtbar sind und deshalb kein neues OnShow bekommen.
+    -- LOADING_SCREEN_DISABLED feuert erst, wenn der Ladebildschirm weg
+    -- ist; PLAYER_ENTERING_WORLD schon davor. Unbekannte Ereignisse
+    -- werfen auf alten Clients, daher pcall.
+    pcall(watcher.RegisterEvent, watcher, "LOADING_SCREEN_DISABLED")
+    pcall(watcher.RegisterEvent, watcher, "PLAYER_ENTERING_WORLD")
     watcher:SetScript("OnEvent", function()
-        if _ready and C_Timer and C_Timer.After then C_Timer.After(1, redraw) end
+        if _ready and C_Timer and C_Timer.After then C_Timer.After(0.5, redraw) end
     end)
 end
 
