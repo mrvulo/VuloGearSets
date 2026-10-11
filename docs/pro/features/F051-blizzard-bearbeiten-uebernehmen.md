@@ -1,6 +1,6 @@
 # F051 — Umbenennen und Symbolwechsel in Blizzards Bearbeiten-Fenster übernehmen
 
-Status: test-in-game · Gewünscht 2026-10-11 · Hängt an: F039, F050
+Status: done · Gewünscht 2026-10-11 · Hängt an: F039, F050
 
 ## Ziel
 Wer auf Forever ein verknüpftes Set in Blizzards Ausrüstungsmanager über „Bearbeiten“
