@@ -231,9 +231,16 @@ local function forgetName(name)
     end
 end
 
-local function rememberID(name)
+-- keep = true: einen vorhandenen Eintrag fuer denselben Namen nicht
+-- anfassen. So ruft ihn onSetsChanged auf - Blizzard meldet die Aenderung
+-- schon WAEHREND des Bearbeiten-Aufrufs, und ein dort aufgefrischtes
+-- Symbol sah fuer den Hook danach aus wie das alte: ein in Blizzards
+-- Fenster gewaehltes Symbol kam nie an (R-68).
+local function rememberID(name, keep)
     local setID = blizzID(name)
     if not setID then return end
+    local cur = _idInfo[setID]
+    if keep and cur and cur.name == name then return end
     forgetName(name)
     local icon
     if CES.GetEquipmentSetInfo then
@@ -284,7 +291,10 @@ local function writeMirror(name, loadout)
     local icon = iconFileID(loadout)
     local setID = blizzID(name)
     if setID then
-        return withIgnoredSlots(loadout, function() CES.SaveEquipmentSet(setID, icon) end)
+        local ok = withIgnoredSlots(loadout, function() CES.SaveEquipmentSet(setID, icon) end)
+        -- Blizzards Symbol ist jetzt unseres - fuer den Vergleich im Hook.
+        rememberID(name)
+        return ok
     end
 
     if _pendingCreate[name] then return false end
@@ -510,7 +520,7 @@ local function onSetsChanged()
     for name, owned in pairs(map) do
         if blizzID(name) then
             _seen[name] = true
-            if owned == true then rememberID(name) end
+            if owned == true then rememberID(name, true) end
         elseif owned == true and _seen[name] and not _pendingCreate[name] then
             -- Gibt es die gemerkte Set-ID noch, hat Blizzard das Set nur
             -- umbenannt - das entscheidet der Hook direkt danach (F051).

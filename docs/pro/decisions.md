@@ -44,3 +44,4 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-10-11 · assumed · Hemd und Wappenrock zählen beim Abgleich mit Blizzards Kopie nicht mehr, damit in Blizzards Fenster angelegte Sets nicht still überschrieben werden · F050
 - 2026-10-11 · Umbenennen und Symbolwechsel in Blizzards Bearbeiten-Fenster übernehmen · user „kannst du das auch machen“ · F051
 - 2026-10-11 · assumed · Löschen in Blizzards Fenster löscht unser Set weiterhin nicht (I-03) · F051
+- 2026-10-11 · Spieltest F051: Umbenennen geht, Symbol nicht · user „name geht aber symbol/icon nicht“ · F051, R-68

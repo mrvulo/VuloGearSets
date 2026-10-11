@@ -31,6 +31,8 @@ umbenennt oder ihm ein anderes Symbol gibt, sieht dieselbe Änderung in VuloGear
 - Feuert `EQUIPMENT_SETS_CHANGED` schon während Blizzards Aufruf: die Verknüpfung wird nicht
   gelöst, solange die gemerkte Set-ID noch existiert; der Hook entscheidet direkt danach.
 - Spiegel-Schalter aus: nichts übernehmen, aber die Verknüpfung lösen (wie vorher).
+- Symbol-Merker wird nur bei eigenen Schreibvorgängen und übernommenen Änderungen erneuert, nie
+  bei `EQUIPMENT_SETS_CHANGED` (R-68: sonst kam ein in Blizzards Fenster gewähltes Symbol nie an).
 - „?“ gewählt: bei uns automatisch, und unser automatisches Symbol geht zu Blizzard zurück.
 
 ## Nicht enthalten
