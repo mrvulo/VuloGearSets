@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.17.3
+
+- `/vgs` (or `/gearset`) on its own now opens and closes the settings. The list
+  of commands moved to `/vgs help`.
+
 ## 1.17.2
 
 - **Fixed for good:** the "Equip" and "Save" buttons in the sidebar came up
