@@ -182,7 +182,13 @@ local function mirrorMatches(setID, loadout)
     local inMask = maskOf(loadout)
     for s = FIRST_SLOT, LAST_SLOT do
         local isIgnored = ignored[s] and true or false
-        if not inMask[s] then
+        -- Hemd und Wappenrock speichert VuloGearSets nie. Ein in Blizzards
+        -- Fenster neu angelegtes Set enthaelt sie aber (dessen Fenster
+        -- raeumt die Ausnahmen vor dem Anlegen ab) - sonst ueberschriebe
+        -- der naechste Abgleich das Set des Spielers still.
+        if s == 4 or s == 19 then
+            -- nicht vergleichen
+        elseif not inMask[s] then
             if not isIgnored then return false end
         else
             if isIgnored then return false end
@@ -205,6 +211,12 @@ local _pendingCreate = {}   -- Name -> true, bis Blizzard das Set meldet
 local _seen          = {}   -- Name -> true: diese Sitzung bei Blizzard gesehen
 local _triedCreate   = {}   -- Name -> true: diese Sitzung von uns angelegt
 local _fullWarned    = false
+-- > 0, solange wir selbst in Blizzards Manager schreiben. Die Gegenrichtung
+-- (F050) uebergeht diese Aufrufe, sonst schaukelten sich beide Seiten auf.
+local _selfWrite     = 0
+-- true, solange ein in Blizzards Fenster gespeichertes Set bei uns
+-- gespeichert wird - dann nicht zurueckspiegeln, Blizzard hat es schon.
+local _fromBlizzard  = false
 
 -- Die Liste der beim Speichern ignorierten Slots gibt es im Client nur
 -- einmal - Blizzards eigenes Fenster laedt dort die Auswahl des gerade
@@ -223,7 +235,9 @@ local function withIgnoredSlots(loadout, fn)
     for s = FIRST_SLOT, LAST_SLOT do
         if not inMask[s] then pcall(CES.IgnoreSlotForSave, s) end
     end
+    _selfWrite = _selfWrite + 1
     local ok, err = pcall(fn)
+    _selfWrite = _selfWrite - 1
     pcall(CES.ClearIgnoredSlotsForSave)
     for s = FIRST_SLOT, LAST_SLOT do
         if before[s] then pcall(CES.IgnoreSlotForSave, s) end
@@ -327,7 +341,7 @@ end
 -- Aufrufe aus dem Set-Modul
 -- =========================================================
 function ns:MirrorSetSaved(name)
-    if not active() then return end
+    if _fromBlizzard or not active() then return end
     if InCombatLockdown() then return end
     syncSet(name, true)
 end
@@ -425,10 +439,15 @@ local function onSetsChanged()
     -- schon als "abgelehnt" da. Hat diese Sitzung es selbst angelegt und
     -- Blizzard kennt es jetzt, ist es doch unseres.
     for name in pairs(_triedCreate) do
-        if map[name] == "rejected" and blizzID(name) then
-            map[name] = true
-            ns:Print(string.format(
-                L["'%s' has arrived in Blizzard's equipment manager after all."], name))
+        if blizzID(name) then
+            if map[name] == "rejected" then
+                map[name] = true
+                ns:Print(string.format(
+                    L["'%s' has arrived in Blizzard's equipment manager after all."], name))
+            elseif map[name] == nil and ourSets()[name] then
+                -- In Blizzards Fenster angelegt, Meldung kam spaet (F050).
+                map[name] = true
+            end
         end
     end
     -- Unsere eigenen Loeschungen tauchen hier nicht auf: MirrorSetDeleted
@@ -451,10 +470,142 @@ end
 local function onEquipmentChanged() queueSync() end
 
 -- =========================================================
+-- Gegenrichtung (F050): in Blizzards Fenster angelegt oder gespeichert
+-- -> auch bei uns gespeichert und verknuepft.
+--
+-- Blizzards Aufrufe werden nur beobachtet (hooksecurefunc): ihr Ablauf
+-- bleibt sicher, und an Blizzards Frames wird nichts geschrieben.
+-- =========================================================
+local QUESTION_MARK = 134400   -- Blizzards "?" = kein Symbol gewaehlt
+
+local function chosenIcon(icon)
+    if type(icon) == "number" then
+        return (icon > 0 and icon ~= QUESTION_MARK) and icon or nil
+    end
+    if type(icon) == "string" and icon ~= ""
+       and not icon:upper():find("INV_MISC_QUESTIONMARK", 1, true) then
+        return icon
+    end
+    return nil
+end
+
+-- Die Slots, die Blizzard gerade gespeichert hat. Beim Speichern eines
+-- vorhandenen Sets aus dessen gespeicherten Ausnahmen (GetIgnoredSlots) -
+-- das ist, was Blizzard tatsaechlich gesichert hat. Beim Anlegen gibt es
+-- noch keine Set-ID; dann die Ausnahmen fuers Speichern, die Blizzards
+-- Fenster beim Anlegen schon vor dem Aufruf geleert hat. Hemd und
+-- Wappenrock speichert VuloGearSets nie.
+local function savedSlotList(setID)
+    local ignored
+    if setID and CES.GetIgnoredSlots then
+        local ok, t = pcall(CES.GetIgnoredSlots, setID)
+        if ok and type(t) == "table" then ignored = t end
+    end
+    local list = {}
+    for s = FIRST_SLOT, LAST_SLOT do
+        if s ~= 4 and s ~= 19 then
+            local ign
+            if ignored then
+                ign = ignored[s]
+            else
+                local ok, v = pcall(CES.IsSlotIgnoredForSave, s)
+                ign = ok and v
+            end
+            if not ign then list[#list + 1] = s end
+        end
+    end
+    return list
+end
+
+local function adoptFromBlizzard(name, icon, isNew, setID)
+    if _selfWrite > 0 or not active() then return end
+    if type(name) ~= "string" or (issecretvalue and issecretvalue(name)) then
+        return
+    end
+    -- Wie beim Speichern bei uns: Leerzeichen am Rand gehoeren nicht zum
+    -- Namen, sonst liefe die Verknuepfung unter einem anderen Schluessel.
+    name = name:match("^%s*(.-)%s*$")
+    if name == "" then return end
+    local GS = ns.GS
+    if not (GS and GS.saveAs) then return end
+
+    local slotList = savedSlotList(setID)
+    _fromBlizzard = true
+    local ok, err = pcall(GS.saveAs, name, slotList)
+    _fromBlizzard = false
+    if not ok then
+        ns:Debug("BlizzardSets: %s", tostring(err))
+        return
+    end
+    local loadout = ourSets()[name]
+    if type(loadout) ~= "table" then return end
+
+    -- Symbol: beim Anlegen das gewaehlte (Blizzards "?" = automatisch),
+    -- beim Speichern nur ein anderes als unser bisheriges. Ohne Symbol
+    -- (Speichern-Knopf im Fenster) bleibt es, wie es ist.
+    local pick = chosenIcon(icon)
+    local changed = false
+    if isNew then
+        changed = loadout.iconOverride ~= pick
+        loadout.iconOverride = pick
+    elseif pick and pick ~= iconFileID(loadout) then
+        changed = true
+        loadout.iconOverride = pick
+    end
+    if changed then
+        if GS.refreshSidebar then GS.refreshSidebar() end
+        if ns.UpdateSetMacroIcon then ns:UpdateSetMacroIcon(name) end
+    end
+
+    -- Verknuepfen: Blizzards Set gehoert jetzt zu unserem. Ein neues meldet
+    -- Blizzard erst etwas spaeter (onSetsChanged); lehnt es den Namen ab,
+    -- bleibt unser Set trotzdem gespeichert.
+    if blizzID(name) then
+        mirrorMap()[name] = true
+        _seen[name] = true
+    else
+        -- Kommt Blizzards Meldung spaeter, nimmt onSetsChanged sie ueber
+        -- _triedCreate noch an.
+        _pendingCreate[name] = true
+        _triedCreate[name] = true
+        C_Timer.After(2, function()
+            if _pendingCreate[name] and not blizzID(name) then
+                _pendingCreate[name] = nil
+            end
+        end)
+    end
+end
+
+local function installReverseHooks()
+    if mod._hooked or not (hooksecurefunc and CES) then return end
+    mod._hooked = true
+    if CES.CreateEquipmentSet then
+        -- Alles im Hook abgesichert: ein Fehler hier landete sonst mitten in
+        -- Blizzards OK-Knopf.
+        pcall(hooksecurefunc, CES, "CreateEquipmentSet", function(name, icon)
+            local ok, err = pcall(adoptFromBlizzard, name, icon, true, nil)
+            if not ok then ns:Debug("BlizzardSets: %s", tostring(err)) end
+        end)
+    end
+    if CES.SaveEquipmentSet and CES.GetEquipmentSetInfo then
+        pcall(hooksecurefunc, CES, "SaveEquipmentSet", function(setID, icon)
+            if _selfWrite > 0 then return end
+            local ok, name = pcall(CES.GetEquipmentSetInfo, setID)
+            if not ok then return end
+            local ok2, err = pcall(adoptFromBlizzard, name, icon, false, setID)
+            if not ok2 then ns:Debug("BlizzardSets: %s", tostring(err)) end
+        end)
+    end
+end
+
+-- =========================================================
 -- Modul-Lebenszyklus
 -- =========================================================
 function mod:OnEnable()
     if not available() then return end
+    -- Einmal je Sitzung; ein Hook laesst sich nicht wieder loesen, er
+    -- fragt deshalb selbst active().
+    installReverseHooks()
     ns:RegisterEvent("EQUIPMENT_SETS_CHANGED",   onSetsChanged)
     ns:RegisterEvent("PLAYER_EQUIPMENT_CHANGED", onEquipmentChanged)
     ns:RegisterEvent("PLAYER_REGEN_ENABLED",     onEquipmentChanged)

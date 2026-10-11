@@ -38,3 +38,7 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-10-10 · assumed · Keine Code-Verschiebungen beim pro-Setup; nur Dokumente und Prüfer · —
 - Laufend · Release nur auf ausdrückliches „release“ · user · I-20
 - 2026-10-11 · F049 im Spiel bestätigt, Release 1.17.3 · user „passt alles, release“ · F049
+- 2026-10-11 · Speichern in Blizzards Ausrüstungsmanager soll auch bei uns speichern · user „wenn wir in blizzard ausrüstungsmanager das gear speichern es bei uns gespeichert wird?“ · F050
+- 2026-10-11 · assumed · Kein eigener Schalter: läuft unter „Sets auch in Blizzards Ausrüstungsmanager führen“ · F050
+- 2026-10-11 · assumed · Umbenennen/Löschen in Blizzards Fenster nicht übernommen, vorhandene Blizzard-Sets nicht importiert (als Ideen F051, F052 notiert) · F050
+- 2026-10-11 · assumed · Hemd und Wappenrock zählen beim Abgleich mit Blizzards Kopie nicht mehr, damit in Blizzards Fenster angelegte Sets nicht still überschrieben werden · F050
