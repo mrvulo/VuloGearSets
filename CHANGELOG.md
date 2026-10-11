@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.18.1
+
+- **Fixed on Forever:** an icon picked in Blizzard's edit window for a linked set
+  did not carry over to VuloGearSets; renaming already did.
+
 ## 1.18.0
 
 - **New on Forever: Blizzard's equipment manager now works both ways.** A set
