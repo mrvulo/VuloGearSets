@@ -52,7 +52,7 @@ Stand: 2026-10-10. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 | F046 | Auswahllisten in den Einstellungen klappen direkt unter der Liste auf, über allen Fenstern | done | — | Core/PopupMenu.lua, UI/Widgets.lua |
 | F047 | Kein Schlagschatten im Forever-Stil (Classic/Modern behalten ihn) | done | — | UI/Widgets.lua, Core/Skin.lua |
 | F048 | Neue Sprachen Französisch, Spanisch (auch esMX), Russisch, Chinesisch (vereinfacht) | test-in-game | — | Locales/frFR.lua, Locales/esES.lua, Locales/ruRU.lua, Locales/zhCN.lua |
-| F049 | `/vgs` und `/gearset` allein öffnen/schließen die Einstellungen (Hilfe unter `/vgs help`) | test-in-game | — | Modules/GearSets/Sets.lua |
+| F049 | `/vgs` und `/gearset` allein öffnen/schließen die Einstellungen (Hilfe unter `/vgs help`) | done | — | Modules/GearSets/Sets.lua |
 | D001 | Schlafmodus (Addon schaltet sich ab, wenn VuloClassicUI sein Set-Modul hat) | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D002 | Kontoweiter Set-Pool und separater Importbefehl der Altversion | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D003 | Auslöseart "Beim Überfahren" im Slot-Auswahl-Dropdown: Hover ist jetzt immer aktiv, das Dropdown wählt nur den Klick fürs große Fenster | dropped | — | Modules/SlotPicker.lua |
@@ -64,7 +64,6 @@ Stand: 2026-10-10. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 ## Wartet auf Spieltest
 
 - F048: Spielsprache auf Français und Русский stellen – passen die Texte in die Knöpfe, sind russische Texte lesbar (Blizzard-Schrift)?
-- F049: `/vgs` öffnet und schließt die Einstellungen, `/vgs help` zeigt die Befehle.
 
 ## Ideen
 

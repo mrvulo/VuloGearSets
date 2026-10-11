@@ -37,3 +37,4 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-10-10 · Projektgedächtnis unter `docs/pro/` (Skill pro) · user `/pro` · —
 - 2026-10-10 · assumed · Keine Code-Verschiebungen beim pro-Setup; nur Dokumente und Prüfer · —
 - Laufend · Release nur auf ausdrückliches „release“ · user · I-20
+- 2026-10-11 · F049 im Spiel bestätigt, Release 1.17.3 · user „passt alles, release“ · F049
