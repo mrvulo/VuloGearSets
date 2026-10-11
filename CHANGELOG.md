@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.18.0
+
+- **New on Forever: Blizzard's equipment manager now works both ways.** A set
+  you create or save in Blizzard's equipment manager is saved in VuloGearSets
+  too, with the slots Blizzard stored and the icon you picked, and stays linked.
+  Renaming a linked set or changing its icon in Blizzard's edit window carries
+  over as well, including its key binding, spec and form binding and macro.
+  Deleting a set in Blizzard's window never deletes it in VuloGearSets.
+- Shirt and tabard no longer count when comparing a set with Blizzard's copy,
+  so a set made in Blizzard's window is not silently rewritten.
+
 ## 1.17.3
 
 - `/vgs` (or `/gearset`) on its own now opens and closes the settings. The list
