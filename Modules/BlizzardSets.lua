@@ -217,6 +217,38 @@ local _selfWrite     = 0
 -- true, solange ein in Blizzards Fenster gespeichertes Set bei uns
 -- gespeichert wird - dann nicht zurueckspiegeln, Blizzard hat es schon.
 local _fromBlizzard  = false
+-- Set-ID -> { name = unser Name, icon = Blizzards Symbol }, je Sitzung.
+-- Nach Blizzards Umbenennen kennt der Client den alten Namen nicht mehr,
+-- und Blizzards OK schickt immer ein Symbol mit - nur ein anderes als das
+-- gemerkte ist eine echte Aenderung (F051). Blizzard vergibt Set-IDs neu:
+-- je Name gibt es deshalb hoechstens einen Eintrag, und Loeschen oder
+-- Loesen der Verknuepfung raeumt ihn ab.
+local _idInfo        = {}
+
+local function forgetName(name)
+    for id, info in pairs(_idInfo) do
+        if info.name == name then _idInfo[id] = nil end
+    end
+end
+
+local function rememberID(name)
+    local setID = blizzID(name)
+    if not setID then return end
+    forgetName(name)
+    local icon
+    if CES.GetEquipmentSetInfo then
+        local ok, _, ic = pcall(CES.GetEquipmentSetInfo, setID)
+        if ok then icon = ic end
+    end
+    _idInfo[setID] = { name = name, icon = icon }
+end
+
+local function idForName(name)
+    for id, info in pairs(_idInfo) do
+        if info.name == name then return id end
+    end
+    return nil
+end
 
 -- Die Liste der beim Speichern ignorierten Slots gibt es im Client nur
 -- einmal - Blizzards eigenes Fenster laedt dort die Auswahl des gerade
@@ -281,6 +313,7 @@ local function writeMirror(name, loadout)
         if blizzID(name) then
             mirrorMap()[name] = true
             _seen[name] = true
+            rememberID(name)
         else
             if ourSets()[name] then mirrorMap()[name] = "rejected" end
             ns:Print(string.format(
@@ -307,6 +340,7 @@ local function syncSet(name, adopt)
         -- das erst noch angelegt werden muss, gehoert uns, sobald Blizzard
         -- es meldet (siehe writeMirror/onSetsChanged).
         map[name] = setID and true or nil
+        if setID then rememberID(name) end
     elseif map[name] == false or map[name] == "rejected" then
         return
     elseif setID and map[name] ~= true then
@@ -350,6 +384,7 @@ function ns:MirrorSetDeleted(name)
     local map = mirrorMap()
     local owned = map[name]
     map[name] = nil
+    forgetName(name)
     _seen[name], _pendingCreate[name] = nil, nil
     -- Loeschen und Umbenennen sind bei Blizzard nicht kampfgesperrt - nur
     -- das Speichern aus der Ausruestung wartet (siehe syncSet).
@@ -365,6 +400,14 @@ function ns:MirrorSetRenamed(oldName, newName)
     local owned = map[oldName]
     map[oldName] = nil
     _seen[oldName], _pendingCreate[oldName] = nil, nil
+    -- In Blizzards Fenster umbenannt (F051): dort ist es schon geschehen,
+    -- nur die Verknuepfung wandert mit.
+    if _fromBlizzard then
+        map[newName] = owned
+        _seen[newName] = true
+        rememberID(newName)
+        return
+    end
     -- Ein abgelehnter Name ist mit dem Umbenennen erledigt: der neue
     -- bekommt einen frischen Versuch.
     if owned == nil or owned == "rejected" then return end
@@ -376,6 +419,7 @@ function ns:MirrorSetRenamed(oldName, newName)
     if blizzID(newName) then
         -- Den neuen Namen belegt schon ein fremdes Blizzard-Set. Unsere
         -- alte Kopie wuerde sonst unter falschem Namen zurueckbleiben.
+        forgetName(oldName)
         pcall(CES.DeleteEquipmentSet, setID)
         return
     end
@@ -386,7 +430,13 @@ function ns:MirrorSetRenamed(oldName, newName)
         if ok and type(cur) == "number" then icon = cur end
     end
     map[newName] = true
-    if not pcall(CES.ModifyEquipmentSet, setID, newName, icon) then
+    _selfWrite = _selfWrite + 1
+    local ok = pcall(CES.ModifyEquipmentSet, setID, newName, icon)
+    _selfWrite = _selfWrite - 1
+    if ok then
+        forgetName(oldName)
+        rememberID(newName)
+    else
         map[newName] = nil
     end
 end
@@ -397,7 +447,12 @@ function ns:MirrorSetIconChanged(name)
     local setID = blizzID(name)
     if not setID then return end
     local icon = iconFileID(ourSets()[name])
-    if icon then pcall(CES.ModifyEquipmentSet, setID, name, icon) end
+    if icon then
+        _selfWrite = _selfWrite + 1
+        pcall(CES.ModifyEquipmentSet, setID, name, icon)
+        _selfWrite = _selfWrite - 1
+        rememberID(name)
+    end
 end
 
 -- Blizzards Set-ID fuer die Aktionsleiste - nur fuer unsere Kopien.
@@ -455,9 +510,20 @@ local function onSetsChanged()
     for name, owned in pairs(map) do
         if blizzID(name) then
             _seen[name] = true
+            if owned == true then rememberID(name) end
         elseif owned == true and _seen[name] and not _pendingCreate[name] then
-            map[name] = false
-            _seen[name] = nil
+            -- Gibt es die gemerkte Set-ID noch, hat Blizzard das Set nur
+            -- umbenannt - das entscheidet der Hook direkt danach (F051).
+            local id = idForName(name)
+            local okInfo, still = false, nil
+            if id and CES.GetEquipmentSetInfo then
+                okInfo, still = pcall(CES.GetEquipmentSetInfo, id)
+            end
+            if not (okInfo and type(still) == "string") then
+                map[name] = false
+                _seen[name] = nil
+                forgetName(name)
+            end
         end
     end
     -- Verwaiste Merker aufraeumen: Sets, die es bei uns nicht mehr gibt.
@@ -563,6 +629,7 @@ local function adoptFromBlizzard(name, icon, isNew, setID)
     if blizzID(name) then
         mirrorMap()[name] = true
         _seen[name] = true
+        rememberID(name)
     else
         -- Kommt Blizzards Meldung spaeter, nimmt onSetsChanged sie ueber
         -- _triedCreate noch an.
@@ -574,6 +641,60 @@ local function adoptFromBlizzard(name, icon, isNew, setID)
             end
         end)
     end
+end
+
+-- Bearbeiten in Blizzards Fenster (F051): Name und Symbol eines
+-- verknuepften Sets uebernehmen. Umbenannt wird ueber denselben Weg wie
+-- bei uns, damit Taste, Bindungen, Makro und Leiste mitgehen.
+local function adoptModifyFromBlizzard(setID, newName, icon)
+    if _selfWrite > 0 then return end
+    local info = _idInfo[setID]
+    if not info then return end
+    local oldName = info.name
+    local map = mirrorMap()
+    if map[oldName] ~= true then return end
+
+    local name = oldName
+    if type(newName) == "string" and not (issecretvalue and issecretvalue(newName)) then
+        newName = newName:match("^%s*(.-)%s*$")
+    else
+        newName = oldName
+    end
+    local renamed = newName ~= "" and newName ~= oldName
+
+    local GS = ns.GS
+    if not (active() and GS and GS.renameLoadout) then
+        -- Spiegel aus: nichts uebernehmen, aber die Verknuepfung loesen wie
+        -- bisher - sonst legte der naechste Abgleich ein zweites Set an.
+        if renamed then map[oldName] = false; forgetName(oldName) end
+        return
+    end
+
+    if renamed then
+        _fromBlizzard = true
+        local ok, final = pcall(GS.renameLoadout, oldName, newName)
+        _fromBlizzard = false
+        if not (ok and final) then
+            -- Name bei uns schon vergeben: unser Set bleibt, die
+            -- Verknuepfung wird geloest.
+            map[oldName] = false
+            forgetName(oldName)
+            return
+        end
+        name = final
+    end
+
+    -- Symbol nur, wenn es in Blizzards Fenster wirklich geaendert wurde.
+    local loadout = ourSets()[name]
+    if icon ~= nil and icon ~= info.icon and type(loadout) == "table" then
+        loadout.iconOverride = chosenIcon(icon)   -- "?" = automatisch
+        if GS.refreshSidebar then GS.refreshSidebar() end
+        if ns.UpdateSetMacroIcon then ns:UpdateSetMacroIcon(name) end
+        -- Automatisch: unser Symbol zu Blizzard zurueck, statt "?" stehen
+        -- zu lassen (laeuft unter _selfWrite).
+        if loadout.iconOverride == nil then ns:MirrorSetIconChanged(name) end
+    end
+    rememberID(name)
 end
 
 local function installReverseHooks()
@@ -594,6 +715,12 @@ local function installReverseHooks()
             if not ok then return end
             local ok2, err = pcall(adoptFromBlizzard, name, icon, false, setID)
             if not ok2 then ns:Debug("BlizzardSets: %s", tostring(err)) end
+        end)
+    end
+    if CES.ModifyEquipmentSet then
+        pcall(hooksecurefunc, CES, "ModifyEquipmentSet", function(setID, newName, icon)
+            local ok, err = pcall(adoptModifyFromBlizzard, setID, newName, icon)
+            if not ok then ns:Debug("BlizzardSets: %s", tostring(err)) end
         end)
     end
 end

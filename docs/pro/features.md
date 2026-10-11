@@ -54,6 +54,7 @@ Stand: 2026-10-10. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 | F048 | Neue Sprachen Französisch, Spanisch (auch esMX), Russisch, Chinesisch (vereinfacht) | test-in-game | — | Locales/frFR.lua, Locales/esES.lua, Locales/ruRU.lua, Locales/zhCN.lua |
 | F049 | `/vgs` und `/gearset` allein öffnen/schließen die Einstellungen (Hilfe unter `/vgs help`) | done | — | Modules/GearSets/Sets.lua |
 | F050 | Forever: Anlegen/Speichern in Blizzards Ausrüstungsmanager speichert das Set auch in VuloGearSets und verknüpft es | test-in-game | [F050](features/F050-blizzard-speichern-uebernehmen.md) | Modules/BlizzardSets.lua, Modules/GearSets/Sets.lua |
+| F051 | Forever: Umbenennen und Symbolwechsel in Blizzards Bearbeiten-Fenster übernehmen | test-in-game | [F051](features/F051-blizzard-bearbeiten-uebernehmen.md) | Modules/BlizzardSets.lua, Modules/GearSets/Sets.lua |
 | D001 | Schlafmodus (Addon schaltet sich ab, wenn VuloClassicUI sein Set-Modul hat) | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D002 | Kontoweiter Set-Pool und separater Importbefehl der Altversion | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D003 | Auslöseart "Beim Überfahren" im Slot-Auswahl-Dropdown: Hover ist jetzt immer aktiv, das Dropdown wählt nur den Klick fürs große Fenster | dropped | — | Modules/SlotPicker.lua |
@@ -64,6 +65,7 @@ Stand: 2026-10-10. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 
 ## Wartet auf Spieltest
 
+- F051: siehe Spieltest in der Spezifikation (Bearbeiten → umbenennen, Symbol wechseln).
 - F050: siehe Spieltest in der Spezifikation (neues Set in Blizzards Fenster, Speichern, Umbenennen bei uns).
 - F048: Spielsprache auf Français und Русский stellen – passen die Texte in die Knöpfe, sind russische Texte lesbar (Blizzard-Schrift)?
 
@@ -73,5 +75,4 @@ Neue Vorschläge von Claude hier mit ID als `idea` eintragen, damit „mach 1 un
 
 | ID | Idee | Status |
 |---|---|---|
-| F051 | Umbenennen und Symbolwechsel in Blizzards Bearbeiten-Fenster ebenfalls übernehmen (heute löst ein Umbenennen dort nur die Verknüpfung) | idea |
 | F052 | Vorhandene Blizzard-Sets, die nie neu gespeichert werden, einmalig in VuloGearSets übernehmen | idea |

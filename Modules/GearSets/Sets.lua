@@ -1160,6 +1160,7 @@ GS.VISIBILITY_FIELDS   = VISIBILITY_FIELDS
 GS.cycleVisibility     = cycleVisibility
 GS.deleteLoadout       = deleteLoadout
 GS.saveAs              = saveAs
+GS.renameLoadout       = renameLoadout
 GS.depositLoadout      = depositLoadout
 GS.equipLoadout        = equipLoadout
 GS.equipPrevious       = equipPrevious
