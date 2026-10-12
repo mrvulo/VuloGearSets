@@ -14,4 +14,8 @@ ignore:
 # Keine externen Bibliotheken - das Addon kommt ohne Libs aus.
 enable-nolib-creation: no
 
-manual-changelog: CHANGELOG.md
+# Ohne markup-type laedt der Packager den Changelog als reinen Text hoch,
+# CurseForge zeigt dann Ueberschriften und Punkte als Rohzeichen.
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown

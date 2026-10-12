@@ -48,3 +48,4 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-10-11 · F051 samt Symbol im Spiel bestätigt · user „ok geht“ · F051, R-68
 - 2026-10-12 · Changelog einheitlich gegliedert: `## x.y.z — Datum`, darunter nur Stichpunkte mit Vorsatz `New:`, `Improved:`, `Changed:`, `Fixed:` (Forever: `Fixed (Forever):`), keine `###`, keine Fettschrift · user „changelog besser und professioneller“, „weniger # und mehr punkte“ · —
 - 2026-10-12 · assumed · Fehlende Ueberschrift 1.5.0 nachgetragen; Release-Skript liest weiter nur die Version nach `## ` · —
+- 2026-10-12 · Changelog wird mit `markup-type: markdown` hochgeladen (Kurzform in .pkgmeta hieß „Text“, CurseForge zeigte Rohzeichen) · user Screenshot · —
