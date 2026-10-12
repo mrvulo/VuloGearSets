@@ -46,3 +46,5 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-10-11 · assumed · Löschen in Blizzards Fenster löscht unser Set weiterhin nicht (I-03) · F051
 - 2026-10-11 · Spieltest F051: Umbenennen geht, Symbol nicht · user „name geht aber symbol/icon nicht“ · F051, R-68
 - 2026-10-11 · F051 samt Symbol im Spiel bestätigt · user „ok geht“ · F051, R-68
+- 2026-10-12 · Changelog einheitlich gegliedert: `## x.y.z — Datum`, darunter `### New / Improved / Changed / Fixed`, kurze Stichpunkte, keine Fettschrift · user „changelog besser und professioneller“ · —
+- 2026-10-12 · assumed · Fehlende Ueberschrift 1.5.0 nachgetragen; Release-Skript liest weiter nur die Version nach `## ` · —
