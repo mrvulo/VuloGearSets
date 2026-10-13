@@ -1,3 +1,24 @@
+## 1.19.0 — 2026-10-13
+
+- New: Saving under the name of an existing set now asks first. Saving only trinkets, weapons, rings or armor under an existing name also warns that all other items leave the set.
+- Fixed: Opening "Set key..." and entering combat no longer turns your next ability key into the set key or causes a blocked-action error; the prompt now closes when combat starts.
+- Fixed: A set with two identical rings or trinkets equips both again.
+- Fixed: Equipping a set that empties several slots at once no longer claims your bags are full.
+- Fixed: A swap the game refused no longer counts as equipped, so "Back to previous gear" keeps the right items.
+- Fixed: Saving a set while riding with the automatic riding crop stores your trinket, not the crop.
+- Fixed: Deleting a set also removes its spec and form binding, so a new set with the same name starts unbound.
+- Fixed: Spec labels show the talent tree name again on TBC Anniversary and Classic Era ("Spec 1 (Shadow)").
+- Fixed: Logging in no longer equips a spec-bound set before the addon has read your active spec.
+- Fixed: The in-combat message for a set key shows again in later fights.
+- Fixed: Dragging sets to reorder them in the sidebar no longer breaks off when loot arrives.
+- Fixed: The item picker lists copies of the same item with different gems or enchants separately.
+- Fixed: Changing or removing an item in a set now updates its macro icon and the settings window.
+- Fixed: The socket bar no longer goes blank after hiding the interface with Alt+Z.
+- Fixed: A socketing window the addon opened now closes if picking up the gem fails.
+- Fixed: Renaming or deleting a set during combat updates its macro once combat ends.
+- Fixed: The minimap button follows the cursor correctly on a scaled minimap.
+- Fixed: "in" and "Slot" in the item picker are now translated.
+
 ## 1.18.1 — 2026-10-11
 
 - Fixed (Forever): an icon picked in Blizzard's edit window for a linked set now carries over to VuloGearSets, as renaming already did.
