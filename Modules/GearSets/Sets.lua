@@ -529,6 +529,17 @@ local function touchedSlots(loadout)
     return list
 end
 
+-- Chatzeilen beim Anlegen, gefiltert nach der Einstellung "Chatmeldungen
+-- beim Anlegen": "all" alles, "problems" nur was nicht geklappt hat,
+-- "none" nichts. Andere Meldungen (Speichern, Loeschen, Befehle) bleiben:
+-- die loest der Spieler selbst aus und will die Antwort sehen.
+local function equipSay(problem, text)
+    local mode = (mod.db and mod.db.chatMessages) or "all"
+    if mode == "none" then return end
+    if mode == "problems" and not problem then return end
+    ns:Print(text)
+end
+
 -- `loadout` ist nur fuer "Zurueck" gesetzt: der Vorher-Stand ist kein
 -- gespeichertes Set und hat keinen Eintrag in LO(). `name` ist dann nur
 -- der Text fuer die Chatzeilen.
@@ -539,7 +550,7 @@ local function equipLoadout(name, loadout)
         local outcome = tostring(name) .. "\1combat"
         if outcome ~= _lastEquipOutcome then
             _lastEquipOutcome = outcome
-            ns:Print(L["Cannot change equipment in combat."])
+            equipSay(true, L["Cannot change equipment in combat."])
         end
         return
     end
@@ -741,36 +752,36 @@ local function equipLoadout(name, loadout)
 
     if swapped > 0 then
         if missing > 0 then
-            ns:Print(string.format(L["Gear set '%s' equipped (%d swapped, %d missing from bags)."],
+            equipSay(true, string.format(L["Gear set '%s' equipped (%d swapped, %d missing from bags)."],
                 name, swapped, missing))
         else
-            ns:Print(string.format(L["Gear set '%s' equipped (%d items swapped)."], name, swapped))
+            equipSay(false, string.format(L["Gear set '%s' equipped (%d items swapped)."], name, swapped))
         end
     elseif missing > 0 then
-        ns:Print(string.format(L["Gear set '%s': %d items missing from bags, nothing swapped."],
+        equipSay(true, string.format(L["Gear set '%s': %d items missing from bags, nothing swapped."],
             name, missing))
     elseif atBank == 0 and removed == 0 and bagsFull == 0 and failed == 0 then
-        ns:Print(string.format(L["Gear set '%s' already equipped."], name))
+        equipSay(false, string.format(L["Gear set '%s' already equipped."], name))
     end
 
     -- Eigene Zeilen fuer das Ablegen: das ist die Haelfte der Wahrheit, die
     -- in "gewechselt" nicht steckt.
     if removed > 0 then
-        ns:Print(string.format(L["%d items taken off."], removed))
+        equipSay(false, string.format(L["%d items taken off."], removed))
     end
     if bagsFull > 0 then
-        ns:Print(string.format(
+        equipSay(true, string.format(
             L["%d items stayed on — no free bag space to take them off."], bagsFull))
     end
     if failed > 0 then
-        ns:Print(string.format(
+        equipSay(true, string.format(
             L["%d items could not be equipped — the game refused them (level, slot or item locked)."], failed))
     end
 
     -- Eigene Zeile statt "fehlt": das Teil ist nicht weg, es ist nur gerade
     -- nicht erreichbar. Mit offenem Bankfenster kaeme es von selbst mit.
     if atBank > 0 then
-        ns:Print(string.format(
+        equipSay(true, string.format(
             L["%d items are in the bank — open the bank window to equip them."], atBank))
     end
 end
@@ -947,6 +958,135 @@ local function depositLoadout(name)
     end
 end
 
+-- =========================================================
+-- Ein Set aus der Bank holen (Gegenstueck zu depositLoadout)
+--
+-- Nur was fehlt: Getragenes und schon in den Taschen Liegendes bleibt, wo
+-- es ist. Bewegt wird wie beim Einlagern per Aufnehmen und Ablegen, hier
+-- vom Bankfach auf einen freien Taschenplatz.
+-- =========================================================
+local function withdrawLoadout(name)
+    local loadout = LO()[name]
+    if not loadout then
+        ns:Print(string.format(L["Gear set '%s' does not exist."], name))
+        return
+    end
+    if not bankIsOpen() then
+        ns:Print(L["Open the bank window first."])
+        return
+    end
+    if InCombatLockdown() then
+        ns:Print(L["Not possible in combat."])
+        return
+    end
+    if not (_PickupContainerItem and GetContainerItemID and GetContainerNumSlots) then
+        ns:Print(L["Equipment swap API not available on this client."])
+        return
+    end
+
+    -- Was schon erreichbar ist, zaehlt ab: getragen oder in den Taschen.
+    -- Exakt nach Exemplar (variantKey); zwei gleiche Ringe brauchen zwei.
+    local haveLeft = {}
+    local function count(link)
+        local key = variantKey(link)
+        if key then haveLeft[key] = (haveLeft[key] or 0) + 1 end
+    end
+    for _, s in ipairs(EQUIP_SLOTS) do count(GetInventoryItemLink("player", s)) end
+    for _, bag in ipairs(containerIDs(false)) do
+        for slot = 1, (GetContainerNumSlots(bag) or 0) do
+            if GetContainerItemLink then count(GetContainerItemLink(bag, slot)) end
+        end
+    end
+
+    -- Wie beim Einlagern: die Rueckfallebene "gleiche ID" laesst die exakt
+    -- einem anderen Set gehoerenden Exemplare liegen.
+    local otherKeys = {}
+    for other, lo in pairs(LO()) do
+        if other ~= name then
+            for _, l in pairs(lo.slots or {}) do
+                local key = variantKey(l)
+                if key then otherKeys[key] = true end
+            end
+        end
+    end
+
+    local taken = {}
+    local function findBankCopy(link, exact)
+        local wantID, wantKey = getItemIDFromLink(link), variantKey(link)
+        for _, bag in ipairs(containerIDs(true)) do
+            if isBankContainer(bag) then
+                for slot = 1, (GetContainerNumSlots(bag) or 0) do
+                    if not taken[bag .. ":" .. slot]
+                       and GetContainerItemID(bag, slot) == wantID then
+                        local key = GetContainerItemLink
+                            and variantKey(GetContainerItemLink(bag, slot))
+                        if (exact and key == wantKey)
+                           or (not exact and not otherKeys[key]) then
+                            return bag, slot
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local free = freeBagSlotList()
+    -- needed: Teile, die weder getragen noch in den Taschen sind - nur fuer
+    -- die richtige Meldung, wenn nichts zu holen war.
+    local moved, noRoom, nextFree, needed = 0, 0, 1, 0
+    local sortedSlots = {}
+    for slot in pairs(loadout.slots or {}) do sortedSlots[#sortedSlots + 1] = slot end
+    table.sort(sortedSlots)
+
+    for _, slot in ipairs(sortedSlots) do
+        local link = loadout.slots[slot]
+        local key  = variantKey(link)
+        if key and (haveLeft[key] or 0) > 0 then
+            haveLeft[key] = haveLeft[key] - 1
+        else
+            needed = needed + 1
+            local bag, bagSlot = findBankCopy(link, true)
+            if not bag then bag, bagSlot = findBankCopy(link, false) end
+            if bag then
+                taken[bag .. ":" .. bagSlot] = true
+                local target = free[nextFree]
+                if not target then
+                    noRoom = noRoom + 1
+                else
+                    -- Ein gesperrtes Teil (noch unterwegs) laesst sich
+                    -- nicht aufnehmen - das zaehlt dann gar nicht.
+                    ClearCursor()
+                    _PickupContainerItem(bag, bagSlot)
+                    if CursorHasItem and CursorHasItem() then
+                        _PickupContainerItem(target[1], target[2])
+                        nextFree = nextFree + 1
+                        if CursorHasItem() then
+                            ClearCursor()
+                        else
+                            moved = moved + 1
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if moved == 0 and noRoom == 0 then
+        if needed == 0 then
+            ns:Print(string.format(L["Gear set '%s': everything is already on you or in your bags."], name))
+        else
+            ns:Print(string.format(L["Gear set '%s': nothing of it is in the bank."], name))
+        end
+        return
+    end
+    if moved > 0 then
+        ns:Print(string.format(L["Gear set '%s': %d items taken from the bank."], name, moved))
+    end
+    if noRoom > 0 then
+        ns:Print(string.format(L["%d items stayed in the bank — your bags are full."], noRoom))
+    end
+end
+
 local function listLoadouts()
     local names = sortedLoadoutNames()
     if #names == 0 then
@@ -1092,6 +1232,7 @@ local function commandLines()
         L["|cffffd100/vgs delete <name>|r — delete a gear set"],
         L["|cffffd100/vgs back|r — back to the gear you wore before the last switch"],
         L["|cffffd100/vgs bank <name>|r — with the bank open, put the set's pieces from your bags into the bank"],
+        L["|cffffd100/vgs fetch <name>|r — with the bank open, take the set's missing pieces from the bank into your bags"],
         L["|cffffd100/vgs list|r — list your gear sets in chat"],
         L["|cffffd100/vgs unlock|r — move the sidebar (edit mode)"],
         L["|cffffd100/vgs help|r — this list in chat"],
@@ -1158,6 +1299,12 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
             ns:Print(L["Usage: /gearset bank <name>"])
         else
             depositLoadout(arg)
+        end
+    elseif cmd == "fetch" or cmd == "withdraw" then
+        if arg == "" then
+            ns:Print(L["Usage: /gearset fetch <name>"])
+        else
+            withdrawLoadout(arg)
         end
     elseif cmd == "list" or cmd == "ls" then
         listLoadouts()
@@ -1286,6 +1433,7 @@ GS.deleteLoadout       = deleteLoadout
 GS.saveAs              = saveAs
 GS.renameLoadout       = renameLoadout
 GS.depositLoadout      = depositLoadout
+GS.withdrawLoadout     = withdrawLoadout
 GS.equipLoadout        = equipLoadout
 GS.equipPrevious       = equipPrevious
 GS.getSetStatus        = getSetStatus

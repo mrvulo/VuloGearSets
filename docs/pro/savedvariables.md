@@ -9,7 +9,7 @@ der jeweiligen Datei (z. B. `Modules/SlotPicker.lua`).
 - `style` – `"classic"` | `"modern"` | `"forever"` (nur Forever, dort Standard); `Core/Skin.lua`
 - `debug` – nur von Hand gesetzt
 - `modules[key]` – Defaults jedes Moduls (`ns:RegisterModule`, `Core/Database.lua`)
-  - `gearsets`: `confirmDelete`, `minimap{hidden,angle}`, `autoSwitchEnabled`,
+  - `gearsets`: `confirmDelete`, `chatMessages` (`"all"` | `"problems"` | `"none"`, 2026-10-13), `minimap{hidden,angle}`, `autoSwitchEnabled`,
     `specSwitchEnabled`, `ridingCropEnabled`, `sidebarEnabled`, `sidebarTopOffset`,
     `sidebarBottomOffset`, `sidebarXOffset`, `sidebarStatsGap`, `sidebarPos` (Alias der
     Charakterkopie), Migrationsmarke `_offsetMigrated_v3`

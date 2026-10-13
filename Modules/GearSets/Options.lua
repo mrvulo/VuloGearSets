@@ -80,6 +80,16 @@ local function generalPage()
           default = D.confirmDelete ~= false,
           get = function() return mod.db.confirmDelete ~= false end,
           set = function(_, v) mod.db.confirmDelete = v end },
+        { type = "dropdown", label = L["Chat messages when equipping"],
+          tooltip = L["What the chat says when a gear set goes on - by click, key, spec or form. Only problems: just what did not work, such as missing items or a full bag. Saving, deleting and commands always answer."],
+          values = {
+              { value = "all",      text = L["All"] },
+              { value = "problems", text = L["Only problems"] },
+              { value = "none",     text = L["None"] },
+          },
+          default = D.chatMessages or "all",
+          get = function() return mod.db.chatMessages or "all" end,
+          set = function(_, v) mod.db.chatMessages = v end },
     }
 end
 

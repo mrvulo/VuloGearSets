@@ -127,13 +127,32 @@ local function showSlotReplacePicker(loadoutName, targetSlot, anchor)
         end
     end
 
+    -- Zwei Bedeutungen von "entfernen", frueher hinter einem Eintrag
+    -- versteckt (siehe slotMask in Sets.lua): leer anlegen - der Slot
+    -- bleibt verwaltet und wird beim Anlegen geleert - oder den Slot gar
+    -- nicht mehr anfassen.
     table.insert(entries, { separator = true })
-    table.insert(entries, { text = L["Remove from set"], func = function()
+    table.insert(entries, { text = L["Empty this slot when equipping"], func = function()
         if LO()[loadoutName] then
             LO()[loadoutName].slots[targetSlot] = nil
             afterSlotChange(loadoutName)
         end
     end })
+    -- Nicht fuer den letzten Slot: ein Set ganz ohne Slots fiele auf die
+    -- Altdaten-Rueckfaelle (Ueberschreiben nimmt alle 19 Slots).
+    local set = LO()[loadoutName]
+    if set and #(set.slotMask or {}) > 1 then
+        table.insert(entries, { text = L["Stop managing this slot"], func = function()
+            set = LO()[loadoutName]
+            if not set then return end
+            set.slots[targetSlot] = nil
+            for i = #(set.slotMask or {}), 1, -1 do
+                if set.slotMask[i] == targetSlot then table.remove(set.slotMask, i) end
+            end
+            afterSlotChange(loadoutName)
+            ns:Print(string.format(L["Gear set '%s' no longer touches this slot. To include it again, save under the same name (Save All...)."], loadoutName))
+        end })
+    end
 
     ns:ShowPopupMenu(entries, anchor)
 end

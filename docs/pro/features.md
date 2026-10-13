@@ -56,6 +56,10 @@ Stand: 2026-10-10. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 | F050 | Forever: Anlegen/Speichern in Blizzards Ausrüstungsmanager speichert das Set auch in VuloGearSets und verknüpft es | test-in-game | [F050](features/F050-blizzard-speichern-uebernehmen.md) | Modules/BlizzardSets.lua, Modules/GearSets/Sets.lua |
 | F051 | Forever: Umbenennen und Symbolwechsel in Blizzards Bearbeiten-Fenster übernehmen | done | [F051](features/F051-blizzard-bearbeiten-uebernehmen.md) | Modules/BlizzardSets.lua, Modules/GearSets/Sets.lua |
 | F054 | Speichern unter vorhandenem Namen (Namensdialog, auch „Nur Schmuck/Waffen/…“) fragt erst nach; bei Teilgruppen mit Hinweis, dass die übrigen Teile wegfallen | test-in-game | — | Modules/GearSets/Sets.lua |
+| F055 | Set aus der Bank holen (Rechtsklick „Aus der Bank holen“ bei offener Bank, `/gearset fetch <Name>`), nur fehlende Teile | test-in-game | — | Modules/GearSets/Sets.lua, Modules/GearSets/Sidebar.lua |
+| F058 | Chatmeldungen beim Anlegen: Alle / Nur Probleme / Keine | test-in-game | — | Modules/GearSets/Sets.lua, Modules/GearSets/Options.lua |
+| F059 | Slot-Menü: „Slot beim Anlegen leeren“ und „Slot nicht mehr verwalten“ getrennt, Hinweis im Tooltip der Teile | test-in-game | — | Modules/GearSets/Pickers.lua, Modules/GearSets/Sidebar.lua |
+| F064 | Einstellungsfenster mit sechs Seiten, Tooltips überall, Leistenposition als Regler, Seite/Alles zurücksetzen, `/vgs <seite>`, Erweitert-Blöcke, Schalter „Tasten für Sets erlauben“ | test-in-game | — | UI/OptionsFrame.lua, Modules/GearSets/Options.lua, alle Module (`GetOptions`) |
 | D001 | Schlafmodus (Addon schaltet sich ab, wenn VuloClassicUI sein Set-Modul hat) | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D002 | Kontoweiter Set-Pool und separater Importbefehl der Altversion | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D003 | Auslöseart "Beim Überfahren" im Slot-Auswahl-Dropdown: Hover ist jetzt immer aktiv, das Dropdown wählt nur den Klick fürs große Fenster | dropped | — | Modules/SlotPicker.lua |
@@ -71,6 +75,7 @@ Stand: 2026-10-10. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 - R-69 bis R-75 (Code-Audit 2026-10-13): Set mit zwei gleichen Ringen und mit mehreren Leer-Slots anlegen; Tastenabfrage offen lassen und Kampf beginnen; im Sattel mit Auto-Reitgerte speichern.
 - R-76 bis R-79 (Analyse 2026-10-13): Einhandwaffe ins Set für die Nebenhand ohne Beidhändigkeit – Meldung „ließen sich nicht anlegen“; Set-Tasten im Kampf abschalten, nach dem Kampf ist die Taste wieder normal.
 - F064: `/vgs` – sechs Seiten links, jede Option hat einen Tooltip; Sidebar & Minimap → Feinposition: Regler bewegen die Leiste live; „Seite zurücksetzen“ und „Alles zurücksetzen“ lassen Sets und Bindungen stehen; `/vgs sidebar` öffnet die Seite direkt.
+- F055/F058/F059: Bank öffnen, Rechtsklick auf ein Set → „Aus der Bank holen“; Allgemein → „Chatmeldungen beim Anlegen“ auf „Nur Probleme“; Teil eines aufgeklappten Sets anklicken → „Slot nicht mehr verwalten“.
 - F048: Spielsprache auf Français und Русский stellen – passen die Texte in die Knöpfe, sind russische Texte lesbar (Blizzard-Schrift)?
 
 ## Ideen
@@ -80,13 +85,10 @@ Neue Vorschläge von Claude hier mit ID als `idea` eintragen, damit „mach 1 un
 | ID | Idee | Status |
 |---|---|---|
 | F052 | Vorhandene Blizzard-Sets, die nie neu gespeichert werden, einmalig in VuloGearSets übernehmen | idea |
-| F055 | Set aus der Bank holen (Gegenstück zu „In die Bank legen“) | planned |
+
 | F056 | Sets als Text exportieren/importieren | idea |
 | F057 | Automatik nach Ort (Schlachtfeld, Arena, Schlachtzug, Dungeon, Welt) | idea |
-| F058 | Chatmeldungen: Alle / Nur Probleme / Aus | planned |
-| F059 | Slot-Menü: „Slot leeren beim Anlegen“ und „Slot nicht mehr verwalten“ getrennt | planned |
 | F060 | Warnung bei Instanz/Bereitschaftscheck, wenn ein gebundenes Set unvollständig ist | idea |
 | F061 | Sets per Taste durchschalten | idea |
 | F062 | Notiz je Set im Set-Tooltip | idea |
 | F063 | Tooltip-Zeile „In keinem Set“ | idea |
-| F064 | Einstellungsfenster mit Seiten, Tooltips überall, Leistenposition als Regler, Zurücksetzen, Befehle je Seite, Erweitert-Block | test-in-game |

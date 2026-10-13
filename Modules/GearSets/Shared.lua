@@ -33,6 +33,9 @@ local mod = ns:RegisterModule("gearsets", {
     defaults = {
         enabled       = true,
         confirmDelete = true,
+        -- Chatzeilen beim Anlegen: "all" | "problems" | "none" (Sets.lua
+        -- equipSay). Standard wie bisher: alles.
+        chatMessages  = "all",
         -- Minimap button
         minimap = { hidden = false, angle = 45 },
         -- Auto-switch on stance/form change

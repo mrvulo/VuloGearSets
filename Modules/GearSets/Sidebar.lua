@@ -20,6 +20,7 @@ local countSlots            = GS.countSlots
 local cycleVisibility       = GS.cycleVisibility
 local deleteLoadout         = GS.deleteLoadout
 local depositLoadout        = GS.depositLoadout
+local withdrawLoadout       = GS.withdrawLoadout
 local equipLoadout          = GS.equipLoadout
 local getNumSpecGroups      = GS.getNumSpecGroups
 local getSetIcon            = GS.getSetIcon
@@ -398,6 +399,9 @@ local function createSetRow(parent, index)
                 table.insert(menu, 3, { text = L["Put in bank"], func = function()
                     depositLoadout(setName)
                 end })
+                table.insert(menu, 4, { text = L["Take from bank"], func = function()
+                    withdrawLoadout(setName)
+                end })
             end
 
             -- Helm/Umhang: der Eintrag zeigt den Zustand, ein Klick schaltet
@@ -554,6 +558,8 @@ local function getItemButton(row, idx)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         if self.link then
             pcall(GameTooltip.SetHyperlink, GameTooltip, self.link)
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine(L["Left-click: replace or remove. Right-click: empty this slot when equipping."], 0.7, 0.7, 0.7, true)
         else
             local slotName = SLOT_NAMES[self.targetSlot]
                 or string.format(L["Slot %d"], self.targetSlot or 0)
