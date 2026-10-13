@@ -1,25 +1,50 @@
 -- =========================================================
 -- VuloGearSets / UI / OptionsFrame
--- Ein Fenster, ein Scrollbereich, ein Renderer fuer die
--- deklarative Item-Liste aus mod:GetOptions().
+-- Ein Fenster mit Seiten: links die Navigation, rechts ein Scrollbereich,
+-- ein Renderer fuer deklarative Item-Listen.
+--
+-- Jedes Modul bringt seine Eintraege selbst mit: mod:GetOptions(page)
+-- liefert die Liste fuer eine Seite (oder nil), mod.optionsOrder[page]
+-- sortiert die Module auf derselben Seite (Standard 50). Die Seiten selbst
+-- stehen fest in PAGES.
 --
 -- Unterstuetzte Typen: header, desc, spacer, button, toggle,
 -- slider, dropdown, group (layout="row"), section.
 -- Setter werden als set(nil, value) gerufen - diese Signatur
 -- stammt aus dem Modulcode und darf sich nicht aendern.
+--
+-- default: toggle, slider und dropdown duerfen einen Standardwert tragen
+-- (Wert oder Funktion). "Seite zuruecksetzen" setzt jedes Element der
+-- Seite, das einen hat, ueber seinen eigenen Setter darauf zurueck - so
+-- laeuft auch das Nachziehen (Leiste neu verankern usw.) mit. Sets und
+-- ihre Bindungen tragen keinen und bleiben deshalb immer unberuehrt.
 -- =========================================================
 local _, ns = ...
 local UI = ns.UI
 local L  = ns.L
 local C  = ns.COLORS
 
-local WIDTH, HEIGHT = 460, 560
+local WIDTH, HEIGHT = 620, 580
 local PAD           = 16
-local CONTENT_W     = WIDTH - PAD * 2 - 20   -- 20px fuer die Scrollleiste
-local FOOTER_H      = 26                     -- Leiste unten fuer den Discord-Knopf
+local NAV_W         = 150                    -- Seitenliste links
+local HEAD_H        = 30                     -- Seitentitel + Zuruecksetzen
+local CONTENT_W     = WIDTH - PAD * 3 - NAV_W - 20   -- 20px fuer die Scrollleiste
+local FOOTER_H      = 26                     -- Leiste unten fuer Discord und Version
 
 local DISCORD_URL = "https://discord.gg/P5dTSB6wC"
 
+-- Feste Seitenliste. key ist auch der Name fuer /vgs <seite>.
+local PAGES = {
+    { key = "general",    title = L["General"] },
+    { key = "sidebar",    title = L["Sidebar & Minimap"] },
+    { key = "automation", title = L["Automation"] },
+    { key = "slots",      title = L["Slot Picker & Sockets"] },
+    { key = "sets",       title = L["Saved Gear Sets"] },
+    { key = "info",       title = L["Commands & Info"] },
+}
+ns.OPTIONS_PAGES = PAGES
+
+local currentPage = "general"
 local frame, content
 local renderItems   -- vorwaerts deklariert: section/group rufen rekursiv auf
 
@@ -333,8 +358,127 @@ local function createSocialButton(parent, iconFile, label, url)
 end
 
 -- =========================================================
+-- Seiteninhalt einsammeln
+-- =========================================================
+local function pageItems(page)
+    local parts = {}
+    for i, key in ipairs(ns.moduleOrder or {}) do
+        local mod = ns.modules[key]
+        if mod and mod.GetOptions then
+            local ok, list = pcall(mod.GetOptions, mod, page)
+            if not ok then
+                ns:Print("|cffff5555Options:|r %s: %s", tostring(key), tostring(list))
+            elseif type(list) == "table" and #list > 0 then
+                local order = (mod.optionsOrder and mod.optionsOrder[page]) or 50
+                parts[#parts + 1] = { order = order, idx = i, items = list }
+            end
+        end
+    end
+    table.sort(parts, function(a, b)
+        if a.order ~= b.order then return a.order < b.order end
+        return a.idx < b.idx
+    end)
+    local items = {}
+    for _, part in ipairs(parts) do
+        for _, it in ipairs(part.items) do items[#items + 1] = it end
+    end
+    return items
+end
+
+-- Alle Elemente mit Standardwert, auch in Abschnitten und Zeilen.
+local function collectDefaults(items, out)
+    for _, it in ipairs(items or {}) do
+        if it.default ~= nil and it.set then out[#out + 1] = it end
+        if it.items then collectDefaults(it.items, out) end
+    end
+    return out
+end
+
+local function resetPage(page)
+    for _, it in ipairs(collectDefaults(pageItems(page), {})) do
+        local v = it.default
+        if type(v) == "function" then v = v() end
+        pcall(it.set, nil, v)
+    end
+end
+
+local function pageHasDefaults(page)
+    return #collectDefaults(pageItems(page), {}) > 0
+end
+
+StaticPopupDialogs["VGS_RESET_PAGE"] = {
+    text = L["Reset the settings on this page to their defaults? Gear sets and their bindings stay."],
+    button1 = YES or L["Yes"],
+    button2 = NO  or L["No"],
+    -- Die Seite beim Oeffnen gemerkt (data), nicht beim Ja: die Navigation
+    -- bleibt hinter dem Dialog klickbar.
+    OnAccept = function(self, data)
+        resetPage(data or (self and self.data) or currentPage)
+        ns:Print(L["Settings reset to defaults."])
+        ns:RefreshOptions()
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+}
+
+StaticPopupDialogs["VGS_RESET_ALL"] = {
+    text = L["Reset all settings to their defaults? Gear sets and their bindings stay."],
+    button1 = YES or L["Yes"],
+    button2 = NO  or L["No"],
+    OnAccept = function()
+        for _, pg in ipairs(PAGES) do resetPage(pg.key) end
+        ns:Print(L["Settings reset to defaults."])
+        ns:RefreshOptions()
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+}
+
+-- =========================================================
 -- Fenster
 -- =========================================================
+local navButtons = {}
+local pageTitle, resetBtn
+
+-- Seitenknopf links. Eigener schlichter Knopf statt UI:CreateButton: die
+-- gewaehlte Seite traegt die Auswahlfarbe des Stils, wie eine Zeile in
+-- der Set-Leiste.
+local function createNavButton(parent, page, index)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(NAV_W, 24)
+    b:SetPoint("TOPLEFT", PAD, -PAD - 30 - (index - 1) * 26)
+    b.sel = b:CreateTexture(nil, "BACKGROUND")
+    b.sel:SetAllPoints(b)
+    b.hl = b:CreateTexture(nil, "HIGHLIGHT")
+    b.hl:SetAllPoints(b)
+    b.text = b:CreateFontString(nil, "OVERLAY")
+    UI.Font(b.text, 12)
+    b.text:SetPoint("LEFT", 8, 0)
+    b.text:SetPoint("RIGHT", -4, 0)
+    b.text:SetJustifyH("LEFT")
+    b.text:SetWordWrap(false)
+    b.text:SetText(page.title)
+    b.key = page.key
+    b:SetScript("OnClick", function(self)
+        currentPage = self.key
+        if frame.scroll then frame.scroll:SetVerticalScroll(0) end
+        ns:RefreshOptions()
+    end)
+    return b
+end
+
+local function updateNav()
+    for _, b in ipairs(navButtons) do
+        b.hl:SetColorTexture(ns:HoverColor())
+        if b.key == currentPage then
+            b.sel:SetColorTexture(ns:SelectionColor())
+            b.sel:Show()
+            b.text:SetTextColor(ns:AccentColor())
+        else
+            b.sel:Hide()
+            b.text:SetTextColor(C.text.r, C.text.g, C.text.b)
+        end
+    end
+end
+
 local function createFrame()
     frame = CreateFrame("Frame", "VuloGearSetsOptions", UIParent,
         BackdropTemplateMixin and "BackdropTemplate")
@@ -343,6 +487,7 @@ local function createFrame()
     frame:SetFrameStrata("DIALOG")
     frame:EnableMouse(true)
     frame:SetMovable(true)
+    frame:SetClampedToScreen(true)
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop",  frame.StopMovingOrSizing)
@@ -355,14 +500,41 @@ local function createFrame()
     title:SetPoint("TOPLEFT", PAD, -PAD)
     title:SetText(L["Gear Sets"])
     title:SetTextColor(ns:AccentColor())
+    frame.title = title
 
     local close = UI:CreateButton(frame, "X", 22, 22)
     close:SetPoint("TOPRIGHT", -PAD, -PAD + 2)
     close:SetOnClick(function() frame:Hide() end)
 
+    for i, page in ipairs(PAGES) do
+        navButtons[i] = createNavButton(frame, page, i)
+    end
+
+    -- Trennlinie zwischen Navigation und Inhalt
+    local vsep = frame:CreateTexture(nil, "ARTWORK")
+    vsep:SetColorTexture(C.border.r, C.border.g, C.border.b, 1)
+    vsep:SetWidth(1)
+    vsep:SetPoint("TOPLEFT", PAD + NAV_W + PAD / 2, -PAD - 30)
+    vsep:SetPoint("BOTTOMLEFT", PAD + NAV_W + PAD / 2, PAD + FOOTER_H)
+
+    local left = PAD * 2 + NAV_W
+
+    pageTitle = frame:CreateFontString(nil, "OVERLAY")
+    UI.Font(pageTitle, 14, "OUTLINE")
+    pageTitle:SetPoint("TOPLEFT", left, -PAD - 34)
+
+    resetBtn = UI:CreateButton(frame, L["Reset page"], 160, 20)
+    resetBtn:SetPoint("TOPRIGHT", -PAD, -PAD - 30)
+    resetBtn._tooltip = L["Sets every option on this page back to its default. Gear sets, keys and spec or form bindings are not touched."]
+    resetBtn:SetOnClick(function()
+        local dlg = StaticPopup_Show("VGS_RESET_PAGE", nil, nil, currentPage)
+        -- data kommt je nach Client nicht als Argument durch.
+        if dlg then dlg.data = currentPage end
+    end)
+
     local scroll = CreateFrame("ScrollFrame", "VuloGearSetsOptionsScroll", frame,
                                "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT",     PAD, -PAD - 30)
+    scroll:SetPoint("TOPLEFT",     left, -PAD - 30 - HEAD_H)
     scroll:SetPoint("BOTTOMRIGHT", -PAD - 20, PAD + FOOTER_H)
 
     -- Fusszeile mit Trennlinie
@@ -374,6 +546,11 @@ local function createFrame()
 
     local discord = createSocialButton(frame, "DiscordV.tga", "Discord", DISCORD_URL)
     discord:SetPoint("BOTTOMLEFT", PAD, PAD)
+
+    local resetAll = UI:CreateButton(frame, L["Reset all"], 160, 20)
+    resetAll:SetPoint("LEFT", discord, "RIGHT", 12, 0)
+    resetAll._tooltip = L["Sets every option on every page back to its default. Gear sets, keys and spec or form bindings are not touched."]
+    resetAll:SetOnClick(function() StaticPopup_Show("VGS_RESET_ALL") end)
 
     local ver = frame:CreateFontString(nil, "OVERLAY")
     UI.Font(ver, 11)
@@ -387,32 +564,46 @@ local function createFrame()
     frame.scroll = scroll
 end
 
+local function pageTitleOf(key)
+    for _, pg in ipairs(PAGES) do
+        if pg.key == key then return pg.title end
+    end
+    return ""
+end
+
 -- Zeichnet den Inhalt neu. Der Scroll-Child bleibt derselbe Frame; nur
 -- die gepoolten Widgets werden versteckt und in neuer Anordnung wieder
 -- eingesammelt (siehe Pools oben).
 function ns:RefreshOptions()
     if not frame or not frame:IsShown() then return end
     resetPools()
+    updateNav()
+    frame.title:SetTextColor(ns:AccentColor())
+    pageTitle:SetText(pageTitleOf(currentPage))
+    pageTitle:SetTextColor(ns:AccentColor())
+    if pageHasDefaults(currentPage) then resetBtn:Show() else resetBtn:Hide() end
 
-    local mod = ns.modules and ns.modules.gearsets
-    if not (mod and mod.GetOptions) then return end
-
-    local items = mod:GetOptions()
-    -- Die Modulseite beginnt mit einer Ueberschrift, die den Modulnamen
-    -- wiederholt. Im Original war sie noetig, weil die Seite in einem Rahmen
-    -- mit Navigationsleiste lag; hier traegt das Fenster den Namen bereits.
-    -- Kopie statt Original aendern, damit die Modulseite unangetastet bleibt.
-    if items[1] and items[1].type == "header" and items[1].text == L["Gear Sets"] then
-        local trimmed = {}
-        for i = 2, #items do trimmed[i - 1] = items[i] end
-        items = trimmed
-    end
-
-    local height = renderItems(content, items, -PAD, CONTENT_W - PAD * 2)
-    content:SetHeight(math.max(height + PAD * 2, 10))
+    -- Der Inhalt beginnt direkt oben: der Seitentitel steht schon ueber
+    -- dem Scrollbereich. Die Breite ohne den zweiten PAD - der Renderer
+    -- setzt PAD links selbst.
+    local height = renderItems(content, pageItems(currentPage), 0, CONTENT_W - PAD)
+    content:SetHeight(math.max(height + PAD, 10))
 end
 
-function ns:OpenOptions()
+-- Gibt es die Seite? Fuer /vgs <seite>.
+function ns:IsOptionsPage(key)
+    for _, pg in ipairs(PAGES) do
+        if pg.key == key then return true end
+    end
+    return false
+end
+
+-- page: optional, eine der PAGES. Ohne bleibt die zuletzt gezeigte.
+function ns:OpenOptions(page)
+    if page and ns:IsOptionsPage(page) then
+        currentPage = page
+        if frame and frame.scroll then frame.scroll:SetVerticalScroll(0) end
+    end
     if not frame then createFrame() end
     frame:Show()
     ns:RefreshOptions()

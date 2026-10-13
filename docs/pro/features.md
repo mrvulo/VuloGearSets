@@ -69,6 +69,8 @@ Stand: 2026-10-10. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 - F050: siehe Spieltest in der Spezifikation (neues Set in Blizzards Fenster, Speichern, Umbenennen bei uns).
 - F054: Sets-Menü → „Nur Schmuck speichern…“, vorhandenen Namen eingeben – Rückfrage mit Hinweis; Nein lässt das Set unverändert.
 - R-69 bis R-75 (Code-Audit 2026-10-13): Set mit zwei gleichen Ringen und mit mehreren Leer-Slots anlegen; Tastenabfrage offen lassen und Kampf beginnen; im Sattel mit Auto-Reitgerte speichern.
+- R-76 bis R-79 (Analyse 2026-10-13): Einhandwaffe ins Set für die Nebenhand ohne Beidhändigkeit – Meldung „ließen sich nicht anlegen“; Set-Tasten im Kampf abschalten, nach dem Kampf ist die Taste wieder normal.
+- F064: `/vgs` – sechs Seiten links, jede Option hat einen Tooltip; Sidebar & Minimap → Feinposition: Regler bewegen die Leiste live; „Seite zurücksetzen“ und „Alles zurücksetzen“ lassen Sets und Bindungen stehen; `/vgs sidebar` öffnet die Seite direkt.
 - F048: Spielsprache auf Français und Русский stellen – passen die Texte in die Knöpfe, sind russische Texte lesbar (Blizzard-Schrift)?
 
 ## Ideen
@@ -78,3 +80,13 @@ Neue Vorschläge von Claude hier mit ID als `idea` eintragen, damit „mach 1 un
 | ID | Idee | Status |
 |---|---|---|
 | F052 | Vorhandene Blizzard-Sets, die nie neu gespeichert werden, einmalig in VuloGearSets übernehmen | idea |
+| F055 | Set aus der Bank holen (Gegenstück zu „In die Bank legen“) | planned |
+| F056 | Sets als Text exportieren/importieren | idea |
+| F057 | Automatik nach Ort (Schlachtfeld, Arena, Schlachtzug, Dungeon, Welt) | idea |
+| F058 | Chatmeldungen: Alle / Nur Probleme / Aus | planned |
+| F059 | Slot-Menü: „Slot leeren beim Anlegen“ und „Slot nicht mehr verwalten“ getrennt | planned |
+| F060 | Warnung bei Instanz/Bereitschaftscheck, wenn ein gebundenes Set unvollständig ist | idea |
+| F061 | Sets per Taste durchschalten | idea |
+| F062 | Notiz je Set im Set-Tooltip | idea |
+| F063 | Tooltip-Zeile „In keinem Set“ | idea |
+| F064 | Einstellungsfenster mit Seiten, Tooltips überall, Leistenposition als Regler, Zurücksetzen, Befehle je Seite, Erweitert-Block | test-in-game |

@@ -24,7 +24,20 @@ end
 local function afterSlotChange(name)
     refreshSidebar()
     if ns.UpdateSetMacroIcon then ns:UpdateSetMacroIcon(name) end
+    -- Forever: Blizzards Kopie folgt sonst erst beim naechsten Speichern;
+    -- bis dahin nannte die Tooltip-Zeile das Set noch am alten Teil.
+    if ns.MirrorSetChanged then ns:MirrorSetChanged(name) end
     if ns.RefreshOptions then ns:RefreshOptions() end
+end
+
+-- Ein ersetztes Teil gehoert in die Maske der verwalteten Slots - sonst
+-- zeigt die Leiste es nicht, und das Anlegen haelt den Slot fuer leer.
+local function ensureInMask(set, slot)
+    set.slotMask = set.slotMask or {}
+    for _, s in ipairs(set.slotMask) do
+        if s == slot then return end
+    end
+    table.insert(set.slotMask, slot)
 end
 
 
@@ -105,6 +118,7 @@ local function showSlotReplacePicker(loadoutName, targetSlot, anchor)
                 func = function()
                     if LO()[loadoutName] then
                         LO()[loadoutName].slots[targetSlot] = capturedLink
+                        ensureInMask(LO()[loadoutName], targetSlot)
                         afterSlotChange(loadoutName)
                         ns:Print(string.format(L["Gear set '%s': slot updated."], loadoutName))
                     end

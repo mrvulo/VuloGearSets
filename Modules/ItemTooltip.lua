@@ -105,6 +105,21 @@ local function getIndex()
     return built
 end
 
+-- Rang je Setname in der Reihenfolge der Leiste. Wie der Index nur fuer
+-- den laufenden Frame gemerkt: Haendler-Tooltips bauen sich alle 0,2 s
+-- neu, und jedes Mal frisch zu sortieren erzeugte nur Speichermuell.
+local rankCache
+local function getRank()
+    if rankCache then return rankCache end
+    local rank = {}
+    for i, n in ipairs(ns.SortedSetNames()) do rank[n] = i end
+    if C_Timer and C_Timer.After then
+        rankCache = rank
+        C_Timer.After(0, function() rankCache = nil end)
+    end
+    return rank
+end
+
 -- Setnamen zu einem Link, alphabetisch. nil, wenn das Teil in keinem Set steckt.
 local function setsForLink(link)
     local id, suffix = parseLink(link)
@@ -128,8 +143,7 @@ local function setsForLink(link)
     -- Dieselbe Reihenfolge wie in der Set-Leiste (vom Spieler sortiert),
     -- Rueckfall alphabetisch, falls das Set-Modul nicht geladen ist.
     if ns.SortedSetNames then
-        local rank = {}
-        for i, n in ipairs(ns.SortedSetNames()) do rank[n] = i end
+        local rank = getRank()
         table.sort(names, function(a, b)
             return (rank[a] or math.huge) < (rank[b] or math.huge)
                 or ((rank[a] or math.huge) == (rank[b] or math.huge) and a < b)
@@ -290,9 +304,17 @@ function mod:OnDisable()
 end
 
 -- =========================================================
--- Optionen
---
--- Bewusst KEIN mod:GetOptions(): das Modul ist versteckt
--- (group = "_hidden"). Der Schalter steht auf der Seite des
--- Set-Moduls.
+-- Optionen (Seite "Allgemein", siehe UI/OptionsFrame.lua)
 -- =========================================================
+mod.optionsOrder = { general = 20 }
+
+function mod:GetOptions(page)
+    if page ~= "general" then return nil end
+    return {
+        { type = "toggle", label = L["Show set membership in item tooltips"],
+          tooltip = L["Adds a line to every item tooltip naming the gear sets the item belongs to — in your bags, at the bank, on your character and on links in chat."],
+          default = mod.defaults.enabled,
+          get = function() return ns:IsModuleEnabled("itemtooltip") end,
+          set = function(_, v) ns:ToggleModule("itemtooltip", v, true) end },
+    }
+end

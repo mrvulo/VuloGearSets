@@ -53,3 +53,8 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-10-13 · rejected · „Aus Set entfernen“ soll den Slot NICHT unberührt lassen – Slot bleibt in `slotMask` und wird beim Anlegen ausgezogen · user „Nein“ · —
 - 2026-10-13 · Changelog auf CurseForge im Aufbau wie der Packager-eigene: nur neueste Version, Versionslink mit Datum, Full Changelog / Previous Releases. tools/release_notes.py erzeugt RELEASE_NOTES.md im Workflow; CHANGELOG.md bleibt volle Historie · user Screenshot „so aussehen lassen“ · —
 - 2026-10-13 · check.py prüft die Form von CHANGELOG.md, release.py zeigt die Release-Notiz vorab und warnt bei fremdem Datum · user „mach deine vorschläge“ · —
+- 2026-10-13 · Analyse und Plan freigegeben: zuerst Fehler (A1), dann Einstellungsfenster mit Seiten (A3/B1, mit B2 Tooltips, B3 Positionsregler, B4 Zurücksetzen, B5 Befehle je Seite, B7 Erweitert), dann F055/F058/F059 · user „mach deine empfehlung“ · F064
+- 2026-10-13 · assumed · B2/B3/B5 nicht erst im alten Fenster, sondern gleich im neuen gebaut (sonst doppelte Arbeit) · F064
+- 2026-10-13 · assumed · Keine Profile (B8): wenig Einstellungen, alle kontoweit; Sets bleiben pro Charakter · —
+- 2026-10-13 · assumed · Neuer Schalter „Tasten für Sets erlauben“ (Modul gab es, Schalter fehlte) · F064
+- 2026-10-13 · assumed · Seitennamen für Befehle englisch (`/vgs general|sidebar|automation|slots|sets|info`) · F064

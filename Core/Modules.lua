@@ -7,7 +7,9 @@
 --   defaults    = { enabled = true, ... },
 --   OnEnable    = function(self) end,
 --   OnDisable   = function(self) end,
---   GetOptions  = function(self) return { ... } end,
+--   GetOptions  = function(self, page) return { ... } end,  -- Eintraege je Seite,
+--                 siehe UI/OptionsFrame.lua (PAGES); nil = nichts auf der Seite
+--   optionsOrder = { [page] = n },  -- Reihenfolge auf einer Seite, Standard 50
 -- }
 -- =========================================================
 local _, ns = ...

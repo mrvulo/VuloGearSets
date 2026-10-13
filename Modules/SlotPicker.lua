@@ -4,14 +4,14 @@
 -- Taschen kompakt daneben; der eingestellte Klick oeffnet das grosse
 -- Fenster mit allen. Klick auf ein Teil legt es an.
 --
--- Equipping uses UseContainerItem (works out-of-combat in Anniversary,
--- same approach as the gear set module).
+-- Angelegt wird ueber ns:EquipBagItemToSlot wie beim Set-Modul (nur
+-- ausserhalb des Kampfs), UseContainerItem nur als Rueckfall.
 -- =========================================================
 local _, ns = ...
 local L = ns.L
 
--- Verstecktes Modul: die Einstellungen stehen auf der Seite des
--- Ausruestungsset-Moduls, nicht als eigener Eintrag. Das Modul laeuft
+-- Verstecktes Modul: keine eigene Seite, seine Optionen stehen auf der
+-- Seite "Slot-Auswahl & Sockel" (GetOptions am Dateiende). Das Modul laeuft
 -- trotzdem - es hookt die Slots und stellt ns:ScanBagsForSlot bereit.
 local mod = ns:RegisterModule("slotpicker", {
     name        = "Slot Picker",
@@ -253,7 +253,7 @@ local function showSlotPicker(slotID, anchorBtn)
     -- stand vorher "SecondaryHand" oder "Finger0" im Titel, und uebersetzt
     -- war es auch nicht. Die lesbaren Namen kommen aus dem Set-Modul.
     local slotName = (ns.SLOT_NAMES and ns.SLOT_NAMES[slotID])
-        or SLOT_FRAME_NAMES[slotID] or string.format("Slot %d", slotID)
+        or SLOT_FRAME_NAMES[slotID] or string.format(L["Slot %d"], slotID)
     popup.title:SetText(string.format(L["Items for: %s"], slotName)
         .. string.format(" |cff888888(%d)|r", #results))
     popup.title:SetShown(not compact)
@@ -519,11 +519,38 @@ function mod:OnDisable()
 end
 
 -- =========================================================
--- Optionen
---
--- Bewusst KEIN mod:GetOptions(): das Modul ist versteckt (group = "_hidden"),
--- das Optionsfenster rendert nur die Seite des Set-Moduls. Die Einstellungen
--- des Slot-Pickers stehen dort im Abschnitt "Slot Picker" und schreiben ueber
--- ns.modules.slotpicker.db direkt hierher. Eine eigene Seite waere nie
--- aufgerufen worden und haette die Texte nur doppelt gefuehrt.
+-- Optionen (Seite "Slot-Auswahl & Sockel", siehe UI/OptionsFrame.lua)
 -- =========================================================
+mod.optionsOrder = { slots = 10 }
+
+function mod:GetOptions(page)
+    if page ~= "slots" then return nil end
+    return {
+        { type = "header", text = L["Slot Picker"] },
+        { type = "desc", text = L["|cffaaaaaaHover an equipment slot to see the matching items from your bags right next to it, and click one to equip. The click below opens the full window with all of them.|r"] },
+        { type = "toggle", label = L["Enable slot picker"],
+          tooltip = L["Shows the matching items from your bags when you hover an equipment slot on the character window."],
+          default = mod.defaults.enabled,
+          get = function() return ns:IsModuleEnabled("slotpicker") end,
+          set = function(_, v) ns:ToggleModule("slotpicker", v) end },
+        { type = "dropdown", label = L["Activation modifier"],
+          tooltip = L["Which click opens the full picker window. Hovering a slot always shows the compact list, regardless of this setting."],
+          values = {
+              { value = "right",       text = L["Right-click only"] },
+              { value = "shift-right", text = L["Shift + Right-click"] },
+              { value = "alt-right",   text = L["Alt + Right-click"] },
+              { value = "ctrl-right",  text = L["Ctrl + Right-click"] },
+          },
+          default = mod.defaults.modifier,
+          get = function() return mod.db.modifier or mod.defaults.modifier end,
+          set = function(_, v) mod.db.modifier = v end },
+        { type = "section", title = L["Advanced"], collapsed = true, items = {
+            { type = "slider", label = L["Grid columns"],
+              tooltip = L["How many item icons per row in the picker popup."],
+              min = 4, max = 14, step = 1,
+              default = mod.defaults.cols,
+              get = function() return mod.db.cols or mod.defaults.cols end,
+              set = function(_, v) mod.db.cols = v end },
+        } },
+    }
+end

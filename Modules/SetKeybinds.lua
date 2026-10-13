@@ -329,15 +329,31 @@ end
 function mod:OnDisable()
     if not bindingAPI() then return end
     -- Im Kampf geht es nicht; dann bleibt die Belegung bis zum Kampfende
-    -- stehen. Der Klick-Handler prueft ohnehin, ob das Modul laeuft.
-    if InCombatLockdown() then return end
+    -- stehen und wird danach abgeraeumt: applyBindings loescht und setzt
+    -- bei abgeschaltetem Modul nichts neu. Ohne den Merker verdeckte die
+    -- Taste die normale Belegung bis zum Reload.
+    if InCombatLockdown() then
+        _pending = true
+        return
+    end
     ClearOverrideBindings(owner)
 end
 
 -- =========================================================
--- Optionen
+-- Optionen (Seite "Allgemein")
 --
--- Bewusst KEIN mod:GetOptions(): das Modul ist versteckt
--- (group = "_hidden") und hat nichts einzustellen - eine Taste entsteht
--- am Set, nicht auf einer Optionsseite.
+-- Nur der Schalter: eine Taste selbst entsteht am Set (Rechtsklick in
+-- der Leiste), nicht auf einer Optionsseite.
 -- =========================================================
+mod.optionsOrder = { general = 40 }
+
+function mod:GetOptions(page)
+    if page ~= "general" then return nil end
+    return {
+        { type = "toggle", label = L["Allow keys for gear sets"],
+          tooltip = L["Lets you put a gear set on a key (right-click a set, then Set key...). Turned off, all set keys are released and your normal key bindings work again; turned on, they come back."],
+          default = mod.defaults.enabled,
+          get = function() return ns:IsModuleEnabled("setkeybinds") end,
+          set = function(_, v) ns:ToggleModule("setkeybinds", v, true) end },
+    }
+end

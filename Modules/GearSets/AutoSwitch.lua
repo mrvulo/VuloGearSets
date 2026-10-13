@@ -483,6 +483,11 @@ end
 
 local function onTalentChange()
     if not mod._enabled or not mod.db then return end
+    -- Dual-Spec erst in dieser Sitzung gekauft: beim Login gab es nur eine
+    -- Gruppe, der Ticker lief nie an. Die Talent-Ereignisse holen ihn nach
+    -- (laeuft er schon, tut der Aufruf nichts). Zur Laufzeit ueber GS, weil
+    -- startSpecPolling weiter unten steht.
+    if GS.startSpecPolling then GS.startSpecPolling() end
     if not mod.db.specSwitchEnabled then return end
     if InCombatLockdown() then return end
 
@@ -509,13 +514,6 @@ end
 -- Fuer /gearset spec, das weiter oben steht als diese Funktionen.
 mod._getActiveSpecGroup = getActiveSpecGroup
 mod._getNumSpecGroups   = getNumSpecGroups
-
--- Force a spec re-check (clears the cached group so it always re-evaluates).
--- Used by /loadout spec and as the polling fallback.
-mod._forceSpecCheck = function()
-    _lastSpecGroup = -1
-    onTalentChange()
-end
 
 -- Event-independent polling fallback: some Anniversary builds don't fire
 -- ACTIVE_TALENT_GROUP_CHANGED reliably, so we also poll every 2s.

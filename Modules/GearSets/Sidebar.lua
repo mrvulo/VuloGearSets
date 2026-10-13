@@ -445,10 +445,14 @@ local function createSetRow(parent, index)
 
             -- Taste: belegen steht immer da, loeschen nur, wenn es etwas
             -- zu loeschen gibt - und nennt gleich die betroffene Taste.
+            -- Sind Set-Tasten in den Einstellungen aus, gibt es nichts zu
+            -- belegen; eine schon belegte laesst sich weiter loeschen.
             local boundKey = ns.GetSetKeybind and ns:GetSetKeybind(setName)
-            table.insert(menu, { text = L["Set key..."], func = function()
-                ns:PromptSetKeybind(setName)
-            end })
+            if ns:IsModuleEnabled("setkeybinds") then
+                table.insert(menu, { text = L["Set key..."], func = function()
+                    ns:PromptSetKeybind(setName)
+                end })
+            end
             if boundKey then
                 table.insert(menu, {
                     text = string.format(L["Clear key (%s)"], ns:KeybindText(boundKey)),
@@ -882,7 +886,10 @@ local function createSidebar()
     anchorToCharacterFrame = function()
         if not sidebar or not CharacterFrame then return end
         hookStatsColumn(anchorToCharacterFrame)
-        local pos    = mod.db and mod.db.sidebarPos
+        -- Direkt aus der Charakter-Datenbank: mod.db.sidebarPos wird erst
+        -- weiter unten auf die Kopie DIESES Charakters umgehaengt, bis dahin
+        -- stand die Leiste kurz an der Position des zuletzt gespielten.
+        local pos    = charDB().sidebarPos
         local px     = (pos and pos.x) or 0   -- edit-mode drag offset (x)
         local py     = (pos and pos.y) or 0   -- edit-mode drag offset (y)
         local topOff = ((mod.db and mod.db.sidebarTopOffset)    or 0) + py

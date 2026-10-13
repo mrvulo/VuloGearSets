@@ -17,7 +17,6 @@ local GetContainerNumFreeSlots = GS.GetContainerNumFreeSlots
 local GetContainerNumSlots     = GS.GetContainerNumSlots
 local GetItemCount             = GS.GetItemCount
 local LO                       = GS.LO
-local UseContainerItem         = GS.UseContainerItem
 local _PickupContainerItem     = GS._PickupContainerItem
 local bankIsOpen               = GS.bankIsOpen
 local captureCurrentEquipment  = GS.captureCurrentEquipment
@@ -549,7 +548,7 @@ local function equipLoadout(name, loadout)
         ns:Print(string.format(L["Gear set '%s' does not exist."], name))
         return
     end
-    if not _PickupContainerItem and not UseContainerItem then
+    if not _PickupContainerItem then
         ns:Print(L["Equipment swap API not available on this client."])
         return
     end
@@ -562,7 +561,9 @@ local function equipLoadout(name, loadout)
 
     applySetVisibility(loadout)
 
-    local swapped, missing, atBank = 0, 0, 0
+    -- failed: Teil war greifbar, der Client hat das Anlegen aber abgelehnt
+    -- (Stufe, falscher Slot, gesperrt) - nicht dasselbe wie "fehlt".
+    local swapped, missing, atBank, failed = 0, 0, 0, 0
 
     -- Einmal am Anfang festgehalten: waehrend des Anlegens soll sich der
     -- Suchraum nicht aendern.
@@ -593,6 +594,13 @@ local function equipLoadout(name, loadout)
     -- Schon vergebene Taschenfaecher dieses Durchgangs (wie in
     -- depositLoadout): zwei gleiche Ringe im Set nehmen zwei Exemplare.
     local taken = {}
+    -- Was ein Slot-Tausch dieses Durchgangs in die beiden Slots gelegt hat.
+    -- Bei Ringen ueber Kreuz stellt der erste Tausch BEIDE Slots richtig;
+    -- der zweite Slot liest im selben Frame aber noch den alten Stand und
+    -- versuchte einen Tausch auf gesperrten Slots - gemeldet als "liess
+    -- sich nicht anlegen", obwohl alles stimmt. Mit dem gemerkten Stand
+    -- sieht er, dass schon das Richtige drinsteckt.
+    local afterSwap = {}
 
     for _, slot in ipairs(sortedSlots) do
         local link = loadout.slots[slot]
@@ -608,6 +616,7 @@ local function equipLoadout(name, loadout)
         local itemID   = getItemIDFromLink(link)
         local wornLink = GetInventoryItemLink("player", slot)
         local wantKey  = variantKey(link)
+        if afterSwap[slot] then wornLink = afterSwap[slot] end
         if itemID and wantKey ~= variantKey(wornLink) then
             local wornID = getItemIDFromLink(wornLink)
             local bag, bagSlot, fromBank, idBag, idSlot, idFromBank =
@@ -620,22 +629,15 @@ local function equipLoadout(name, loadout)
             end
             if bag and bagSlot then
                 taken[bag .. ":" .. bagSlot] = true
-                local ok, reason = ns:EquipBagItemToSlot(bag, bagSlot, slot)
-                -- Fallback for non-paired slots if cursor method failed.
-                -- Nur wenn schon das Aufnehmen scheiterte: hat der Client
-                -- das Anlegen abgelehnt (Taschen voll, Unique, Stufe), wuerde
-                -- UseContainerItem am Haendler verkaufen, bei offener Bank
-                -- einlagern, beim Handel/Post ins Fenster legen.
-                -- Auf ein Bankfach angewandt legt UseContainerItem aber
-                -- nichts an, es schiebt das Teil nur in die Taschen - und
-                -- das haette hier als angelegt gezaehlt. Also nur fuer
-                -- Taschen. Nicht auf Forever: dort ist UseContainerItem
-                -- nicht mehr frei aufrufbar (siehe depositLoadout).
-                if not ok and reason == "pickup" and not fromBank and not ns.isForever
-                        and UseContainerItem then
-                    ok = pcall(UseContainerItem, bag, bagSlot)
+                -- Kein Rueckfall auf UseContainerItem mehr: er griff nur,
+                -- wenn schon das Aufnehmen scheiterte (Teil gesperrt) - dann
+                -- bewirkt auch UseContainerItem nichts, zaehlte aber als
+                -- angelegt und ueberschrieb den Stand fuer "Zurueck".
+                if ns:EquipBagItemToSlot(bag, bagSlot, slot) then
+                    swapped = swapped + 1
+                else
+                    failed = failed + 1
                 end
-                if ok then swapped = swapped + 1 else missing = missing + 1 end
             else
                 -- Nicht in den Taschen: vielleicht schon angelegt, nur im
                 -- falschen Slot (Ringe/Schmuck ueber Kreuz). Dann von dort
@@ -646,8 +648,18 @@ local function equipLoadout(name, loadout)
                 if not srcSlot and wornID ~= itemID then
                     srcSlot = findWornElsewhere(link, slot, loadout)
                 end
+                -- Vor dem Tausch lesen: danach ist der Stand im selben Frame
+                -- nicht verlaesslich.
+                local srcLink = srcSlot and GetInventoryItemLink("player", srcSlot)
                 if srcSlot and swapWornItem(srcSlot, slot) then
                     swapped = swapped + 1
+                    -- Das Verdraengte geht zurueck in den Quell-Slot (Paar-
+                    -- Slots), siehe swapWornItem.
+                    afterSwap[slot]    = srcLink
+                    afterSwap[srcSlot] = wornLink
+                elseif srcSlot and wornID ~= itemID then
+                    -- Getragen, aber der Client hat den Slot-Tausch abgelehnt.
+                    failed = failed + 1
                 elseif wornID == itemID then
                     -- Gleiche ID sitzt schon im Slot, das exakte Exemplar ist
                     -- aber nicht greifbar. Liegt es an der (geschlossenen)
@@ -721,7 +733,7 @@ local function equipLoadout(name, loadout)
     -- Sobald wirklich getauscht oder abgelegt wurde, faellt der Merker weg:
     -- dann ist die naechste "ist schon angelegt"-Meldung eine neue Auskunft.
     local outcome = (swapped + removed == 0)
-        and string.format("%s\1%d\1%d\1%d", name, missing, atBank, bagsFull)
+        and string.format("%s\1%d\1%d\1%d\1%d", name, missing, atBank, bagsFull, failed)
         or nil
     local repeated = (outcome ~= nil and outcome == _lastEquipOutcome)
     _lastEquipOutcome = outcome
@@ -737,7 +749,7 @@ local function equipLoadout(name, loadout)
     elseif missing > 0 then
         ns:Print(string.format(L["Gear set '%s': %d items missing from bags, nothing swapped."],
             name, missing))
-    elseif atBank == 0 and removed == 0 and bagsFull == 0 then
+    elseif atBank == 0 and removed == 0 and bagsFull == 0 and failed == 0 then
         ns:Print(string.format(L["Gear set '%s' already equipped."], name))
     end
 
@@ -749,6 +761,10 @@ local function equipLoadout(name, loadout)
     if bagsFull > 0 then
         ns:Print(string.format(
             L["%d items stayed on — no free bag space to take them off."], bagsFull))
+    end
+    if failed > 0 then
+        ns:Print(string.format(
+            L["%d items could not be equipped — the game refused them (level, slot or item locked)."], failed))
     end
 
     -- Eigene Zeile statt "fehlt": das Teil ist nicht weg, es ist nur gerade
@@ -1066,6 +1082,27 @@ StaticPopupDialogs["VGS_GEARSET_DELETE"] = {
 -- =========================================================
 -- Slash commands
 -- =========================================================
+-- Eine Liste fuer /vgs help im Chat und die Seite "Befehle & Info".
+local function commandLines()
+    return {
+        L["|cffffd100/vgs|r or |cffffd100/gearset|r — open or close the settings"],
+        L["|cffffd100/vgs general|r, |cffffd100sidebar|r, |cffffd100automation|r, |cffffd100slots|r, |cffffd100sets|r, |cffffd100info|r — open that settings page"],
+        L["|cffffd100/vgs equip <name>|r — equip a gear set (|cffffd100/vgs <name>|r works too)"],
+        L["|cffffd100/vgs save <name>|r — save what you are wearing as a gear set"],
+        L["|cffffd100/vgs delete <name>|r — delete a gear set"],
+        L["|cffffd100/vgs back|r — back to the gear you wore before the last switch"],
+        L["|cffffd100/vgs bank <name>|r — with the bank open, put the set's pieces from your bags into the bank"],
+        L["|cffffd100/vgs list|r — list your gear sets in chat"],
+        L["|cffffd100/vgs unlock|r — move the sidebar (edit mode)"],
+        L["|cffffd100/vgs help|r — this list in chat"],
+    }
+end
+GS.commandLines = commandLines
+
+local function printHelp()
+    for _, line in ipairs(commandLines()) do ns:Print(line) end
+end
+
 _G.SLASH_VGSGEARSET1 = "/gearset"
 _G.SLASH_VGSGEARSET2 = "/vgs"
 _G.SlashCmdList["VGSGEARSET"] = function(msg)
@@ -1080,12 +1117,12 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
         -- gibt es unter /vgs help.
         ns:ToggleOptions()
     elseif cmd == "help" or cmd == "?" then
-        ns:Print(L["Usage: /gearset equip <name> | save <name> | delete <name> | back | bank <name> | list | config | unlock"])
+        printHelp()
     elseif cmd == "equip" then
         if arg ~= "" then
             equipLoadout(arg)
         else
-            ns:Print(L["Usage: /gearset equip <name> | save <name> | delete <name> | back | bank <name> | list | config | unlock"])
+            printHelp()
         end
     elseif cmd == "spec" then
         -- Debug: show dual-spec state
@@ -1103,7 +1140,8 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
         if not anyMap then
             DEFAULT_CHAT_FRAME:AddMessage("  |cffff8800No spec bindings set — bind a set to a spec in the settings.|r")
         end
-        if mod._forceSpecCheck then mod._forceSpecCheck() end
+        -- Nur anzeigen: frueher erzwang der Befehl hier einen Neuabgleich,
+        -- und der legte nebenbei das gebundene Set an.
     elseif cmd == "delete" or cmd == "del" or cmd == "remove" or cmd == "rm" then
         if arg == "" then
             ns:Print(L["Usage: /gearset delete <name>"])
@@ -1124,7 +1162,12 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
     elseif cmd == "list" or cmd == "ls" then
         listLoadouts()
     elseif cmd == "config" or cmd == "options" then
-        ns:ToggleOptions()
+        -- /vgs config <seite> oeffnet direkt die Seite.
+        if arg ~= "" and ns:IsOptionsPage(arg:lower()) then
+            ns:OpenOptions(arg:lower())
+        else
+            ns:ToggleOptions()
+        end
     elseif cmd == "status" then
         -- Diagnose: zeigt, was die Statuspunkte ermitteln.
         local names = sortedLoadoutNames()
@@ -1182,11 +1225,15 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
             ns:Print("Usage: /gearset tune top <n> | bottom <n> | left <n> | stats <n> | show | reset")
         end
     else
-        -- Treat unknown first word as a loadout name to equip
+        -- Treat unknown first word as a loadout name to equip.
+        -- Das Set geht vor der Einstellungsseite: ein Set "Info" oder
+        -- "Sets PvP" laesst sich weiter mit /vgs <Name> anlegen.
         if LO()[msg] then
             equipLoadout(msg)
+        elseif arg == "" and ns.IsOptionsPage and ns:IsOptionsPage(cmd) then
+            ns:OpenOptions(cmd)
         else
-            ns:Print(L["Usage: /gearset equip <name> | save <name> | delete <name> | back | bank <name> | list | config | unlock"])
+            printHelp()
         end
     end
 end

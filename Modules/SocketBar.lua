@@ -27,8 +27,8 @@
 local _, ns = ...
 local L = ns.L
 
--- Verstecktes Modul, siehe Kopf: die Optionen stehen im Abschnitt
--- "Sockel-Leiste" auf der Seite des Set-Moduls.
+-- Verstecktes Modul: keine eigene Seite, seine Optionen stehen auf der
+-- Seite "Slot-Auswahl & Sockel" (GetOptions am Dateiende).
 local mod = ns:RegisterModule("socketbar", {
     name     = "Socket Bar",
     group    = "_hidden",
@@ -432,7 +432,12 @@ StaticPopupDialogs["VGS_SOCKET_OVERWRITE"] = {
         -- Ausruestung kann gewechselt oder der Sockel von Hand gefuellt
         -- worden sein. Das Ja galt dann einem anderen Stein als dem
         -- gezeigten - also lieber nichts tun.
-        if gemIDAt(GetInventoryItemLink("player", d.slot), d.index) ~= d.gemID then
+        -- Auch das Teil selbst vergleichen: ein Set-Wechsel kann ein
+        -- anderes Teil mit zufaellig demselben Stein in denselben Sockel
+        -- bringen - das Ja zerstoerte sonst einen Stein im falschen Teil.
+        local link = GetInventoryItemLink("player", d.slot)
+        local itemID = link and tonumber(link:match("item:(%d+)"))
+        if itemID ~= d.itemID or gemIDAt(link, d.index) ~= d.gemID then
             ns:Print(L["The socket changed - nothing was done."])
             return
         end
@@ -452,8 +457,10 @@ confirmOverwrite = function(rec, gemItemID)
     local dlg = StaticPopup_Show("VGS_SOCKET_OVERWRITE",
         gemLabel(rec.gemID), gemLabel(gemItemID))
     if dlg then
+        local link = GetInventoryItemLink("player", rec.slot)
         dlg.data = {
             rec       = rec,
+            itemID    = link and tonumber(link:match("item:(%d+)")),
             slot      = rec.slot,
             index     = rec.index,
             gemID     = rec.gemID,
@@ -1210,16 +1217,49 @@ function mod:OnDisable()
     -- Sie laufen ueber queueRefresh, und refreshBar fragt barWanted() -
     -- das genuegt.
     if picker then picker:Hide() end
+    -- Eine von uns geoeffnete Sockel-Sitzung mit schliessen: nach
+    -- abandonPending gilt sie nicht mehr als unsere, und der naechste Klick
+    -- nach dem Wiedereinschalten meldete nur "erst schliessen".
+    if ourSession and not InCombatLockdown() then closeOurSession() end
     abandonPending()
     unregisterShownEvents()
     if bar then bar:Hide() end
 end
 
 -- =========================================================
--- Optionen
---
--- Bewusst KEIN mod:GetOptions(): das Modul ist versteckt
--- (group = "_hidden"), das Optionsfenster rendert nur die Seite des
--- Set-Moduls. Die Einstellungen stehen dort im Abschnitt "Socket Bar"
--- und schreiben ueber ns.modules.socketbar.db direkt hierher.
+-- Optionen (Seite "Slot-Auswahl & Sockel", siehe UI/OptionsFrame.lua)
 -- =========================================================
+mod.optionsOrder = { slots = 20 }
+
+function mod:GetOptions(page)
+    if page ~= "slots" then return nil end
+    return {
+        { type = "spacer", height = 6 },
+        { type = "header", text = L["Socket Bar"] },
+        { type = "desc", text = L["|cffaaaaaaA strip with every socket on your equipped gear, hung under the sidebar. Click an empty socket to pick a gem from your bags and set it.|r"] },
+        { type = "toggle", label = L["Show the socket bar"],
+          -- Auf Forever gibt es VuloClassicUI nicht, der zweite Satz
+          -- waere dort nur verwirrend.
+          tooltip = ns.isForever and L["Only appears when your gear actually has sockets."]
+              or L["Only appears when your gear actually has sockets. If VuloClassicUI shows the same strip, this one steps back so there are not two of them."],
+          default = mod.defaults.enabled,
+          get = function() return ns:IsModuleEnabled("socketbar") end,
+          set = function(_, v)
+              ns:ToggleModule("socketbar", v, true)
+              queueRefresh()
+          end },
+        { type = "toggle", label = L["Mark empty sockets"],
+          tooltip = L["Draws a red frame around sockets that have no gem."],
+          default = mod.defaults.markEmpty,
+          get = function() return mod.db.markEmpty ~= false end,
+          set = function(_, v)
+              mod.db.markEmpty = v
+              queueRefresh()
+          end },
+        { type = "toggle", label = L["Ask before overwriting a socket"],
+          tooltip = L["A socket that already holds a gem asks first: the old gem is destroyed when a new one goes in. Empty sockets never ask."],
+          default = mod.defaults.confirmOverwrite,
+          get = function() return mod.db.confirmOverwrite ~= false end,
+          set = function(_, v) mod.db.confirmOverwrite = v end },
+    }
+end

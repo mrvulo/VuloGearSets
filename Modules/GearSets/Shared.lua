@@ -324,9 +324,19 @@ local function swapWornItem(fromSlot, toSlot)
     if not (_G.PickupInventoryItem and _G.EquipCursorItem) then return false end
 
     ClearCursor()
+    local pickedLink = GetInventoryItemLink("player", fromSlot)
     PickupInventoryItem(fromSlot)
     if CursorHasItem and not CursorHasItem() then return false end
     local ok = pcall(EquipCursorItem, toSlot)
+    -- Lehnt der Client das Anlegen still ab (Einhandwaffe in die Nebenhand
+    -- ohne Beidhaendigkeit), wirft EquipCursorItem keinen Fehler - das
+    -- aufgenommene Teil haengt nur weiter am Cursor. Dann ist nichts
+    -- getauscht; der Block darunter legt es zurueck in den Quell-Slot.
+    -- Gleiches Muster wie bei EquipBagItemToSlot (R-70).
+    if ok and CursorHasItem and CursorHasItem() and GetCursorInfo and pickedLink then
+        local _, _, cursorLink = GetCursorInfo()
+        if cursorLink == pickedLink then ok = false end
+    end
 
     -- Verdraengtes Teil zuerst in den freigewordenen Quell-Slot.
     if CursorHasItem and CursorHasItem() then

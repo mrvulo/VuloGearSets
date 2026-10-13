@@ -156,7 +156,19 @@ function mod:OnDisable()
     ns:UnregisterEvent("PLAYER_REGEN_ENABLED",    onMountStateChange)
     ns:UnregisterEvent("PLAYER_ENTERING_WORLD",   onMountStateChange)
     -- Die Gerte darf nicht zurueckbleiben, nur weil das Modul aus geht.
-    if cropState() and not InCombatLockdown() then restoreMountSpeedItem() end
+    -- Im Kampf geht das nicht; dann einmalig nach dem Kampf nachholen -
+    -- die Ereignisse oben sind schon abgemeldet, sonst holte es niemand.
+    if cropState() then
+        if InCombatLockdown() then
+            local function afterCombat()
+                ns:UnregisterEvent("PLAYER_REGEN_ENABLED", afterCombat)
+                if not mod._enabled and cropState() then restoreMountSpeedItem() end
+            end
+            ns:RegisterEvent("PLAYER_REGEN_ENABLED", afterCombat)
+        else
+            restoreMountSpeedItem()
+        end
+    end
     ns:UnregisterEvent("ACTIVE_TALENT_GROUP_CHANGED", onTalentChange)
     ns:UnregisterEvent("PLAYER_TALENT_UPDATE",        onTalentChange)
     ns:UnregisterEvent("CHARACTER_POINTS_CHANGED",    onTalentChange)

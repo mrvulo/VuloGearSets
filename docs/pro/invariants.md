@@ -28,3 +28,4 @@ Eine Änderung, die eine Regel brechen würde: anhalten und den Nutzer fragen. N
 | I-18 | Nie ein fremdes Addon nennen – Code, Kommentare, Texte, Commits, Changelog, README, CurseForge | Hausregel | Hausregel | manual |
 | I-19 | Commits ohne `Co-Authored-By` | Hausregel | Hausregel | manual |
 | I-20 | Release nur auf ausdrückliches „release“ des Nutzers | Veröffentlichung erreicht andere | user | manual |
+| I-21 | Jedes Modul bringt seine Optionen selbst mit (`mod:GetOptions(page)`); kein Modul schreibt in die Daten eines anderen. Jede Option hat einen Tooltip; Einstellungen mit Standard tragen `default`, Sets und Bindungen nie | Einstellungen leicht findbar, Zurücksetzen fasst nichts Falsches an | 2026-10-13 · user „Einstellungen sollen sich leichter finden und ändern lassen“ | manual |

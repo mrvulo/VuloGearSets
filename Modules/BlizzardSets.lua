@@ -390,6 +390,16 @@ function ns:MirrorSetSaved(name)
     syncSet(name, true)
 end
 
+-- Ein Teil des Sets wurde geaendert (Ersetzen, Entfernen in der Leiste).
+-- Anders als MirrorSetSaved ohne Uebernahme: eine in Blizzards Fenster
+-- geloeschte oder abgelehnte Kopie bleibt weg, ein fremdes Set gleichen
+-- Namens unberuehrt. Geschrieben wird nur, wenn das Set gerade getragen ist.
+function ns:MirrorSetChanged(name)
+    if _fromBlizzard or not active() then return end
+    if InCombatLockdown() then return end
+    syncSet(name, false)
+end
+
 function ns:MirrorSetDeleted(name)
     local map = mirrorMap()
     local owned = map[name]
@@ -762,4 +772,22 @@ function mod:OnDisable()
     ns:UnregisterEvent("PLAYER_REGEN_ENABLED",     onEquipmentChanged)
     -- EQUIPMENT_SETS_CHANGED bleibt: auch ohne Spiegeln soll ein im
     -- Blizzard-Fenster geloeschtes Set als geloescht gelten.
+end
+
+-- =========================================================
+-- Optionen (Seite "Allgemein", nur Forever)
+-- =========================================================
+mod.optionsOrder = { general = 30 }
+
+function mod:GetOptions(page)
+    if page ~= "general" or not ns.isForever then return nil end
+    return {
+        { type = "toggle", label = L["Also keep sets in Blizzard's equipment manager"],
+          tooltip = L["Mirrors every set into the equipment manager of the character window as soon as you save it or wear it completely. This gives the set a button for your action bars (right-click menu of the set), stores it on the server and lets other addons and bag windows see which items belong to it. Blizzard only allows a limited number of sets per character."],
+          -- Bewusst kein default: "Alles zuruecksetzen" soll nicht wieder
+          -- Sets in Blizzards Ausruestungsmanager (begrenzte Plaetze, liegt
+          -- auf dem Server) schreiben, wenn jemand das abgeschaltet hatte.
+          get = function() return ns:IsModuleEnabled("blizzsets") end,
+          set = function(_, v) ns:ToggleModule("blizzsets", v, true) end },
+    }
 end
