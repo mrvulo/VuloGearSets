@@ -358,6 +358,23 @@ end
 -- Pending slot list for the StaticPopup (popups have no parameter passing on Show)
 local _pendingSaveSlots = nil
 
+-- Speichern aus dem Namensdialog. Ein vorhandener Name fragt erst nach:
+-- saveAs ersetzt Teile und Slot-Maske, beim Speichern nur einer Gruppe
+-- (Schmuck, Waffen ...) fielen sonst alle anderen Teile still weg.
+local function saveFromDialog(text, slotList)
+    local name = text and text:match("^%s*(.-)%s*$")
+    if name and name ~= "" and LO()[name] then
+        local partial = slotList and #slotList < #EQUIP_SLOTS
+        local text = partial
+            and L["Gear set '%s' already exists. Replace it? Only the chosen slots are kept, all other items are removed from the set."]
+            or  L["Gear set '%s' already exists. Replace it with what you are wearing now?"]
+        StaticPopup_Show("VGS_GEARSET_SAVE_REPLACE", text:format(name), nil,
+            { name = name, slots = slotList })
+        return
+    end
+    saveAs(text, slotList)
+end
+
 local function promptSaveWithSlots(slotList)
     _pendingSaveSlots = slotList
     StaticPopup_Show("VGS_GEARSET_SAVE")
@@ -943,20 +960,38 @@ StaticPopupDialogs["VGS_GEARSET_SAVE"] = {
             ns:Print(L["Could not read the name field on this client."])
             return
         end
-        saveAs(eb:GetText(), _pendingSaveSlots)
+        saveFromDialog(eb:GetText(), _pendingSaveSlots)
         _pendingSaveSlots = nil
     end,
     EditBoxOnEnterPressed = function(self)
-        saveAs(self:GetText(), _pendingSaveSlots)
+        -- Text vorher lesen: beim Schliessen leert der Dialog sein Feld.
+        local text, slots = self:GetText(), _pendingSaveSlots
         _pendingSaveSlots = nil
-        -- Ueber den Namen schliessen: GetParent ist im neuen GameDialog
-        -- nicht zwingend der Dialog selbst.
+        -- Erst schliessen, dann speichern: die Rueckfrage darf nicht mit
+        -- dem Namensdialog zusammen wieder zugehen.
         StaticPopup_Hide("VGS_GEARSET_SAVE")
+        saveFromDialog(text, slots)
     end,
     OnCancel = function() _pendingSaveSlots = nil end,
     EditBoxOnEscapePressed = function(self)
         _pendingSaveSlots = nil
         StaticPopup_Hide("VGS_GEARSET_SAVE")
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
+-- Text kommt fertig formatiert als erstes Argument von StaticPopup_Show.
+StaticPopupDialogs["VGS_GEARSET_SAVE_REPLACE"] = {
+    text = "%s",
+    button1 = YES or L["Yes"],
+    button2 = NO  or L["No"],
+    -- data kommt je nach Client als Argument oder haengt am Dialog.
+    OnAccept = function(self, data)
+        data = data or (self and self.data)
+        if data and data.name then saveAs(data.name, data.slots) end
     end,
     timeout = 0,
     whileDead = true,

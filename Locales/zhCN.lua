@@ -68,6 +68,8 @@ ns:RegisterLocale("zhCN", {
     ["Ctrl + Right-click"] = "Ctrl + 右键点击",
     ["Currently equipped"] = "当前已装备",
     ["Delete gear set '%s'?"] = "删除装备方案'%s'？",
+    ["Gear set '%s' already exists. Replace it with what you are wearing now?"] = "装备方案'%s'已存在。用当前装备替换吗？",
+    ["Gear set '%s' already exists. Replace it? Only the chosen slots are kept, all other items are removed from the set."] = "装备方案'%s'已存在。要替换吗？只保留所选栏位，其他物品都会从方案中移除。",
     ["Delete"] = "删除",
     ["Double-click / Right-click menu: equip"] = "双击 / 右键菜单：装备",
     ["Drag: reorder"] = "拖动：调整顺序",

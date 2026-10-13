@@ -55,6 +55,7 @@ Stand: 2026-10-10. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 | F049 | `/vgs` und `/gearset` allein öffnen/schließen die Einstellungen (Hilfe unter `/vgs help`) | done | — | Modules/GearSets/Sets.lua |
 | F050 | Forever: Anlegen/Speichern in Blizzards Ausrüstungsmanager speichert das Set auch in VuloGearSets und verknüpft es | test-in-game | [F050](features/F050-blizzard-speichern-uebernehmen.md) | Modules/BlizzardSets.lua, Modules/GearSets/Sets.lua |
 | F051 | Forever: Umbenennen und Symbolwechsel in Blizzards Bearbeiten-Fenster übernehmen | done | [F051](features/F051-blizzard-bearbeiten-uebernehmen.md) | Modules/BlizzardSets.lua, Modules/GearSets/Sets.lua |
+| F054 | Speichern unter vorhandenem Namen (Namensdialog, auch „Nur Schmuck/Waffen/…“) fragt erst nach; bei Teilgruppen mit Hinweis, dass die übrigen Teile wegfallen | test-in-game | — | Modules/GearSets/Sets.lua |
 | D001 | Schlafmodus (Addon schaltet sich ab, wenn VuloClassicUI sein Set-Modul hat) | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D002 | Kontoweiter Set-Pool und separater Importbefehl der Altversion | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D003 | Auslöseart "Beim Überfahren" im Slot-Auswahl-Dropdown: Hover ist jetzt immer aktiv, das Dropdown wählt nur den Klick fürs große Fenster | dropped | — | Modules/SlotPicker.lua |
@@ -66,6 +67,7 @@ Stand: 2026-10-10. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 ## Wartet auf Spieltest
 
 - F050: siehe Spieltest in der Spezifikation (neues Set in Blizzards Fenster, Speichern, Umbenennen bei uns).
+- F054: Sets-Menü → „Nur Schmuck speichern…“, vorhandenen Namen eingeben – Rückfrage mit Hinweis; Nein lässt das Set unverändert.
 - R-69 bis R-75 (Code-Audit 2026-10-13): Set mit zwei gleichen Ringen und mit mehreren Leer-Slots anlegen; Tastenabfrage offen lassen und Kampf beginnen; im Sattel mit Auto-Reitgerte speichern.
 - F048: Spielsprache auf Français und Русский stellen – passen die Texte in die Knöpfe, sind russische Texte lesbar (Blizzard-Schrift)?
 
@@ -76,5 +78,3 @@ Neue Vorschläge von Claude hier mit ID als `idea` eintragen, damit „mach 1 un
 | ID | Idee | Status |
 |---|---|---|
 | F052 | Vorhandene Blizzard-Sets, die nie neu gespeichert werden, einmalig in VuloGearSets übernehmen | idea |
-| F053 | „Aus Set entfernen“ (auch Rechtsklick aufs Teil) zieht den Slot beim Anlegen aus, weil er in `slotMask` bleibt – stattdessen „Slot nicht anfassen“? Entscheidung offen | idea |
-| F054 | „Nur Schmuck/Waffen/… speichern“ unter vorhandenem Namen überschreibt das ganze Set ohne Rückfrage – Rückfrage einbauen? Entscheidung offen | idea |

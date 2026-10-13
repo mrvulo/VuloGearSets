@@ -68,6 +68,8 @@ ns:RegisterLocale("frFR", {
     ["Ctrl + Right-click"] = "Ctrl + clic droit",
     ["Currently equipped"] = "Actuellement équipé",
     ["Delete gear set '%s'?"] = "Supprimer l'ensemble '%s' ?",
+    ["Gear set '%s' already exists. Replace it with what you are wearing now?"] = "L'ensemble '%s' existe déjà. Le remplacer par l'équipement actuel ?",
+    ["Gear set '%s' already exists. Replace it? Only the chosen slots are kept, all other items are removed from the set."] = "L'ensemble '%s' existe déjà. Le remplacer ? Seuls les emplacements choisis sont conservés, toutes les autres pièces sont retirées de l'ensemble.",
     ["Delete"] = "Supprimer",
     ["Double-click / Right-click menu: equip"] = "Double-clic / menu clic droit : équiper",
     ["Drag: reorder"] = "Glisser : réordonner",

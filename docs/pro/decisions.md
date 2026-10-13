@@ -49,3 +49,5 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-10-12 · Changelog einheitlich gegliedert: `## x.y.z — Datum`, darunter nur Stichpunkte mit Vorsatz `New:`, `Improved:`, `Changed:`, `Fixed:` (Forever: `Fixed (Forever):`), keine `###`, keine Fettschrift · user „changelog besser und professioneller“, „weniger # und mehr punkte“ · —
 - 2026-10-12 · assumed · Fehlende Ueberschrift 1.5.0 nachgetragen; Release-Skript liest weiter nur die Version nach `## ` · —
 - 2026-10-12 · Changelog wird mit `markup-type: markdown` hochgeladen (Kurzform in .pkgmeta hieß „Text“, CurseForge zeigte Rohzeichen) · user Screenshot · —
+- 2026-10-13 · Speichern unter vorhandenem Namen fragt nach (vor allem bei Teilgruppen, sonst Datenverlust) · user „Ja Rückfrage soll kommen“ · F054
+- 2026-10-13 · rejected · „Aus Set entfernen“ soll den Slot NICHT unberührt lassen – Slot bleibt in `slotMask` und wird beim Anlegen ausgezogen · user „Nein“ · —

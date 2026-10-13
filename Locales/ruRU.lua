@@ -68,6 +68,8 @@ ns:RegisterLocale("ruRU", {
     ["Ctrl + Right-click"] = "Ctrl + правый щелчок",
     ["Currently equipped"] = "Сейчас надето",
     ["Delete gear set '%s'?"] = "Удалить комплект «%s»?",
+    ["Gear set '%s' already exists. Replace it with what you are wearing now?"] = "Комплект «%s» уже существует. Заменить его текущей экипировкой?",
+    ["Gear set '%s' already exists. Replace it? Only the chosen slots are kept, all other items are removed from the set."] = "Комплект «%s» уже существует. Заменить? Останутся только выбранные ячейки, все остальные предметы будут удалены из комплекта.",
     ["Delete"] = "Удалить",
     ["Double-click / Right-click menu: equip"] = "Двойной щелчок / меню правого щелчка: надеть",
     ["Drag: reorder"] = "Перетаскивание: изменить порядок",
