@@ -146,28 +146,67 @@ end
 -- =========================================================
 -- Mitziehen: Umbenennen, Loeschen, Symbol
 --
--- Im Kampf laesst der Client Makros nicht aendern; dann bleibt das Makro
--- so stehen. Ein Klick darauf meldet hoechstens, dass es das Set nicht
--- mehr gibt.
+-- Im Kampf laesst der Client Makros nicht aendern. Die Auftraege kommen
+-- dann in eine Warteschlange und laufen nach dem Kampf in derselben
+-- Reihenfolge ab: so zieht ein Umbenennen vor dem Symbol des neuen
+-- Namens, und ein Loeschen gewinnt, weil danach kein Makro mehr gefunden
+-- wird.
 -- =========================================================
-function ns:RenameSetMacro(oldName, newName)
-    if InCombatLockdown() or not EditMacro then return end
+local _queue = {}
+local runQueue   -- vorwaerts
+
+local function defer(fn, a, b)
+    _queue[#_queue + 1] = { fn, a, b }
+    ns:RegisterEvent("PLAYER_REGEN_ENABLED", runQueue)
+end
+
+local function renameNow(oldName, newName)
     local idx = findMacro(oldName)
     if not idx then return end
     local _, icon = GetMacroInfo(idx)
     pcall(EditMacro, idx, macroName(newName), icon or macroIcon(newName), macroBody(newName))
 end
 
-function ns:DeleteSetMacro(name)
-    if InCombatLockdown() or not DeleteMacro then return end
+local function deleteNow(name)
     local idx = findMacro(name)
     if idx then pcall(DeleteMacro, idx) end
 end
 
-function ns:UpdateSetMacroIcon(name)
-    if InCombatLockdown() or not EditMacro then return end
+local function iconNow(name)
+    -- Aus der Warteschlange kann das Set inzwischen umbenannt sein; dann
+    -- gaebe macroIcon das Fragezeichen, und das Umbenennen erbte es.
+    local sets = ns:GetCharDB().sets
+    if not (sets and sets[name]) then return end
     local idx = findMacro(name)
     if not idx then return end
     local mName, _, body = GetMacroInfo(idx)
     pcall(EditMacro, idx, mName, macroIcon(name), body)
+end
+
+runQueue = function()
+    if InCombatLockdown() then return end
+    ns:UnregisterEvent("PLAYER_REGEN_ENABLED", runQueue)
+    local q = _queue
+    _queue = {}
+    for _, job in ipairs(q) do
+        job[1](job[2], job[3])
+    end
+end
+
+function ns:RenameSetMacro(oldName, newName)
+    if not EditMacro then return end
+    if InCombatLockdown() then return defer(renameNow, oldName, newName) end
+    renameNow(oldName, newName)
+end
+
+function ns:DeleteSetMacro(name)
+    if not DeleteMacro then return end
+    if InCombatLockdown() then return defer(deleteNow, name) end
+    deleteNow(name)
+end
+
+function ns:UpdateSetMacroIcon(name)
+    if not EditMacro then return end
+    if InCombatLockdown() then return defer(iconNow, name) end
+    iconNow(name)
 end

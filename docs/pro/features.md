@@ -66,6 +66,7 @@ Stand: 2026-10-10. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 ## Wartet auf Spieltest
 
 - F050: siehe Spieltest in der Spezifikation (neues Set in Blizzards Fenster, Speichern, Umbenennen bei uns).
+- R-69 bis R-75 (Code-Audit 2026-10-13): Set mit zwei gleichen Ringen und mit mehreren Leer-Slots anlegen; Tastenabfrage offen lassen und Kampf beginnen; im Sattel mit Auto-Reitgerte speichern.
 - F048: Spielsprache auf Français und Русский stellen – passen die Texte in die Knöpfe, sind russische Texte lesbar (Blizzard-Schrift)?
 
 ## Ideen
@@ -75,3 +76,5 @@ Neue Vorschläge von Claude hier mit ID als `idea` eintragen, damit „mach 1 un
 | ID | Idee | Status |
 |---|---|---|
 | F052 | Vorhandene Blizzard-Sets, die nie neu gespeichert werden, einmalig in VuloGearSets übernehmen | idea |
+| F053 | „Aus Set entfernen“ (auch Rechtsklick aufs Teil) zieht den Slot beim Anlegen aus, weil er in `slotMask` bleibt – stattdessen „Slot nicht anfassen“? Entscheidung offen | idea |
+| F054 | „Nur Schmuck/Waffen/… speichern“ unter vorhandenem Namen überschreibt das ganze Set ohne Rückfrage – Rückfrage einbauen? Entscheidung offen | idea |

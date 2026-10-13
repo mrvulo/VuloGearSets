@@ -145,7 +145,6 @@ local scanTip
 local function ensureScanTip()
     if scanTip then return scanTip end
     scanTip = CreateFrame("GameTooltip", "VGS_SocketScanTooltip", nil, "GameTooltipTemplate")
-    scanTip:SetOwner(UIParent, "ANCHOR_NONE")
     return scanTip
 end
 
@@ -182,6 +181,10 @@ local function socketTexturesFor(slot)
         if fromData then return fromData end
     end
     local tip = ensureScanTip()
+    -- Besitzer vor JEDEM Scan neu setzen: blendet sich UIParent aus
+    -- (Alt-Z, Zwischensequenz), verliert der Tooltip ihn, und
+    -- SetInventoryItem fuellt danach keine Texturen mehr.
+    tip:SetOwner(UIParent, "ANCHOR_NONE")
     for i = 1, MAX_TIP_TEXTURES do
         local t = _G["VGS_SocketScanTooltipTexture" .. i]
         if t then t:Hide() end
@@ -381,10 +384,23 @@ local function doSocket(rec, gemItemID, confirmed)
     -- kommt nie ein Ereignis, also wuerde nichts die Aktion loeschen -
     -- das hier tut es. Das Token macht ihn wirkungslos, sobald die Aktion,
     -- fuer die er scharf gemacht wurde, vorbei ist.
+    --
+    -- Hat die Sitzung dagegen nachweislich geoeffnet (verified) und nur das
+    -- Aufnehmen des Steins schlug fehl, bliebe sie offen und jeder weitere
+    -- Klick meldete "erst das Sockelfenster schliessen". Diese, und nur
+    -- diese, schliesst der Waechter mit. Im Kampf bleibt sie als unsere
+    -- markiert, der naechste Klick danach schliesst sie (doSocket).
     if C_Timer and C_Timer.After then
         C_Timer.After(5, function()
             if pending and pending.token == token and not pending.acted then
-                abandonPending()
+                if not pending.verified then
+                    abandonPending()
+                elseif InCombatLockdown() then
+                    pending = nil
+                else
+                    abandonPending()
+                    closeOurSession()
+                end
             end
         end)
     end
@@ -489,6 +505,9 @@ local function onSocketInfoUpdate()
     elseif not ourSession then
         return
     end
+    -- Ab hier ist bewiesen, dass die offene Sitzung die dieses Klicks ist.
+    -- Nur dann darf der Zeitwaechter sie beim Aufgeben schliessen.
+    pending.verified = true
 
     local numSockets = GetNumSocketsFn and GetNumSocketsFn()
     if not numSockets or pending.index > numSockets then

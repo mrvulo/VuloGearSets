@@ -268,9 +268,20 @@ local function createCapture()
     -- soll dem Spieler nicht die Eingabe wegnehmen.
     capture:SetScript("OnShow", function(self)
         if self.SetPropagateKeyboardInput then self:SetPropagateKeyboardInput(false) end
+        -- Beginnt ein Kampf bei offener Abfrage, wuerde sie die naechste
+        -- Faehigkeitstaste schlucken, und das spaetere Schliessen riefe
+        -- SetPropagateKeyboardInput im Kampf (geschuetzt, vgl. R-27).
+        -- PLAYER_REGEN_DISABLED kommt noch VOR der Sperre - dort schliessen.
+        self:RegisterEvent("PLAYER_REGEN_DISABLED")
+    end)
+    capture:SetScript("OnEvent", function(self)
+        self:Hide()
     end)
     capture:SetScript("OnHide", function(self)
-        if self.SetPropagateKeyboardInput then self:SetPropagateKeyboardInput(true) end
+        self:UnregisterEvent("PLAYER_REGEN_DISABLED")
+        if self.SetPropagateKeyboardInput and not InCombatLockdown() then
+            self:SetPropagateKeyboardInput(true)
+        end
         self.setName = nil
     end)
 

@@ -471,10 +471,6 @@ function ns:BlizzSetID(name)
     return blizzID(name)
 end
 
-function ns:BlizzMirrorActive()
-    return active()
-end
-
 function ns:PickupBlizzSet(name)
     local setID = ns:BlizzSetID(name)
     if not setID or InCombatLockdown() or not CES.PickupEquipmentSet then return end
