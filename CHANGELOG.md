@@ -1,3 +1,20 @@
+## 1.20.0 — 2026-10-13
+
+- New: The settings window has pages: General, Sidebar & Minimap, Automation, Slot Picker & Sockets, Saved Gear Sets and Commands & Info. Every option has a tooltip, and each page has "Reset page", next to "Reset all" at the bottom. Gear sets, keys and spec or form bindings are never reset.
+- New: The sidebar's fine position can be set with sliders under Sidebar & Minimap and moves live while the character window is open.
+- New: "Take from bank". With the bank open, right-click a set (or use `/vgs fetch <name>`) to move its missing pieces into your bags.
+- New: Chat messages when equipping: All, Only problems or None (General page).
+- New: "Allow keys for gear sets" switch on the General page.
+- New: `/vgs general`, `sidebar`, `automation`, `slots`, `sets` or `info` opens that settings page; `/vgs help` lists every command.
+- Changed: "Remove from set" in an item's menu is now two entries: "Empty this slot when equipping" and "Stop managing this slot". The item tooltip in the sidebar shows what left- and right-click do.
+- Fixed: A slot swap the game refused, such as a one-hander into the off hand without dual wield, no longer counts as equipped. It gets its own message, and "Back to previous gear" keeps the right items.
+- Fixed: Equipping a set with rings or trinkets worn crosswise no longer reports a failure for the second slot.
+- Fixed: Turning off set keys or the gear sets module during combat no longer leaves the key bound or the riding crop equipped; both are cleaned up after combat.
+- Fixed: Spec auto-switching works right after buying dual spec, without a reload. `/gearset spec` only shows the state and no longer equips a set.
+- Fixed: The socket bar's overwrite question also checks the item, so a set switch while it is open can no longer destroy a gem in the wrong item.
+- Fixed: Replacing an item in a set shows it in the sidebar right away and, on Forever, updates Blizzard's copy of a worn set.
+- Fixed: The sidebar no longer starts at another character's position for a moment after logging in.
+
 ## 1.19.0 — 2026-10-13
 
 - New: Saving under the name of an existing set now asks first. Saving only trinkets, weapons, rings or armor under an existing name also warns that all other items leave the set.
