@@ -27,6 +27,7 @@ local countSlots               = GS.countSlots
 local findVariantInBags        = GS.findVariantInBags
 local findWornElsewhere        = GS.findWornElsewhere
 local formMap                  = GS.formMap
+local freeBagSlotList          = GS.freeBagSlotList
 local getItemIDFromLink        = GS.getItemIDFromLink
 local isBankContainer          = GS.isBankContainer
 local specMap                  = GS.specMap
@@ -384,6 +385,7 @@ local function overwriteLoadout(name)
     loadout.slotMask = copySlotList(slotList)
     ns:Print(string.format(L["Gear set '%s' updated with current gear."], name))
     if ns.MirrorSetSaved then ns:MirrorSetSaved(name) end
+    return true
 end
 
 local function deleteLoadout(name)
@@ -392,6 +394,10 @@ local function deleteLoadout(name)
         return
     end
     LO()[name] = nil
+    -- Spec- und Gestaltbindung haengen am Namen (siehe renameLoadout). Ein
+    -- spaeter gleich benanntes Set erbte sie sonst ungefragt.
+    specMap()[name] = nil
+    formMap()[name] = nil
     -- Still: der Spieler hat das Set geloescht, nicht die Taste.
     if ns.ClearSetKeybind then ns:ClearSetKeybind(name, true) end
     if ns.MirrorSetDeleted then ns:MirrorSetDeleted(name) end
@@ -481,6 +487,15 @@ end
 -- Siehe unten am Ende von equipLoadout.
 local _lastEquipOutcome
 
+-- Die Kampf-Absage nur innerhalb EINES Kampfes unterdruecken. Sonst kaeme
+-- sie im naechsten Kampf nie wieder, solange dazwischen nichts angelegt
+-- wurde.
+ns:RegisterEvent("PLAYER_REGEN_ENABLED", function()
+    if _lastEquipOutcome and _lastEquipOutcome:find("\1combat$") then
+        _lastEquipOutcome = nil
+    end
+end)
+
 -- Vorher-Stand fuer "Zurueck": alle Slots, die ein Anlegen beruehren kann.
 -- Das sind die des Sets und jeweils ihr Partner-Slot - Ringe und Schmuck
 -- werden ueber Kreuz getauscht, und eine Zweihandwaffe raeumt die
@@ -558,6 +573,10 @@ local function equipLoadout(name, loadout)
     for slot in pairs(loadout.slots) do table.insert(sortedSlots, slot) end
     table.sort(sortedSlots)
 
+    -- Schon vergebene Taschenfaecher dieses Durchgangs (wie in
+    -- depositLoadout): zwei gleiche Ringe im Set nehmen zwei Exemplare.
+    local taken = {}
+
     for _, slot in ipairs(sortedSlots) do
         local link = loadout.slots[slot]
         -- Verglichen wird das EXEMPLAR (ID plus Sockel/Verzauberung/Suffix,
@@ -575,7 +594,7 @@ local function equipLoadout(name, loadout)
         if itemID and wantKey ~= variantKey(wornLink) then
             local wornID = getItemIDFromLink(wornLink)
             local bag, bagSlot, fromBank, idBag, idSlot, idFromBank =
-                findVariantInBags(link, useBank)
+                findVariantInBags(link, useBank, taken)
             -- Rueckfallebene "gleiche ID reicht" nur, wenn im Slot nicht
             -- schon ein Exemplar dieser ID sitzt - sonst wuerde das
             -- Schwester-Teil aus der Tasche sinnlos hin- und hergetauscht.
@@ -583,13 +602,20 @@ local function equipLoadout(name, loadout)
                 bag, bagSlot, fromBank = idBag, idSlot, idFromBank
             end
             if bag and bagSlot then
-                local ok = ns:EquipBagItemToSlot(bag, bagSlot, slot)
+                taken[bag .. ":" .. bagSlot] = true
+                local ok, reason = ns:EquipBagItemToSlot(bag, bagSlot, slot)
                 -- Fallback for non-paired slots if cursor method failed.
+                -- Nur wenn schon das Aufnehmen scheiterte: hat der Client
+                -- das Anlegen abgelehnt (Taschen voll, Unique, Stufe), wuerde
+                -- UseContainerItem am Haendler verkaufen, bei offener Bank
+                -- einlagern, beim Handel/Post ins Fenster legen.
                 -- Auf ein Bankfach angewandt legt UseContainerItem aber
                 -- nichts an, es schiebt das Teil nur in die Taschen - und
                 -- das haette hier als angelegt gezaehlt. Also nur fuer
-                -- Taschen.
-                if not ok and not fromBank and UseContainerItem then
+                -- Taschen. Nicht auf Forever: dort ist UseContainerItem
+                -- nicht mehr frei aufrufbar (siehe depositLoadout).
+                if not ok and reason == "pickup" and not fromBank and not ns.isForever
+                        and UseContainerItem then
                     ok = pcall(UseContainerItem, bag, bagSlot)
                 end
                 if ok then swapped = swapped + 1 else missing = missing + 1 end
@@ -636,17 +662,27 @@ local function equipLoadout(name, loadout)
     -- Schildhand von selbst, das Teil liegt dann schon in der Tasche.
     local removed, bagsFull = 0, 0
     if loadout.slotMask and PickupInventoryItem then
+        -- Freie Plaetze einmal ermitteln und der Reihe nach vergeben: im
+        -- selben Frame melden die Taschen ein abgelegtes Teil noch nicht,
+        -- jedes weitere bekaeme sonst denselben Platz.
+        local free, nextFree = nil, 1
         for _, slot in ipairs(loadout.slotMask) do
             if not loadout.slots[slot]
                and GetInventoryItemLink("player", slot) then
+                free = free or freeBagSlotList()
                 ClearCursor()
                 PickupInventoryItem(slot)
                 if CursorHasItem and not CursorHasItem() then
                     -- nichts aufgenommen - dann gibt es nichts abzulegen
-                elseif stowCursorItem() then
-                    removed = removed + 1
                 else
-                    bagsFull = bagsFull + 1
+                    -- false = Liste aufgebraucht, nur noch die Rueckfallebene
+                    local target = free[nextFree] or false
+                    if target then nextFree = nextFree + 1 end
+                    if stowCursorItem(target) then
+                        removed = removed + 1
+                    else
+                        bagsFull = bagsFull + 1
+                    end
                 end
             end
         end
@@ -729,10 +765,6 @@ local function equipPrevious()
     end
     prev.slots = prev.slots or {}
     equipLoadout(L["Previous gear"], prev)
-end
-
-function ns:EquipPreviousGear()
-    equipPrevious()
 end
 
 local function hasPreviousGear()
@@ -1153,6 +1185,16 @@ renameLoadout = function(oldName, newName)
     if GS.sidebarAfterRename then GS.sidebarAfterRename(oldName, finalName) end
     if ns.RefreshOptions then ns:RefreshOptions() end
     return finalName
+end
+-- Ueberschreiben aendert Teile und Statuspunkt; Leiste und Optionsfenster
+-- zeigten sonst bis zum naechsten Neuaufbau den alten Stand. Die Auswahl
+-- in der Leiste bleibt, wie sie ist.
+local _origOverwrite = overwriteLoadout
+overwriteLoadout = function(name)
+    if not _origOverwrite(name) then return end
+    if GS.refreshSidebar then GS.refreshSidebar() end
+    if ns.RefreshOptions then ns:RefreshOptions() end
+    return true
 end
 
 -- Fuer die spaeter geladenen Dateien (siehe Shared.lua).

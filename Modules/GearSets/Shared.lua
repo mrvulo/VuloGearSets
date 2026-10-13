@@ -163,11 +163,18 @@ local function variantKey(link)
     return table.concat(fields, ":")
 end
 
+-- Steckt gerade die Reitgerte (oder der Gluecksbringer) nur wegen des
+-- automatischen Wechsels im Schmuckslot, gehoert sie nicht ins Set: dort
+-- steht stattdessen, was sie verdraengt hat (cropState.prevLink, nil =
+-- der Slot war leer). GS.cropWornSlot kommt aus AutoSwitch.lua.
 local function captureCurrentEquipment(slotList)
     slotList = slotList or EQUIP_SLOTS
+    local crop     = charDB().cropState
+    local cropSlot = type(crop) == "table" and GS.cropWornSlot and GS.cropWornSlot()
     local set = {}
     for _, slot in ipairs(slotList) do
         local link = GetInventoryItemLink("player", slot)
+        if cropSlot and slot == cropSlot then link = crop.prevLink end
         if link then set[slot] = link end
     end
     return set
@@ -236,9 +243,12 @@ end
 -- Rueckgabe: zuerst der Fundort des exakten Exemplars, dahinter der erste
 -- Fund mit nur passender ID als Rueckfallebene - der Aufrufer entscheidet,
 -- ob er den noch braucht.
+-- `taken` (optional, Schluessel "bag:slot") nennt Faecher, die im selben
+-- Durchgang schon vergeben sind. Die Taschen melden einen Tausch erst einen
+-- Moment spaeter - zwei gleiche Ringe fanden sonst beide dasselbe Fach.
 local GetContainerItemLink = (C_Container and C_Container.GetContainerItemLink) or _G.GetContainerItemLink
 
-local function findVariantInBags(wantLink, includeBank)
+local function findVariantInBags(wantLink, includeBank, taken)
     if not GetContainerItemID or not GetContainerNumSlots then return nil end
     local wantID  = getItemIDFromLink(wantLink)
     local wantKey = variantKey(wantLink)
@@ -246,7 +256,8 @@ local function findVariantInBags(wantLink, includeBank)
     for _, bag in ipairs(containerIDs(includeBank)) do
         local slots = GetContainerNumSlots(bag) or 0
         for slot = 1, slots do
-            if GetContainerItemID(bag, slot) == wantID then
+            if not (taken and taken[bag .. ":" .. slot])
+               and GetContainerItemID(bag, slot) == wantID then
                 local key = GetContainerItemLink
                     and variantKey(GetContainerItemLink(bag, slot))
                 if wantKey and key == wantKey then
@@ -285,13 +296,19 @@ function ns:EquipBagItemToSlot(bag, bagSlot, equipSlot)
     end
     -- EquipCursorItem honours the explicit slot (unlike UseContainerItem)
     local ok = pcall(_G.EquipCursorItem, equipSlot)
-    -- Only clear if something is still stuck on the cursor (e.g. equip failed).
-    -- A BoE-confirm popup leaves the item reserved — don't yank it back, let
-    -- the player confirm. If equip succeeded the cursor is already empty.
+    -- Erfolg heisst: der Cursor ist danach leer. Lehnt der Client das
+    -- Anlegen still ab (falscher Slot, Stufe, gesperrtes Teil), wirft
+    -- EquipCursorItem keinen Fehler, das Teil haengt nur noch am Cursor -
+    -- das zaehlte sonst als getauscht.
     if CursorHasItem and CursorHasItem() then
         ClearCursor()
+        return false, "equip"
     end
-    return ok
+    if not ok then
+        ClearCursor()
+        return false, "equip"
+    end
+    return true
 end
 
 -- =========================================================
@@ -338,8 +355,13 @@ end
 -- Seelensplitter, Kraeuter) melden eine eigene Familie und nehmen kein
 -- Schmuckstueck - die ueberspringen wir, sonst zeigten wir auf einen Platz,
 -- in den der Client nichts ablegt.
-local function findFreeBagSlot()
-    if not GetContainerNumSlots or not GetContainerItemID then return nil end
+--
+-- Als Liste: wer mehrere Teile im selben Frame ablegt, verteilt sie der
+-- Reihe nach. Die Taschen melden ein abgelegtes Teil erst einen Moment
+-- spaeter - einzeln gesucht, bekaemen alle denselben Platz.
+local function freeBagSlotList()
+    local list = {}
+    if not GetContainerNumSlots or not GetContainerItemID then return list end
     for bag = 0, (NUM_BAG_SLOTS or 4) do
         local family = 0
         if GetContainerNumFreeSlots then
@@ -348,24 +370,41 @@ local function findFreeBagSlot()
         end
         if family == 0 then
             for slot = 1, (GetContainerNumSlots(bag) or 0) do
-                if not GetContainerItemID(bag, slot) then return bag, slot end
+                if not GetContainerItemID(bag, slot) then
+                    list[#list + 1] = { bag, slot }
+                end
             end
         end
     end
+    return list
+end
+
+local function findFreeBagSlot()
+    local first = freeBagSlotList()[1]
+    if first then return first[1], first[2] end
     return nil
 end
 
 -- Cursor leerraeumen. Rueckgabe: true = das Teil liegt in einer Tasche.
+--
+-- `target` (optional): { bag, slot } aus freeBagSlotList, vom Aufrufer
+-- vergeben. false = keinen eigenen Platz suchen (die Liste ist aufgebraucht),
+-- gleich die Rueckfallebene. nil = selbst suchen wie bisher.
 --
 -- Wir suchen den freien Platz selbst und legen gezielt dort ab, statt uns
 -- auf PutItemInBackpack zu verlassen. Das trifft naemlich nur den Rucksack
 -- - ist der voll, sagt es nichts, und das Teil fiel ueber ClearCursor
 -- zurueck in den Slot. Genau so blieb die Reitgerte angelegt.
 -- PutItemInBackpack/PutItemInBag bleiben als Rueckfallebene stehen.
-local function stowCursorItem()
+local function stowCursorItem(target)
     if CursorHasItem and not CursorHasItem() then return true end
 
-    local bag, bagSlot = findFreeBagSlot()
+    local bag, bagSlot
+    if target then
+        bag, bagSlot = target[1], target[2]
+    elseif target == nil then
+        bag, bagSlot = findFreeBagSlot()
+    end
     if bag and _PickupContainerItem then
         pcall(_PickupContainerItem, bag, bagSlot)
     end
@@ -451,6 +490,7 @@ GS.findItemInBags           = findItemInBags
 GS.findVariantInBags        = findVariantInBags
 GS.findWornElsewhere        = findWornElsewhere
 GS.formMap                  = formMap
+GS.freeBagSlotList          = freeBagSlotList
 GS.getItemIDFromLink        = getItemIDFromLink
 GS.isBankContainer          = isBankContainer
 GS.specMap                  = specMap

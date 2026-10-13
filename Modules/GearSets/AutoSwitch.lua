@@ -400,6 +400,12 @@ mod._applyMountEvents = applyMountEvents
 -- between Spec 1 and Spec 2 in-game instantly equips the bound loadout.
 -- =========================================================
 local _lastSpecGroup = -1
+-- Erst wenn die Vergleichsbasis aus einem echten Wert stammt (der Abgleich
+-- zwei Sekunden nach dem Login, siehe Lifecycle.lua), loest ein Wechsel ein
+-- Anlegen aus. Davor ziehen die Ereignisse des Logins nur die Basis nach -
+-- direkt nach dem Login kann die Talentgruppe noch auf 1 stehen, und
+-- PLAYER_ENTERING_WORLD sah sonst wie ein Specwechsel aus (R-30).
+local _specBaselineConfirmed = false
 
 -- Forever hat ebenfalls zwei Talentgruppen, fragt sie aber ueber die
 -- Retail-Aufrufe ab: C_SpecializationInfo.GetActiveSpecGroup und
@@ -409,12 +415,17 @@ local GetActiveGroupFn = _G.GetActiveTalentGroup
     or (CSI and CSI.GetActiveSpecGroup) or _G.GetActiveSpecGroup
 local GetNumGroupsFn = _G.GetNumTalentGroups or _G.GetNumSpecGroups
 
-local function getActiveSpecGroup()
+-- nil, solange der Client keine Zahl liefert.
+local function readActiveSpecGroup()
     if GetActiveGroupFn then
         local ok, g = pcall(GetActiveGroupFn)
         if ok and type(g) == "number" then return g end
     end
-    return 1
+    return nil
+end
+
+local function getActiveSpecGroup()
+    return readActiveSpecGroup() or 1
 end
 
 local function getNumSpecGroups()
@@ -425,12 +436,21 @@ local function getNumSpecGroups()
     return 1
 end
 
+-- Name und Punkte eines Talentbaums. TBC Anniversary und Classic Era
+-- liefern (id, name, description, icon, pointsSpent, ...), aeltere Clients
+-- (name, icon, pointsSpent, ...) - erkennbar am Typ des ersten Werts.
+local function talentTabInfo(tab, group)
+    if not GetTalentTabInfo then return nil end
+    local ok, a, b, c, _d, e = pcall(GetTalentTabInfo, tab, false, false, group)
+    if not ok then return nil end
+    if type(a) == "string" then return a, c end
+    return b, e
+end
+
 -- Points spent in a talent tab FOR A SPECIFIC spec group (4th param = talentGroup).
 local function getTabPoints(tab, group)
-    if GetTalentTabInfo then
-        local _, _, pointsSpent = GetTalentTabInfo(tab, false, false, group)
-        if type(pointsSpent) == "number" then return pointsSpent end
-    end
+    local _, pointsSpent = talentTabInfo(tab, group)
+    if type(pointsSpent) == "number" then return pointsSpent end
     local total = 0
     -- Ohne GetTalentInfo (Forever) gibt es auch keine Baeume zu zaehlen.
     if not GetTalentInfo then return total end
@@ -450,7 +470,7 @@ local function getSpecGroupLabel(group)
         local pts = getTabPoints(tab, group)
         if pts > bestPoints then
             bestPoints = pts
-            local name = GetTalentTabInfo and GetTalentTabInfo(tab, false, false, group)
+            local name = talentTabInfo(tab, group)
             if type(name) == "string" and name ~= "" then bestName = name else bestName = nil end
         end
     end
@@ -466,7 +486,13 @@ local function onTalentChange()
     if not mod.db.specSwitchEnabled then return end
     if InCombatLockdown() then return end
 
-    local currentGroup = getActiveSpecGroup()
+    local currentGroup = readActiveSpecGroup()
+    if not currentGroup then return end
+    if not _specBaselineConfirmed then
+        -- Nur die Basis nachziehen, nichts anlegen (siehe oben).
+        _lastSpecGroup = currentGroup
+        return
+    end
     if currentGroup == _lastSpecGroup then return end
     _lastSpecGroup = currentGroup
 
@@ -502,6 +528,10 @@ local function startSpecPolling()
     _specPoller = C_Timer.NewTicker(2, function()
         if not mod._enabled or not mod.db or not mod.db.specSwitchEnabled then return end
         if InCombatLockdown() then return end
+        if not _specBaselineConfirmed then
+            GS.refreshSpecBaseline()
+            return
+        end
         local g = getActiveSpecGroup()
         if g ~= _lastSpecGroup then
             onTalentChange()  -- group changed since last check → switch
@@ -518,13 +548,21 @@ end
 function GS.resetSwitchBaselines()
     _lastForm      = getCurrentForm()
     _lastSpecGroup = getActiveSpecGroup()
+    -- Noch nicht bestaetigt: das tut erst refreshSpecBaseline.
+    _specBaselineConfirmed = false
     -- Gleiche Ueberlegung fuer die Reitgerte: wer beim Login schon sitzt,
     -- soll nicht sofort einen Tausch ausgeloest bekommen.
     _cropStateKey  = mountStateKey()
 end
 
+-- Basis aus einem echten Wert setzen und damit freigeben. Liefert der
+-- Client noch keine Zahl, bleibt alles gesperrt; der Ticker versucht es
+-- dann erneut.
 function GS.refreshSpecBaseline()
-    _lastSpecGroup = getActiveSpecGroup()
+    local g = readActiveSpecGroup()
+    if not g then return end
+    _lastSpecGroup = g
+    _specBaselineConfirmed = true
 end
 
 function GS.stopSpecPolling()
@@ -535,6 +573,12 @@ end
 GS.applyMountEvents      = applyMountEvents
 GS.applyMountState       = applyMountState
 GS.cropState             = cropState
+-- Fuer captureCurrentEquipment (Shared.lua): der Slot, in dem unser Teil
+-- gerade steckt - nur solange wir es angelegt haben.
+GS.cropWornSlot          = function()
+    if not cropState() then return nil end
+    return (wornManagedSlot())
+end
 GS.getFormName           = getFormName
 GS.getNumSpecGroups      = getNumSpecGroups
 GS.getSpecGroupLabel     = getSpecGroupLabel

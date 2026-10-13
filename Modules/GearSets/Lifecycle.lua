@@ -4,7 +4,6 @@
 -- Ereignisse an- und abmelden.
 -- =========================================================
 local _, ns = ...
-local L   = ns.L
 local GS  = ns.GS
 local mod = GS.mod
 
@@ -136,8 +135,12 @@ function mod:OnEnable()
     -- getActiveSpecGroup faellt dann auf 1 zurueck. Deshalb den Ausgangswert
     -- nach zwei Sekunden nachziehen. Das legt nichts an, es korrigiert nur
     -- die Vergleichsbasis - erst ein Wechsel DANACH loest ein Anlegen aus.
+    -- Bis dahin ziehen die Login-Ereignisse nur die Basis nach (siehe
+    -- onTalentChange).
     if C_Timer and C_Timer.After then
         C_Timer.After(2, function() GS.refreshSpecBaseline() end)
+    else
+        GS.refreshSpecBaseline()
     end
     startSpecPolling()
 end
