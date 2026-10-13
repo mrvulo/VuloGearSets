@@ -406,6 +406,45 @@ def check_block_balance():
                 f"(Differenz {n_open - n_end})")
 
 
+def check_changelog():
+    """Form von CHANGELOG.md, damit jeder Block gleich aussieht und
+    tools/release_notes.py ihn lesen kann (siehe docs/pro/decisions.md)."""
+    path = ADDON / "CHANGELOG.md"
+    if not path.exists():
+        errors.append("CHANGELOG.md fehlt")
+        return
+    head_re = re.compile(r"^## (\d+)\.(\d+)\.(\d+) \u2014 \d{4}-\d{2}-\d{2}$")
+    # Vorsatz je Punkt, optional mit Client in Klammern: "Fixed (Forever): "
+    bullet_re = re.compile(r"^- (New|Improved|Changed|Fixed)( \([A-Za-z ]+\))?: \S")
+    previous = None
+    version = None
+    for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        where = f"CHANGELOG.md:{n}"
+        if line.startswith("#"):
+            if not head_re.match(line):
+                errors.append(f"{where}: Kopf muss '## x.y.z \u2014 JJJJ-MM-TT' sein, "
+                              "keine anderen Ueberschriften")
+            # Auch ein falscher Kopf beginnt einen Block, sonst gilt alles
+            # darunter als "Text vor dem ersten Block".
+            loose = re.match(r"^#+\s*v?(\d+)\.(\d+)\.(\d+)", line)
+            if not loose:
+                version = ()
+                continue
+            version = tuple(int(x) for x in loose.groups())
+            if previous is not None and version >= previous:
+                errors.append(f"{where}: {'.'.join(map(str, version))} steht nicht "
+                              "absteigend unter der vorigen Version")
+            previous = version
+        elif version is None and line.strip():
+            errors.append(f"{where}: Text vor dem ersten '## x.y.z'-Block")
+        elif "**" in line:
+            errors.append(f"{where}: keine Fettschrift im Changelog")
+        # 1.0.0 gliedert nach Bereichen statt nach Art der Aenderung.
+        elif line.startswith("- ") and version != (1, 0, 0) and not bullet_re.match(line):
+            errors.append(f"{where}: Punkt beginnt nicht mit New:/Improved:/"
+                          "Changed:/Fixed: (optional mit '(Forever)')")
+
+
 def main():
     if not TOC.exists():
         print(f"FEHLER: {TOC} existiert nicht")
@@ -420,6 +459,7 @@ def main():
     check_coupling()
     check_lua5_1()
     check_block_balance()
+    check_changelog()
     if errors:
         print(f"{len(errors)} Problem(e):")
         for e in errors:

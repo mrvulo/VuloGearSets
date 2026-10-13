@@ -23,14 +23,15 @@ Ein Fix ist erst `done`, wenn der Nutzer ihn im Spiel bestätigt hat (bis dahin 
 `python3 tools/check.py` muss `OK` melden. Er prüft TOC ↔ Dateien, Versionen, Lua-Syntax und
 Globals über einen echten Parser (`tools/lua_check.cjs` mit luaparse aus
 `~/addons/VuloClassicUI/tools/node_modules`, Node unter `~/.local/node/bin`), SavedVariables-Namen,
-Locale-Keys in allen Sprachen samt Platzhaltern, Media-Pfade und die Code-Regeln der Invarianten.
+Locale-Keys in allen Sprachen samt Platzhaltern, Media-Pfade, die Form von `CHANGELOG.md`
+(`## x.y.z — JJJJ-MM-TT`, Punkte mit `New:`/`Improved:`/`Changed:`/`Fixed:`) und die Code-Regeln der Invarianten.
 Grün ist kein Spieltest: Nichttriviales bekommt ein Review, dann testet der Nutzer.
 
 Commits thematisch auf `main`, deutsche Botschaft, ASCII-transliteriert (ue/ae/oe), ohne
 `Co-Authored-By`. Speichern = Deploy (Syncthing → Gaming-PC). Der Feature-Commit steht **vor** der
 Fertigmeldung (die mit `/reload` und 1–3 Dingen zum Prüfen); der Release-Commit trägt nur Changelog
 und Version. Release nur auf „release“: englischer Block oben in `CHANGELOG.md`,
-`python3 tools/release.py <x.y.z>`, Commit `v<x.y.z>: …`, Push, annotierter Tag, Tag pushen,
+`python3 tools/release.py <x.y.z>` (zeigt die Release-Notiz, die `tools/release_notes.py` im Workflow erzeugt), Commit `v<x.y.z>: …`, Push, annotierter Tag, Tag pushen,
 Workflow `release.yml` abwarten.
 
 ## Aufbau (Ladereihenfolge = TOC)

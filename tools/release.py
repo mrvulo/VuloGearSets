@@ -13,10 +13,13 @@ andere Leute erreicht.
     python tools/release.py
     python tools/release.py 1.8.1
 """
+import datetime
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+import release_notes
 
 ADDON = Path(__file__).resolve().parent.parent
 TOC = ADDON / "VuloGearSets.toc"
@@ -119,6 +122,18 @@ def tag_exists(version):
     return None
 
 
+def preview_notes():
+    """Die Release-Notiz, wie CurseForge, Wago und GitHub sie zeigen werden,
+    plus Warnung, wenn das Datum im obersten Block nicht von heute ist."""
+    version, date, text = release_notes.render()
+    print("\nRelease-Notiz (oberster Block, so geht sie hoch):")
+    for line in text.splitlines():
+        print(f"  | {line}")
+    today = datetime.date.today().isoformat()
+    if date != today:
+        print(f"\n  !! Datum im Block '## {version}' ist {date or '-'}, heute ist {today}.")
+
+
 # =========================================================
 # Bericht ohne Argument
 # =========================================================
@@ -147,6 +162,8 @@ def report():
                   "\n    schreiben, nicht aus dem Gedaechtnis der Sitzung.")
         else:
             print("  (keine - es gibt nichts zu veroeffentlichen)")
+
+    preview_notes()
 
     status = git("status", "--porcelain", "--untracked-files=all", strip=False)
     print("\nArbeitsbaum:")
@@ -291,6 +308,8 @@ def main(argv):
               "nicht nach /reload.")
     else:
         print("\nKeine neuen Texturen - ein /reload genuegt den Spielern.")
+
+    preview_notes()
 
     branch = git("rev-parse", "--abbrev-ref", "HEAD") or "main"
     print(f"""

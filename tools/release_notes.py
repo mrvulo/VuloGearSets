@@ -35,15 +35,12 @@ def blocks():
     return out
 
 
-def main():
+def render():
+    """(version, datum, text) der Release-Notiz fuer den obersten Block."""
     found = blocks()
     if not found:
         sys.exit("CHANGELOG.md hat keinen '## <version>'-Block")
     version, date, body = found[0]
-
-    ref = os.environ.get("GITHUB_REF_NAME", "")
-    if os.environ.get("GITHUB_REF_TYPE") == "tag" and ref != f"v{version}":
-        sys.exit(f"Tag {ref} passt nicht zum obersten Block '## {version}'")
 
     tag = f"v{version}"
     if len(found) > 1:
@@ -57,10 +54,16 @@ def main():
         title += f" ({date})"
 
     text = "\n".join(body).strip()
-    OUT.write_text(
-        f"# {PROJECT}\n\n{title}\n{full} {previous}\n\n{text}\n",
-        encoding="utf-8")
-    print(OUT.read_text(encoding="utf-8"))
+    return version, date, f"# {PROJECT}\n\n{title}\n{full} {previous}\n\n{text}\n"
+
+
+def main():
+    version, _date, text = render()
+    ref = os.environ.get("GITHUB_REF_NAME", "")
+    if os.environ.get("GITHUB_REF_TYPE") == "tag" and ref != f"v{version}":
+        sys.exit(f"Tag {ref} passt nicht zum obersten Block '## {version}'")
+    OUT.write_text(text, encoding="utf-8")
+    print(text)
 
 
 if __name__ == "__main__":
