@@ -51,3 +51,4 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-10-12 · Changelog wird mit `markup-type: markdown` hochgeladen (Kurzform in .pkgmeta hieß „Text“, CurseForge zeigte Rohzeichen) · user Screenshot · —
 - 2026-10-13 · Speichern unter vorhandenem Namen fragt nach (vor allem bei Teilgruppen, sonst Datenverlust) · user „Ja Rückfrage soll kommen“ · F054
 - 2026-10-13 · rejected · „Aus Set entfernen“ soll den Slot NICHT unberührt lassen – Slot bleibt in `slotMask` und wird beim Anlegen ausgezogen · user „Nein“ · —
+- 2026-10-13 · Changelog auf CurseForge im Aufbau wie der Packager-eigene: nur neueste Version, Versionslink mit Datum, Full Changelog / Previous Releases. tools/release_notes.py erzeugt RELEASE_NOTES.md im Workflow; CHANGELOG.md bleibt volle Historie · user Screenshot „so aussehen lassen“ · —

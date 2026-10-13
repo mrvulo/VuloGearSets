@@ -31,6 +31,12 @@ jobs:
       # String gilt in GitHub-Ausdruecken als falsch, weshalb sich "keine
       # Argumente" dort nicht sauber ausdruecken laesst.
 
+      # Nur die neueste Version aus CHANGELOG.md, im Aufbau mit Versionslink,
+      # Full Changelog und Previous Releases. Bricht ab, wenn der oberste
+      # Block nicht zum Tag passt.
+      - name: Release-Notiz erzeugen
+        run: python3 tools/release_notes.py
+
       - name: Paket bauen und veroeffentlichen
         if: github.ref_type == 'tag'
         uses: BigWigsMods/packager@master

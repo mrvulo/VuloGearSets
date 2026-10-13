@@ -10,12 +10,15 @@ ignore:
   - README.md
   - CONTRIBUTING.md
   - CLAUDE.md
+  - RELEASE_NOTES.md
 
 # Keine externen Bibliotheken - das Addon kommt ohne Libs aus.
 enable-nolib-creation: no
 
-# Ohne markup-type laedt der Packager den Changelog als reinen Text hoch,
+# Hochgeladen wird nur die neueste Version: tools/release_notes.py schreibt
+# sie im Workflow aus CHANGELOG.md nach RELEASE_NOTES.md (nicht im Repo).
+# Ohne markup-type laedt der Packager den Text als reinen Text hoch,
 # CurseForge zeigt dann Ueberschriften und Punkte als Rohzeichen.
 manual-changelog:
-  filename: CHANGELOG.md
+  filename: RELEASE_NOTES.md
   markup-type: markdown
