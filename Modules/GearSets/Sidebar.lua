@@ -11,6 +11,7 @@ local mod = GS.mod
 -- Aus frueher geladenen Dateien (siehe Shared.lua).
 local GetItemInfoInstant    = GS.GetItemInfoInstant
 local LO                    = GS.LO
+local afterSlotChange       = GS.afterSlotChange
 local SLOT_NAMES            = GS.SLOT_NAMES
 local VISIBILITY_FIELDS     = GS.VISIBILITY_FIELDS
 local bankIsOpen            = GS.bankIsOpen
@@ -77,6 +78,10 @@ local DRAG_EDGE_SCROLL_ZONE  = 14   -- px vom Rand, ab dem gescrollt wird
 local DRAG_EDGE_SCROLL_SPEED = 240  -- px pro Sekunde
 
 local _drag  -- { name = <Set>, insertBefore = <Index in der Liste> }
+-- Ein Neuzeichnen waehrend des Ziehens (Taschen-/Ausruestungsereignisse)
+-- versteckte alle Zeilen; das OnHide der gezogenen Zeile brach das Ziehen
+-- dann ab. Deshalb wartet es bis zum Loslassen.
+local _refreshAfterDrag = false
 local _dragGhost, _dragMarker
 
 local function ensureDragWidgets()
@@ -209,18 +214,29 @@ local function stopSetDrag(row, cancel)
     _dragGhost:Hide()
     _dragMarker:Hide()
 
-    if cancel or not insertBefore then return end
+    local pending = _refreshAfterDrag
+    _refreshAfterDrag = false
+    if cancel or not insertBefore then
+        if pending then refreshSidebar() end
+        return
+    end
     local names = sortedLoadoutNames()
     local idx
     for i, nm in ipairs(names) do
         if nm == name then idx = i; break end
     end
-    if not idx then return end
+    if not idx then
+        if pending then refreshSidebar() end
+        return
+    end
     -- Aus "davor einfuegen" die Endposition machen: liegt das Ziel hinter
     -- der eigenen Zeile, rueckt es durch das Herausnehmen um eins auf.
     local newPos = (insertBefore > idx) and (insertBefore - 1) or insertBefore
     if moveLoadoutTo(name, newPos) then
         sidebarSelected = name
+        refreshSidebar()
+        if ns.RefreshOptions then ns:RefreshOptions() end
+    elseif pending then
         refreshSidebar()
     end
 end
@@ -411,12 +427,18 @@ local function createSetRow(parent, index)
                 table.insert(menu, { separator = true })
                 if pos > 1 then
                     table.insert(menu, { text = L["Move up"], func = function()
-                        if moveLoadout(setName, -1) then refreshSidebar() end
+                        if moveLoadout(setName, -1) then
+                            refreshSidebar()
+                            if ns.RefreshOptions then ns:RefreshOptions() end
+                        end
                     end })
                 end
                 if pos < #order then
                     table.insert(menu, { text = L["Move down"], func = function()
-                        if moveLoadout(setName, 1) then refreshSidebar() end
+                        if moveLoadout(setName, 1) then
+                            refreshSidebar()
+                            if ns.RefreshOptions then ns:RefreshOptions() end
+                        end
                     end })
                 end
             end
@@ -467,6 +489,8 @@ local function createSetRow(parent, index)
                                 specMap()[setName] = group
                                 ns:Print(string.format(L["'%s' bound to %s."], setName, getSpecGroupLabel(group)))
                             end
+                            -- Die Spec-Auswahl im Einstellungsfenster zeigt dieselbe Bindung.
+                            if ns.RefreshOptions then ns:RefreshOptions() end
                         end,
                     })
                 end
@@ -527,7 +551,8 @@ local function getItemButton(row, idx)
         if self.link then
             pcall(GameTooltip.SetHyperlink, GameTooltip, self.link)
         else
-            local slotName = SLOT_NAMES[self.targetSlot] or ("Slot " .. tostring(self.targetSlot))
+            local slotName = SLOT_NAMES[self.targetSlot]
+                or string.format(L["Slot %d"], self.targetSlot or 0)
             GameTooltip:AddLine(string.format(L["Empty: %s"], slotName), 1, 0.82, 0)
             GameTooltip:AddLine(L["Left-click to pick an item from your bags"], 0.7, 0.7, 0.7)
         end
@@ -544,7 +569,7 @@ local function getItemButton(row, idx)
             -- Quick-remove
             if self.loadoutName and self.targetSlot and LO()[self.loadoutName] then
                 LO()[self.loadoutName].slots[self.targetSlot] = nil
-                refreshSidebar()
+                afterSlotChange(self.loadoutName)
             end
         else
             -- Left-click → bag-item picker for this slot
@@ -645,6 +670,10 @@ end
 
 refreshSidebar = function()
     if not sidebar then return end
+    if _drag then
+        _refreshAfterDrag = true
+        return
+    end
 
     -- Validate selection / expansion
     if sidebarSelected and not (LO() and LO()[sidebarSelected]) then
@@ -866,7 +895,6 @@ local function createSidebar()
         sidebar:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMRIGHT", xOff, botOff)
     end
     anchorToCharacterFrame()
-    sidebar._reanchor = anchorToCharacterFrame
     mod._reanchorSidebar = anchorToCharacterFrame
     -- Fuer den Stilwechsel: die Zeilen muessen mit neuem Innenabstand
     -- neu gesetzt werden.
@@ -939,7 +967,7 @@ local function createSidebar()
     sbarThumb:SetWidth(SCROLLBAR_W)
     sbarThumb:SetPoint("TOP", sbar, "TOP", 0, 0)
 
-    sidebar.scroll, sidebar.list, sidebar.scrollBar = scroll, list, sbar
+    sidebar.scroll, sidebar.list = scroll, list
 
     -- Groesse und Lage des Griffs aus Sichtfenster, Inhalt und Position.
     local function updateThumb()
@@ -1148,7 +1176,6 @@ local function createSidebar()
         sbar:SetPoint("TOPRIGHT",    sidebar, "TOPRIGHT",    -pad, -topEdge)
         sbar:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -pad, botEdge)
     end
-    sidebar.newBtn = newBtn
     mod._layoutSidebarButtons()
 
     -- Edit-mode mover: drag the sidebar to an offset from the character window.
@@ -1179,6 +1206,10 @@ local function createSidebar()
             self._dragX, self._dragY = cx, cy
             self._origX, self._origY = mod.db.sidebarPos.x or 0, mod.db.sidebarPos.y or 0
             self:SetScript("OnUpdate", function()
+                if not IsMouseButtonDown("LeftButton") then
+                    self:SetScript("OnUpdate", nil)
+                    return
+                end
                 local nx, ny = GetCursorPosition()
                 local s = UIParent:GetEffectiveScale()
                 if s and s > 0 then
@@ -1189,6 +1220,9 @@ local function createSidebar()
             end)
         end)
         mvr:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
+        -- Verschwindet der Kasten mitten im Ziehen (Fenster zu, Bearbeiten-
+        -- Modus aus), kommt kein OnDragStop - das OnUpdate liefe sonst weiter.
+        mvr:HookScript("OnHide", function(self) self:SetScript("OnUpdate", nil) end)
     end
 
     -- Die Leiste gehoert zum Reiter "Charakter". Auf Ruf, Fertigkeiten oder

@@ -118,8 +118,11 @@ local function createMinimapButton()
         self:SetScript("OnUpdate", function()
             local mx, my = Minimap:GetCenter()
             if not mx then return end
+            -- Mauslage in der Skala der Minikarte, in der auch GetCenter
+            -- misst - mit der UIParent-Skala lag der Winkel daneben, sobald
+            -- die Minikarte anders skaliert ist.
             local sx, sy = GetCursorPosition()
-            local scale = UIParent:GetEffectiveScale() or 1
+            local scale = Minimap:GetEffectiveScale() or 1
             sx, sy = sx / scale, sy / scale
             local angle = math.deg(math.atan2(sy - my, sx - mx))
             mod.db.minimap = mod.db.minimap or {}

@@ -12,10 +12,19 @@ local mod = GS.mod
 local GetItemInfoInstant = GS.GetItemInfoInstant
 local LO                 = GS.LO
 local SLOT_NAMES         = GS.SLOT_NAMES
+local variantKey         = GS.variantKey
 
 -- Die Leiste wird erst nach dieser Datei geladen - deshalb zur Laufzeit.
 local function refreshSidebar()
     if GS.refreshSidebar then GS.refreshSidebar() end
+end
+
+-- Nach einer Slot-Aenderung: Makro-Symbol (folgt dem ersten Teil) und das
+-- Einstellungsfenster (zeigt die Teilezahl) nachziehen.
+local function afterSlotChange(name)
+    refreshSidebar()
+    if ns.UpdateSetMacroIcon then ns:UpdateSetMacroIcon(name) end
+    if ns.RefreshOptions then ns:RefreshOptions() end
 end
 
 
@@ -36,15 +45,19 @@ local function showSlotReplacePicker(loadoutName, targetSlot, anchor)
     --   2) For Trinkets/Rings (paired slots), the OTHER slot's equipped item too
     --      (you may want trinket1 to be what's currently in trinket2)
     --   3) All compatible items found in bags by ns:ScanBagsForSlot
-    -- De-dupes by itemID so we don't show the same physical item twice.
+    -- Doppelte nach Exemplar-Kennung (variantKey) aussortieren, nicht nach
+    -- Item-ID: sonst verschwand eine zweite Kopie mit anderer Verzauberung
+    -- oder anderen Steinen aus der Liste (gleiche Ursache wie R-55). Zwei
+    -- wirklich gleiche Exemplare ergaeben denselben gespeicherten Link,
+    -- eines davon reicht also.
     local candidates = {}  -- ordered list of { link, label, sourceTag }
-    local seenItemID = {}
+    local seenVariant = {}
 
     local function addCandidate(link, label)
         if not link then return end
-        local itemID = tonumber(link:match("item:(%d+)"))
-        if not itemID or seenItemID[itemID] then return end
-        seenItemID[itemID] = true
+        local key = variantKey(link)
+        if not key or seenVariant[key] then return end
+        seenVariant[key] = true
         table.insert(candidates, { link = link, label = label })
     end
 
@@ -62,7 +75,8 @@ local function showSlotReplacePicker(loadoutName, targetSlot, anchor)
         local pairedLink = GetInventoryItemLink("player", pairedSlot)
         if pairedLink then
             local name = pairedLink:match("|h%[(.-)%]|h") or pairedLink
-            addCandidate(pairedLink, name .. " |cff8888ffin " .. (SLOT_NAMES[pairedSlot] or "?") .. "|r")
+            addCandidate(pairedLink, name .. " |cff8888ff"
+                .. string.format(L["in %s"], SLOT_NAMES[pairedSlot] or "?") .. "|r")
         end
     end
 
@@ -76,7 +90,7 @@ local function showSlotReplacePicker(loadoutName, targetSlot, anchor)
         end
     end
 
-    local slotName = SLOT_NAMES[targetSlot] or ("Slot " .. targetSlot)
+    local slotName = SLOT_NAMES[targetSlot] or string.format(L["Slot %d"], targetSlot)
     local entries  = {
         { title = true, text = string.format(L["Replace: %s"], slotName) },
     }
@@ -91,7 +105,7 @@ local function showSlotReplacePicker(loadoutName, targetSlot, anchor)
                 func = function()
                     if LO()[loadoutName] then
                         LO()[loadoutName].slots[targetSlot] = capturedLink
-                        refreshSidebar()
+                        afterSlotChange(loadoutName)
                         ns:Print(string.format(L["Gear set '%s': slot updated."], loadoutName))
                     end
                 end,
@@ -103,7 +117,7 @@ local function showSlotReplacePicker(loadoutName, targetSlot, anchor)
     table.insert(entries, { text = L["Remove from set"], func = function()
         if LO()[loadoutName] then
             LO()[loadoutName].slots[targetSlot] = nil
-            refreshSidebar()
+            afterSlotChange(loadoutName)
         end
     end })
 
@@ -591,6 +605,7 @@ function GS.hideIconPicker()
 end
 
 -- Fuer die spaeter geladenen Dateien (siehe Shared.lua).
+GS.afterSlotChange       = afterSlotChange
 GS.getSetIcon            = getSetIcon
 GS.showIconPicker        = showIconPicker
 GS.showSlotReplacePicker = showSlotReplacePicker
