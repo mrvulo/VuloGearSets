@@ -586,6 +586,9 @@ local function equipLoadout(name, loadout)
         end
         return
     end
+    -- Ein echtes Set (nicht der Vorher-Stand von "Zurueck"): Grundlage fuer
+    -- "Naechstes/Vorheriges Set".
+    local isRealSet = (loadout == nil)
     loadout = loadout or LO()[name]
     if not loadout then
         ns:Print(string.format(L["Gear set '%s' does not exist."], name))
@@ -797,6 +800,7 @@ local function equipLoadout(name, loadout)
     if swapped + removed > 0 then
         charDB().previousGear = before
     end
+    if isRealSet then charDB().lastSet = name end
 
     -- Hat der Aufruf nichts bewegt, wird dieselbe Meldung nicht wiederholt:
     -- wer ein angelegtes Set noch einmal anklickt oder seine Taste zweimal
@@ -880,12 +884,56 @@ local function hasPreviousGear()
         and #prev.slotMask > 0
 end
 
+-- =========================================================
+-- Durch die Sets schalten (Reihenfolge der Leiste)
+--
+-- Ausgangspunkt ist das zuletzt angelegte Set, solange es noch komplett
+-- getragen wird; sonst das erste getragene; sonst gibt es keins und
+-- "Naechstes" beginnt beim ersten Set.
+-- =========================================================
+local function currentSetName(names)
+    local last = charDB().lastSet
+    if last and LO()[last] then
+        local st = getSetStatus(last)
+        if st and st.state == "equipped" then return last end
+    end
+    for _, n in ipairs(names) do
+        local st = getSetStatus(n)
+        if st and st.state == "equipped" then return n end
+    end
+    return nil
+end
+
+local function cycleSet(step)
+    local names = sortedLoadoutNames()
+    if #names == 0 then
+        ns:Print(L["No gear sets saved yet."])
+        return
+    end
+    local cur = currentSetName(names)
+    local idx = 0
+    for i, n in ipairs(names) do
+        if n == cur then idx = i break end
+    end
+    if idx == 0 then
+        idx = (step > 0) and 1 or #names
+    else
+        idx = ((idx - 1 + step) % #names) + 1
+    end
+    equipLoadout(names[idx])
+end
+
 -- Blizzards Tastenbelegung (Bindings.xml) ruft ein Global auf.
 _G.BINDING_HEADER_VULOGEARSETS   = "VuloGearSets"
 _G.BINDING_NAME_VGS_PREVIOUS_GEAR = L["Back to previous gear"]
 function VuloGearSets_EquipPrevious()
     equipPrevious()
 end
+
+_G.BINDING_NAME_VGS_NEXT_SET = L["Next gear set"]
+_G.BINDING_NAME_VGS_PREV_SET = L["Previous gear set"]
+function VuloGearSets_NextSet() cycleSet(1) end
+function VuloGearSets_PrevSet() cycleSet(-1) end
 
 -- =========================================================
 -- Ein Set in die Bank legen
@@ -1294,6 +1342,7 @@ local function commandLines()
         L["|cffffd100/vgs save <name>|r — save what you are wearing as a gear set"],
         L["|cffffd100/vgs delete <name>|r — delete a gear set"],
         L["|cffffd100/vgs back|r — back to the gear you wore before the last switch"],
+        L["|cffffd100/vgs next|r, |cffffd100/vgs prev|r — equip the next or previous gear set in sidebar order (also as keys in Blizzard's key bindings)"],
         L["|cffffd100/vgs bank <name>|r — with the bank open, put the set's pieces from your bags into the bank"],
         L["|cffffd100/vgs fetch <name>|r — with the bank open, take the set's missing pieces from the bank into your bags"],
         L["|cffffd100/vgs list|r — list your gear sets in chat"],
@@ -1357,6 +1406,10 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
         end
     elseif cmd == "back" or cmd == "undo" then
         equipPrevious()
+    elseif cmd == "next" then
+        cycleSet(1)
+    elseif cmd == "prev" or cmd == "previous" then
+        cycleSet(-1)
     elseif cmd == "bank" or cmd == "deposit" then
         if arg == "" then
             ns:Print(L["Usage: /gearset bank <name>"])

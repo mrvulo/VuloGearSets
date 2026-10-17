@@ -2,4 +2,10 @@
 	<Binding name="VGS_PREVIOUS_GEAR" header="VULOGEARSETS" category="ADDONS">
 		VuloGearSets_EquipPrevious()
 	</Binding>
+	<Binding name="VGS_NEXT_SET" category="ADDONS">
+		VuloGearSets_NextSet()
+	</Binding>
+	<Binding name="VGS_PREV_SET" category="ADDONS">
+		VuloGearSets_PrevSet()
+	</Binding>
 </Bindings>

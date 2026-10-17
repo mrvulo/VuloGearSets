@@ -29,7 +29,8 @@ der jeweiligen Datei (z. B. `Modules/SlotPicker.lua`).
 - `blizzMirror[name]` – `true` | `false` | `"rejected"` (Forever; Bedeutung im Kopf von
   `Modules/BlizzardSets.lua`)
 - `imported` – Übernahme aus VuloClassicUI erledigt (`Core/Coexistence.lua`)
-- `previousGear{slots,slotMask}` – Stand für „Zurück zur vorherigen Ausrüstung“
+- `previousGear{slots,slotMask,ammo}` – Stand für „Zurück zur vorherigen Ausrüstung“
+- `lastSet` – Name des zuletzt angelegten Sets, Ausgangspunkt für „Nächstes/Vorheriges Set“ (2026-10-17)
 - `cropState{slot,prevLink}` – Reitgerte gerade angelegt
 - `sidebarPos{x,y}` – Versatz der Set-Leiste
 
