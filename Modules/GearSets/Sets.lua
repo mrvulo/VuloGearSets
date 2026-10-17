@@ -446,6 +446,12 @@ local function deleteLoadout(name)
     -- spaeter gleich benanntes Set erbte sie sonst ungefragt.
     specMap()[name] = nil
     formMap()[name] = nil
+    -- Situationen, die dieses Set anlegen sollten, haben keins mehr.
+    for key, setName in pairs(charDB().triggers or {}) do
+        if setName == name then charDB().triggers[key] = nil end
+    end
+    -- Ohne zugeordnete Situation braucht es keinen Ticker mehr.
+    if GS.applyTriggerEvents then GS.applyTriggerEvents() end
     -- Still: der Spieler hat das Set geloescht, nicht die Taste.
     if ns.ClearSetKeybind then ns:ClearSetKeybind(name, true) end
     if ns.MirrorSetDeleted then ns:MirrorSetDeleted(name) end
@@ -478,6 +484,9 @@ local function renameLoadout(oldName, newName)
     if specMap()[oldName] then
         specMap()[newName] = specMap()[oldName]
         specMap()[oldName] = nil
+    end
+    for key, setName in pairs(charDB().triggers or {}) do
+        if setName == oldName then charDB().triggers[key] = newName end
     end
     if formMap()[oldName] then
         formMap()[newName] = formMap()[oldName]
@@ -565,17 +574,23 @@ end
 -- beim Anlegen": "all" alles, "problems" nur was nicht geklappt hat,
 -- "none" nichts. Andere Meldungen (Speichern, Loeschen, Befehle) bleiben:
 -- die loest der Spieler selbst aus und will die Antwort sehen.
+-- Situationen (AutoSwitch.lua) legen mit opts.auto an: dann nur Probleme
+-- melden, und "Zurueck" sowie "Naechstes Set" behalten den Stand des
+-- letzten Wechsels von Hand - sonst verboege jedes Auf- und Absitzen ihn.
+local _autoEquip = false
+
 local function equipSay(problem, text)
     local mode = (mod.db and mod.db.chatMessages) or "all"
     if mode == "none" then return end
-    if mode == "problems" and not problem then return end
+    if (mode == "problems" or _autoEquip) and not problem then return end
     ns:Print(text)
 end
 
 -- `loadout` ist nur fuer "Zurueck" gesetzt: der Vorher-Stand ist kein
 -- gespeichertes Set und hat keinen Eintrag in LO(). `name` ist dann nur
 -- der Text fuer die Chatzeilen.
-local function equipLoadout(name, loadout)
+local function equipLoadout(name, loadout, opts)
+    _autoEquip = (opts and opts.auto) and true or false
     if InCombatLockdown() then
         -- Dieselbe Sperre wie am Ende der Funktion: eine Taste ist im Kampf
         -- schnell mehrfach gedrueckt, und die Absage aendert sich dabei nicht.
@@ -797,10 +812,10 @@ local function equipLoadout(name, loadout)
     -- Auch "Zurueck" selbst landet hier: der Stand vor dem Zuruecklegen
     -- wird der neue Vorher-Stand, ein zweites "Zurueck" wechselt also
     -- wieder hin.
-    if swapped + removed > 0 then
+    if swapped + removed > 0 and not _autoEquip then
         charDB().previousGear = before
     end
-    if isRealSet then charDB().lastSet = name end
+    if isRealSet and not _autoEquip then charDB().lastSet = name end
 
     -- Hat der Aufruf nichts bewegt, wird dieselbe Meldung nicht wiederholt:
     -- wer ein angelegtes Set noch einmal anklickt oder seine Taste zweimal
@@ -1547,6 +1562,7 @@ GS.VISIBILITY_FIELDS   = VISIBILITY_FIELDS
 GS.cycleVisibility     = cycleVisibility
 GS.deleteLoadout       = deleteLoadout
 GS.saveAs              = saveAs
+GS.touchedSlots        = touchedSlots
 GS.setDiffersFromWorn  = setDiffersFromWorn
 GS.renameLoadout       = renameLoadout
 GS.depositLoadout      = depositLoadout

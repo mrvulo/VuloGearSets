@@ -130,6 +130,7 @@ function mod:OnEnable()
     -- schon feuerte. onTalentChange hielt das fuer einen Specwechsel und hat
     -- bei jedem Login ungefragt das an die Spec gebundene Set angelegt.
     GS.resetSwitchBaselines()
+    GS.startTriggers()
 
     -- Kurz nach dem Login kann die Talentgruppe noch nicht feststehen;
     -- getActiveSpecGroup faellt dann auf 1 zurueck. Deshalb den Ausgangswert
@@ -177,6 +178,7 @@ function mod:OnDisable()
     ns:UnregisterEvent("PLAYER_ENTERING_WORLD",       onTalentChange)
     ns:UnregisterEvent("PLAYER_REGEN_ENABLED",        onTalentChange)
     GS.stopSpecPolling()
+    GS.stopTriggers()
     GS.hideMinimapButton()
 
     -- Sichtbares aufraeumen. updateVisibility entscheidet nur beim Oeffnen

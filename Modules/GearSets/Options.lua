@@ -160,6 +160,63 @@ local function sidebarPage()
     }
 end
 
+-- Auswahl "kein Set" plus alle Sets in der Reihenfolge der Leiste.
+local function setChoiceValues()
+    local values = { { value = "", text = L["None"] } }
+    for _, n in ipairs(sortedLoadoutNames()) do
+        values[#values + 1] = { value = n, text = n }
+    end
+    return values
+end
+
+-- Eine Situation: Auswahlliste mit dem Set, das sie anlegt. Kein default -
+-- Zuordnungen sind wie Spec- und Gestalt-Bindungen Daten, keine
+-- Einstellung, und bleiben beim Zuruecksetzen stehen (I-21).
+local function triggerItem(key, label, tooltip, values)
+    return { type = "dropdown", label = label, tooltip = tooltip, values = values,
+        get = function() return GS.triggerMap()[key] or "" end,
+        set = function(_, v)
+            GS.triggerMap()[key] = (v ~= "" and v) or nil
+            GS.applyTriggerEvents()
+        end }
+end
+
+local function situationItems()
+    local values = setChoiceValues()
+    local tempTip = L["Equips the chosen set while this lasts and puts back what you wore before when it ends. Waits for the end of combat."]
+    local placeTip = L["Equips the chosen set when you get there. A place without a set puts back what you wore before the first place set. Waits for the end of combat."]
+    return {
+        { type = "spacer", height = 6 },
+        { type = "header", text = L["Situations"] },
+        { type = "toggle", label = L["Equip sets for situations"],
+          tooltip = L["Turns all situations below on or off at once. Which set belongs to which situation stays saved."],
+          default = D.triggersEnabled ~= false,
+          get = function() return mod.db.triggersEnabled ~= false end,
+          set = function(_, v)
+              mod.db.triggersEnabled = v
+              -- Aus: Situations-Teile runter, Zustand verwerfen. An: neu
+              -- beginnen, ohne alte Staende zurueckzulegen.
+              GS.resetTriggerState()
+              GS.applyTriggerEvents()
+          end },
+        { type = "desc", text = L["|cffaaaaaaWhile something lasts - the set comes off again afterwards:|r"] },
+        triggerItem("mount", L["Mounted"], tempTip, values),
+        triggerItem("swim", L["Swimming"], tempTip, values),
+        triggerItem("fishing", L["Fishing pole in hand"],
+            L["Equips the chosen set as soon as you hold a fishing pole, for example a fishing hat and boots. Your weapons are not swapped back afterwards - you just took one in hand."], values),
+        triggerItem("eat", L["Eating or drinking"], tempTip, values),
+        { type = "desc", text = L["|cffaaaaaaWhere you are - the set stays on until another place wants a different one:|r"] },
+        triggerItem("pvp", L["Battleground"], placeTip, values),
+        triggerItem("arena", L["Arena"], placeTip, values),
+        triggerItem("party", L["Dungeon"], placeTip, values),
+        triggerItem("raid", L["Raid"], placeTip, values),
+        triggerItem("rest", L["City or inn"],
+            L["Places where you rest: cities and inns. Equips the chosen set when you get there."], values),
+        triggerItem("world", L["Open world"],
+            L["Everywhere outside instances, cities and inns. Useful as the way back from a battleground or dungeon set."], values),
+    }
+end
+
 local function automationPage()
     local items = {
         { type = "desc", text = L["|cffaaaaaaWhich gear set belongs to a stance, form or spec is chosen per set on the Saved Gear Sets page or in the sidebar's right-click menu.|r"] },
@@ -200,6 +257,8 @@ local function automationPage()
             -- Gerte gleich an, ausschalten nimmt sie gleich wieder ab.
             applyMountState(true)
         end })
+    table.insert(items, { type = "desc", text = L["|cffaaaaaaIf a set is chosen for Mounted below and it covers a trinket slot, the speed trinket stays out of it.|r"] })
+    for _, it in ipairs(situationItems()) do table.insert(items, it) end
     return items
 end
 

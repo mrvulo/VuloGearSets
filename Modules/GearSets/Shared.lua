@@ -45,6 +45,9 @@ local mod = ns:RegisterModule("gearsets", {
         -- Reitgerte automatisch anlegen. Bewusst aus: das Addon fasst
         -- ungefragt keine getragene Ausruestung an.
         ridingCropEnabled = false,
+        -- Situationen (Reiten, Ort ...) legen ihr Set an, sofern einer
+        -- Situation eins zugeordnet ist (charDB().triggers).
+        triggersEnabled   = true,
         -- Character-frame sidebar
         sidebarEnabled      = true,
         -- Feinjustierung gegenueber dem Charakterfenster. Blizzards Frame

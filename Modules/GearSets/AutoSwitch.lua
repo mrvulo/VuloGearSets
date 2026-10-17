@@ -9,8 +9,11 @@ local GS  = ns.GS
 local mod = GS.mod
 
 -- Aus frueher geladenen Dateien (siehe Shared.lua).
+local GetItemInfoInstant = GS.GetItemInfoInstant
 local LO                = GS.LO
+local captureCurrentEquipment = GS.captureCurrentEquipment
 local charDB            = GS.charDB
+local currentAmmoID     = GS.currentAmmoID
 local equipLoadout      = GS.equipLoadout
 local findItemInBags    = GS.findItemInBags
 local formMap           = GS.formMap
@@ -357,7 +360,10 @@ local function applyMountState(force)
         -- liegen; sonst wird an Ort und Stelle getauscht (Reittier <-> Flug).
         if wornSlotOf(list) then return end
         swapMountSpeedItem(list)
-    else
+    elseif not (key == "mount" and GS.mountSetCoversTrinkets
+                and GS.mountSetCoversTrinkets()) then
+        -- Fluggestalt zaehlt nicht als beritten: dort greift das Reit-Set
+        -- nie, der Gluecksbringer also weiter.
         equipMountSpeedItem(list)
     end
 end
@@ -392,6 +398,355 @@ local function applyMountEvents()
     fn(ns, "PLAYER_ENTERING_WORLD",  onMountStateChange)
 end
 mod._applyMountEvents = applyMountEvents
+
+-- =========================================================
+-- Situationen
+--
+-- Je Situation hoechstens ein Set: charDB().triggers[key] = Setname.
+-- Zwei Arten:
+--   voruebergehend (TEMP_TRIGGERS): beritten, schwimmen, Angel in der
+--     Waffenhand, essen/trinken. Endet die Situation, kommt der Stand von
+--     davor zurueck.
+--   Ort (LOC_TRIGGERS): Schlachtfeld, Arena, Dungeon, Schlachtzug,
+--     Erholungsgebiet (Stadt, Gasthaus), offene Welt. Gilt, bis ein anderer
+--     Ort ein anderes Set will; ein Ort ohne Set stellt den Stand von vor
+--     dem ersten Ort-Set wieder her.
+-- Eine laufende voruebergehende Situation hat Vorrang; ein Ortswechsel
+-- waehrenddessen wird danach nachgeholt.
+--
+-- Der Zustand liegt in charDB().triggerState und ueberlebt einen Reload:
+-- wer beritten ausloggt und abgesessen einloggt, bekommt den Stand von
+-- davor zurueck. Beim allerersten Start und nach einem Reload am selben
+-- Ort wird nichts angelegt - nur echte Wechsel loesen etwas aus (wie bei
+-- Spec und Gestalt, siehe R-30).
+--
+-- Nur ausserhalb des Kampfs und nicht tot; PLAYER_REGEN_ENABLED holt nach.
+-- =========================================================
+local TEMP_TRIGGERS = { "swim", "mount", "fishing", "eat" }   -- Rangfolge
+local LOC_TRIGGERS  = { "pvp", "arena", "party", "raid", "rest", "world" }
+
+local function triggerMap()
+    local c = charDB()
+    c.triggers = c.triggers or {}
+    return c.triggers
+end
+
+local function triggerState()
+    local c = charDB()
+    c.triggerState = c.triggerState or {}
+    return c.triggerState
+end
+
+local function triggerSet(key)
+    local name = triggerMap()[key]
+    if name and LO()[name] then return name end
+    return nil
+end
+
+local function anyTempMapped()
+    for _, key in ipairs(TEMP_TRIGGERS) do
+        if triggerSet(key) then return true end
+    end
+    return false
+end
+
+-- Buff-Name ueber beide APIs: Forever hat UnitBuff nicht mehr sicher.
+local function buffName(i)
+    local CUA = _G.C_UnitAuras
+    if CUA and CUA.GetBuffDataByIndex then
+        local d = CUA.GetBuffDataByIndex("player", i)
+        return d and d.name
+    end
+    if UnitBuff then return (UnitBuff("player", i)) end
+    return nil
+end
+
+-- Essen und Trinken heissen in jeder Sprache wie diese beiden Zauber.
+local FOOD_NAME, DRINK_NAME
+local function isEatingOrDrinking()
+    FOOD_NAME  = FOOD_NAME  or spellName(433)
+    DRINK_NAME = DRINK_NAME or spellName(430)
+    for i = 1, 40 do
+        local name = buffName(i)
+        if not name then break end
+        if name == FOOD_NAME or name == DRINK_NAME then return true end
+    end
+    return false
+end
+
+-- Angel in der Waffenhand: Waffe (2), Unterklasse Angelrute (20).
+local function hasFishingPole()
+    local id = GetInventoryItemID and GetInventoryItemID("player", 16)
+    if not id or not GetItemInfoInstant then return false end
+    local _, _, _, _, _, classID, subClassID = GetItemInfoInstant(id)
+    return classID == 2 and subClassID == 20
+end
+
+local TEMP_CHECK = {
+    swim    = function() return IsSwimming and IsSwimming() or false end,
+    -- Flugmeister zaehlt nicht: dort laesst sich ohnehin nichts tauschen.
+    mount   = function()
+        return (IsMounted and IsMounted() and not (UnitOnTaxi and UnitOnTaxi("player"))) or false
+    end,
+    fishing = hasFishingPole,
+    eat     = isEatingOrDrinking,
+}
+
+local function locationKey()
+    local inInstance, instType = IsInInstance()
+    if inInstance and (instType == "pvp" or instType == "arena"
+                       or instType == "party" or instType == "raid") then
+        return instType
+    end
+    if IsResting and IsResting() then return "rest" end
+    return "world"
+end
+
+local function currentTempWant()
+    for _, key in ipairs(TEMP_TRIGGERS) do
+        if triggerSet(key) and TEMP_CHECK[key]() then return key end
+    end
+    return nil
+end
+
+-- Stand der Slots, die das Set anfassen wird - zum Zuruecklegen danach.
+local function snapshotFor(setName)
+    local set = LO()[setName]
+    if not set then return nil end
+    local touched = GS.touchedSlots(set)
+    return { slots = captureCurrentEquipment(touched), slotMask = touched,
+             ammo  = set.ammo and currentAmmoID() or nil }
+end
+
+-- Nach dem Angeln die Waffen nicht zuruecktauschen: wer die Angel ablegt,
+-- hat gerade selbst eine Waffe in die Hand genommen.
+local WEAPON_SLOTS = { [16] = true, [17] = true, [18] = true }
+local function withoutWeapons(snap)
+    local out = { slots = {}, slotMask = {}, ammo = nil }
+    for _, s in ipairs(snap.slotMask or {}) do
+        if not WEAPON_SLOTS[s] then
+            out.slotMask[#out.slotMask + 1] = s
+            out.slots[s] = snap.slots and snap.slots[s]
+        end
+    end
+    return out
+end
+
+-- Wechselt eine Situation direkt in die naechste (beritten -> schwimmen,
+-- Schlachtfeld -> Welt), bleibt der Stand von ganz vorher. Slots, die erst
+-- das neue Set anfasst, kennt er noch nicht - die werden mit dem Stand von
+-- jetzt nachgetragen, sonst blieben sie am Ende im Situations-Set stecken.
+local function extendSnapshot(snap, setName)
+    local set = LO()[setName]
+    if not (snap and set) then return snap end
+    local known = {}
+    for _, s in ipairs(snap.slotMask or {}) do known[s] = true end
+    local missing = {}
+    for _, s in ipairs(GS.touchedSlots(set)) do
+        if not known[s] then missing[#missing + 1] = s end
+    end
+    if #missing > 0 then
+        local now = captureCurrentEquipment(missing)
+        snap.slots = snap.slots or {}
+        for _, s in ipairs(missing) do
+            snap.slotMask[#snap.slotMask + 1] = s
+            snap.slots[s] = now[s]
+        end
+        table.sort(snap.slotMask)
+    end
+    if set.ammo and snap.ammo == nil then snap.ammo = currentAmmoID() end
+    return snap
+end
+
+local function snapshotOrExtend(snap, setName)
+    if snap then return extendSnapshot(snap, setName) end
+    return snapshotFor(setName)
+end
+
+-- Nach dem Zuruecklegen sind die Teile kurz gesperrt; bis dahin legt keine
+-- Situation etwas an (sonst "liess sich nicht anlegen").
+local _holdUntil = 0
+
+local function restore(snap)
+    if snap and #(snap.slotMask or {}) > 0 then
+        equipLoadout(L["Previous gear"], snap, { auto = true })
+        _holdUntil = GetTime() + 1
+    end
+end
+
+local function triggersActive()
+    return mod._enabled and mod.db and mod.db.triggersEnabled ~= false
+end
+
+-- Fuers An- und Abmelden der Ereignisse NICHT mod._enabled fragen: aus
+-- OnEnable heraus steht es noch auf false (wie bei applyMountEvents).
+local function triggersWanted()
+    return mod.db and mod.db.triggersEnabled ~= false
+end
+
+local evaluateTriggers   -- vorwaerts: queueEvaluate ruft es spaeter auf
+
+local _evalQueued = false
+local function queueEvaluate(delay)
+    if _evalQueued or not (C_Timer and C_Timer.After) then return end
+    _evalQueued = true
+    C_Timer.After(delay or 0.3, function()
+        _evalQueued = false
+        evaluateTriggers()
+    end)
+end
+
+-- Voruebergehende Situationen werden erst nach zwei gleichen Abfragen
+-- (eine Sekunde) wirksam: an der Wasseroberflaeche flackert IsSwimming,
+-- und kurzes Auf- und Absitzen soll nicht zweimal tauschen.
+local _candidate, _candidateTicks = nil, 0
+local _triggerTicker
+
+evaluateTriggers = function(fromTicker)
+    if not triggersActive() then return end
+    if InCombatLockdown() then return end
+    if UnitIsDeadOrGhost and UnitIsDeadOrGhost("player") then return end
+    if GetTime() < _holdUntil then
+        if not fromTicker then queueEvaluate(_holdUntil - GetTime() + 0.1) end
+        return
+    end
+    local state = triggerState()
+
+    local want = currentTempWant()
+    if fromTicker then
+        if want ~= _candidate then
+            _candidate, _candidateTicks = want, 1
+            return
+        end
+        _candidateTicks = _candidateTicks + 1
+        if _candidateTicks < 2 then return end
+    elseif _triggerTicker then
+        -- Ereignisse (Kampfende, Ortswechsel) warten nicht auf den Ticker,
+        -- uebernehmen aber nur eine Lage, die er schon bestaetigt hat.
+        want = (_candidateTicks >= 2) and _candidate or state.temp
+    end
+    -- Ohne Ticker (keiner Situation dieser Art ist ein Set zugeordnet)
+    -- gilt die Abfrage direkt: eine noch laufende Situation endet dann,
+    -- und ihr Stand von davor kommt zurueck.
+
+    if want ~= state.temp then
+        local endingSnap = state.tempSnap
+        if state.temp == "fishing" and endingSnap then
+            endingSnap = withoutWeapons(endingSnap)
+        end
+        if want then
+            -- Direkt von einer Situation in die naechste: den Stand von ganz
+            -- vorher behalten.
+            state.tempSnap = snapshotOrExtend(state.tempSnap, triggerSet(want))
+            state.temp = want
+            equipLoadout(triggerSet(want), nil, { auto = true })
+            return
+        end
+        state.temp, state.tempSnap = nil, nil
+        restore(endingSnap)
+        -- Der Ort kann sich waehrenddessen geaendert haben; bewertet wird,
+        -- sobald die zurueckgelegten Teile angekommen sind (_holdUntil).
+        queueEvaluate(1.1)
+        return
+    end
+    if state.temp then return end
+
+    local loc = locationKey()
+    -- Allererste Auswertung: nur merken, wo man ist. Erst hier und nicht
+    -- schon beim Login, weil der Ort dann sicher feststeht (Naehe R-30).
+    if state.loc == nil then state.loc = loc return end
+    if loc == state.loc then return end
+    state.loc = loc
+    local name = triggerSet(loc)
+    if name then
+        state.locSnap = snapshotOrExtend(state.locSnap, name)
+        equipLoadout(name, nil, { auto = true })
+    elseif state.locSnap then
+        local snap = state.locSnap
+        state.locSnap = nil
+        restore(snap)
+    end
+end
+
+local function onTriggerEvent()
+    queueEvaluate(0.3)
+end
+
+local function applyTriggerEvents()
+    local on = triggersWanted()
+    local fn = on and ns.RegisterEvent or ns.UnregisterEvent
+    fn(ns, "PLAYER_ENTERING_WORLD",  onTriggerEvent)
+    fn(ns, "ZONE_CHANGED_NEW_AREA",  onTriggerEvent)
+    fn(ns, "PLAYER_UPDATE_RESTING",  onTriggerEvent)
+    fn(ns, "PLAYER_REGEN_ENABLED",   onTriggerEvent)
+    -- Voruebergehende Situationen haben keine verlaessliche Meldung
+    -- (Schwimmen gar keine). Ein Ticker jede halbe Sekunde, aber nur,
+    -- solange einer Situation dieser Art ein Set zugeordnet ist.
+    local wantTicker = on and anyTempMapped() and C_Timer and C_Timer.NewTicker
+    if wantTicker and not _triggerTicker then
+        _triggerTicker = C_Timer.NewTicker(0.5, function() evaluateTriggers(true) end)
+    elseif not wantTicker and _triggerTicker then
+        _triggerTicker:Cancel()
+        _triggerTicker = nil
+    end
+end
+
+-- Ausgangslage ohne Anlegen: beim ersten Start, und wenn nichts gemerkt
+-- ist. Ein gemerkter Zustand bleibt - der echte Wechsel seit dem Logout
+-- wird dann bei der ersten Auswertung nachgeholt.
+local function triggerBaseline()
+    _candidate, _candidateTicks = triggerState().temp, 2
+end
+
+-- Ausschalten (Schalter oder Modul): ein voruebergehendes Situations-Set
+-- kommt wieder runter, sonst bliebe es stecken (wie die Reitgerte, R-50).
+-- Der gemerkte Zustand wird verworfen - beim Wiedereinschalten beginnt
+-- alles neu an der dann aktuellen Stelle, ohne alte Staende zurueckzulegen.
+local function resetTriggerState()
+    local state = triggerState()
+    if state.tempSnap and not InCombatLockdown() then
+        local snap = state.tempSnap
+        if state.temp == "fishing" then snap = withoutWeapons(snap) end
+        restore(snap)
+    end
+    charDB().triggerState = {}
+    triggerBaseline()
+end
+GS.resetTriggerState = resetTriggerState
+
+function GS.startTriggers()
+    triggerBaseline()
+    applyTriggerEvents()
+end
+
+function GS.stopTriggers()
+    local wasOn = mod.db and mod.db.triggersEnabled
+    resetTriggerState()
+    if _triggerTicker then _triggerTicker:Cancel(); _triggerTicker = nil end
+    ns:UnregisterEvent("PLAYER_ENTERING_WORLD",  onTriggerEvent)
+    ns:UnregisterEvent("ZONE_CHANGED_NEW_AREA",  onTriggerEvent)
+    ns:UnregisterEvent("PLAYER_UPDATE_RESTING",  onTriggerEvent)
+    ns:UnregisterEvent("PLAYER_REGEN_ENABLED",   onTriggerEvent)
+    return wasOn
+end
+
+-- Haengt ein Reit-Set an Schmuckslots, laesst die Reitgerte die Finger
+-- davon: sonst stritten zwei Automatiken um denselben Slot.
+function GS.mountSetCoversTrinkets()
+    if not triggersActive() then return false end
+    local name = triggerSet("mount")
+    local set = name and LO()[name]
+    if not set then return false end
+    for _, s in ipairs(set.slotMask or {}) do
+        if s == 13 or s == 14 then return true end
+    end
+    return false
+end
+
+GS.TEMP_TRIGGERS      = TEMP_TRIGGERS
+GS.LOC_TRIGGERS       = LOC_TRIGGERS
+GS.triggerMap         = triggerMap
+GS.applyTriggerEvents = applyTriggerEvents
 
 -- =========================================================
 -- Dual-spec auto-switching

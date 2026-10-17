@@ -10,7 +10,7 @@ der jeweiligen Datei (z. B. `Modules/SlotPicker.lua`).
 - `debug` – nur von Hand gesetzt
 - `modules[key]` – Defaults jedes Moduls (`ns:RegisterModule`, `Core/Database.lua`)
   - `gearsets`: `confirmDelete`, `chatMessages` (`"all"` | `"problems"` | `"none"`, 2026-10-13), `minimap{hidden,angle}`, `autoSwitchEnabled`,
-    `specSwitchEnabled`, `ridingCropEnabled`, `sidebarEnabled`, `sidebarTopOffset`,
+    `specSwitchEnabled`, `ridingCropEnabled`, `triggersEnabled` (2026-10-17), `sidebarEnabled`, `sidebarTopOffset`,
     `sidebarBottomOffset`, `sidebarXOffset`, `sidebarStatsGap`, `sidebarPos` (Alias der
     Charakterkopie), Migrationsmarke `_offsetMigrated_v3`
   - `slotpicker`: `modifier` (`right` | `shift-right` | `alt-right` | `ctrl-right`), `cols`,
@@ -30,6 +30,8 @@ der jeweiligen Datei (z. B. `Modules/SlotPicker.lua`).
   `Modules/BlizzardSets.lua`)
 - `imported` – Übernahme aus VuloClassicUI erledigt (`Core/Coexistence.lua`)
 - `previousGear{slots,slotMask,ammo}` – Stand für „Zurück zur vorherigen Ausrüstung“
+- `triggers[key]` – Setname je Situation (`mount`, `swim`, `fishing`, `eat`, `pvp`, `arena`, `party`, `raid`, `rest`, `world`); Umbenennen/Löschen ziehen mit (2026-10-17)
+- `triggerState{temp,tempSnap,loc,locSnap}` – laufende Situation und Stand davor (wie `previousGear`), überlebt Reload
 - `lastSet` – Name des zuletzt angelegten Sets, Ausgangspunkt für „Nächstes/Vorheriges Set“ (2026-10-17)
 - `cropState{slot,prevLink}` – Reitgerte gerade angelegt
 - `sidebarPos{x,y}` – Versatz der Set-Leiste
