@@ -59,3 +59,6 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-10-13 · assumed · Neuer Schalter „Tasten für Sets erlauben“ (Modul gab es, Schalter fehlte) · F064
 - 2026-10-13 · assumed · Seitennamen für Befehle englisch (`/vgs general|sidebar|automation|slots|sets|info`) · F064
 - 2026-10-17 · Marktrecherche: Ideen F065–F072 aus vergleichbaren Set-Addons eingetragen (Namen bewusst nicht im Repo, I-18) · user „informieren nach ähnlichen addons“ · F056, F057, F061, F065–F072
+- 2026-10-17 · Umsetzen: F056, F072, F061, F070, F071, F057+F067, F065 · user „F056, F072, F061, F070, F071, F057 + F067, F065“ · —
+- 2026-10-17 · F065 gewählt, obwohl er I-15 ändert (Hinweis stand in der Empfehlung) · user · I-15
+- 2026-10-17 · assumed · Munition nur als Item-ID, nur mit Fernkampfslot, nie „leer anlegen“ · F071

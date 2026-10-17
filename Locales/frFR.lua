@@ -33,6 +33,7 @@ ns:RegisterLocale("frFR", {
     ["Allow keys for gear sets"] = "Autoriser des touches pour les ensembles",
     ["Also keep sets in Blizzard's equipment manager"] = "Conserver aussi les ensembles dans le Gestionnaire d'équipement de Blizzard",
     ["Alt + Right-click"] = "Alt + clic droit",
+    ["Ammo: %s"] = "Munitions : %s",
     ["Ask before overwriting a socket"] = "Demander avant de remplacer une gemme sertie",
     ["Asks before a gear set is deleted - from the sidebar, the settings or with /gearset delete."] = "Demande une confirmation avant de supprimer un ensemble – depuis la barre latérale, les paramètres ou avec /gearset delete.",
     ["Automation"] = "Automatisation",

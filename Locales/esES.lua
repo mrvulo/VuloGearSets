@@ -33,6 +33,7 @@ local T = {
     ["Allow keys for gear sets"] = "Permitir teclas para conjuntos",
     ["Also keep sets in Blizzard's equipment manager"] = "Guardar también los conjuntos en el gestor de equipamiento de Blizzard",
     ["Alt + Right-click"] = "Alt + clic derecho",
+    ["Ammo: %s"] = "Munición: %s",
     ["Ask before overwriting a socket"] = "Preguntar antes de sobrescribir una ranura",
     ["Asks before a gear set is deleted - from the sidebar, the settings or with /gearset delete."] = "Pide confirmación antes de borrar un conjunto: desde la barra lateral, los ajustes o con /gearset delete.",
     ["Automation"] = "Automatización",

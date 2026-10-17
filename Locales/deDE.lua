@@ -34,6 +34,7 @@ ns:RegisterLocale("deDE", {
     ["Allow keys for gear sets"] = "Tasten für Sets erlauben",
     ["Also keep sets in Blizzard's equipment manager"] = "Sets auch in Blizzards Ausrüstungsmanager führen",
     ["Alt + Right-click"] = "Alt + Rechtsklick",
+    ["Ammo: %s"] = "Munition: %s",
     ["Ask before overwriting a socket"] = "Vor dem Überschreiben eines Sockels fragen",
     ["Asks before a gear set is deleted - from the sidebar, the settings or with /gearset delete."] = "Fragt nach, bevor ein Set gelöscht wird – in der Sidebar, in den Einstellungen oder mit /gearset delete.",
     ["Automation"] = "Automatik",

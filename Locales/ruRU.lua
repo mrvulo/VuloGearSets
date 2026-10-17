@@ -33,6 +33,7 @@ ns:RegisterLocale("ruRU", {
     ["Allow keys for gear sets"] = "Разрешить клавиши для комплектов",
     ["Also keep sets in Blizzard's equipment manager"] = "Также хранить комплекты в менеджере экипировки Blizzard",
     ["Alt + Right-click"] = "Alt + правый щелчок",
+    ["Ammo: %s"] = "Боеприпасы: %s",
     ["Ask before overwriting a socket"] = "Спрашивать перед заменой камня в гнезде",
     ["Asks before a gear set is deleted - from the sidebar, the settings or with /gearset delete."] = "Спрашивает перед удалением комплекта — на панели, в настройках или через /gearset delete.",
     ["Automation"] = "Автоматика",

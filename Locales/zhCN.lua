@@ -33,6 +33,7 @@ ns:RegisterLocale("zhCN", {
     ["Allow keys for gear sets"] = "允许为装备方案设置按键",
     ["Also keep sets in Blizzard's equipment manager"] = "同时将方案保存到暴雪的装备管理器",
     ["Alt + Right-click"] = "Alt + 右键点击",
+    ["Ammo: %s"] = "弹药：%s",
     ["Ask before overwriting a socket"] = "覆盖插槽前询问",
     ["Asks before a gear set is deleted - from the sidebar, the settings or with /gearset delete."] = "删除装备方案前先确认——无论是在侧边栏、设置中还是使用 /gearset delete。",
     ["Automation"] = "自动化",

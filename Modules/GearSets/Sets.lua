@@ -10,7 +10,9 @@ local GS  = ns.GS
 local mod = GS.mod
 
 -- Aus frueher geladenen Dateien (siehe Shared.lua).
+local AMMO_SLOT                = GS.AMMO_SLOT
 local EQUIP_SLOTS              = GS.EQUIP_SLOTS
+local currentAmmoID            = GS.currentAmmoID
 local GetContainerItemID       = GS.GetContainerItemID
 local GetContainerItemLink     = GS.GetContainerItemLink
 local GetContainerNumFreeSlots = GS.GetContainerNumFreeSlots
@@ -330,6 +332,17 @@ local function copySlotList(list)
     return out
 end
 
+-- Munition gehoert zur Fernkampfwaffe: gemerkt nur, wenn Slot 18 zu den
+-- gespeicherten Slots zaehlt (ganzes Set oder Waffen). Ohne Munition oder
+-- ohne Munitionsplatz bleibt das Feld leer.
+local function captureAmmo(set, slotList)
+    local withRanged = false
+    for _, s in ipairs(slotList or EQUIP_SLOTS) do
+        if s == 18 then withRanged = true break end
+    end
+    set.ammo = withRanged and currentAmmoID() or nil
+end
+
 local function saveAs(name, slotList)
     -- Leerzeichen am Rand abschneiden wie beim Umbenennen: "Tank " und
     -- "Tank" waeren sonst zwei Sets, die gleich aussehen.
@@ -348,6 +361,7 @@ local function saveAs(name, slotList)
     end
     set.slots    = captureCurrentEquipment(slotList)
     set.slotMask = copySlotList(slotList or EQUIP_SLOTS)
+    captureAmmo(set, slotList)
 
     ns:Print(string.format(L["Gear set '%s' saved (%d items)."],
         name, countSlots(set)))
@@ -399,6 +413,7 @@ local function overwriteLoadout(name)
     -- alles weitere bleiben am Eintrag haengen.
     loadout.slots    = captureCurrentEquipment(slotList)
     loadout.slotMask = copySlotList(slotList)
+    captureAmmo(loadout, slotList)
     ns:Print(string.format(L["Gear set '%s' updated with current gear."], name))
     if ns.MirrorSetSaved then ns:MirrorSetSaved(name) end
     return true
@@ -568,7 +583,8 @@ local function equipLoadout(name, loadout)
     -- nur, wenn sich wirklich etwas bewegt hat - sonst ueberschriebe ein
     -- zweiter Klick auf ein angelegtes Set den Stand von davor.
     local touched = touchedSlots(loadout)
-    local before  = { slots = captureCurrentEquipment(touched), slotMask = touched }
+    local before  = { slots = captureCurrentEquipment(touched), slotMask = touched,
+                      ammo  = loadout.ammo and currentAmmoID() or nil }
 
     applySetVisibility(loadout)
 
@@ -725,6 +741,36 @@ local function equipLoadout(name, loadout)
                     end
                 end
             end
+        end
+    end
+
+    -- Munition zuletzt: sie haengt an der Fernkampfwaffe, die oben schon
+    -- gewechselt wurde. Gesucht wird in allen Taschen samt Koecher.
+    if loadout.ammo and currentAmmoID() ~= loadout.ammo then
+        local abag, aslot
+        for _, bag in ipairs(containerIDs(false)) do
+            for s = 1, (GetContainerNumSlots(bag) or 0) do
+                if GetContainerItemID(bag, s) == loadout.ammo then
+                    abag, aslot = bag, s
+                    break
+                end
+            end
+            if abag then break end
+        end
+        if not abag then
+            missing = missing + 1
+        else
+            ClearCursor()
+            _PickupContainerItem(abag, aslot)
+            local ok = CursorHasItem and CursorHasItem()
+                and pcall(EquipCursorItem, AMMO_SLOT)
+            -- Der Stapel bleibt im Koecher; haengt danach noch etwas am
+            -- Cursor, hat der Client abgelehnt.
+            if CursorHasItem and CursorHasItem() then
+                ClearCursor()
+                ok = false
+            end
+            if ok then swapped = swapped + 1 else failed = failed + 1 end
         end
     end
 

@@ -305,6 +305,11 @@ local function createSetRow(parent, index)
             GameTooltip:AddLine(self.setName, 1, 0.82, 0)
             GameTooltip:AddLine(string.format("%d %s", countSlots(loadout), L["items"]),
                 0.6, 0.6, 0.6)
+            if loadout.ammo then
+                local ammoName = GetItemInfo and GetItemInfo(loadout.ammo)
+                GameTooltip:AddLine(string.format(L["Ammo: %s"],
+                    ammoName or ("#" .. loadout.ammo)), 0.6, 0.6, 0.6)
+            end
 
             -- Zustand im Klartext, und bei fehlenden Teilen auch welche.
             local st = self.statusInfo

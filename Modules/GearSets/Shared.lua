@@ -117,6 +117,26 @@ end
 -- Equipment slots we capture (skip shirt=4 and tabard=19)
 local EQUIP_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 }
 
+-- Munitionsplatz (Slot 0). Steht bewusst NICHT in EQUIP_SLOTS: er ist
+-- kein echter Ausruestungsplatz (der Stapel bleibt im Koecher), laesst sich
+-- nicht "leer anlegen" und kennt keine Exemplare. Ein Set merkt sich nur
+-- die Item-ID (set.ammo), und nur zusammen mit der Fernkampfwaffe.
+-- Nicht jeder Client hat ihn - deshalb gefragt statt angenommen.
+local AMMO_SLOT = 0
+local _hasAmmoSlot
+local function hasAmmoSlot()
+    if _hasAmmoSlot == nil then
+        local ok, id = pcall(GetInventorySlotInfo, "AmmoSlot")
+        _hasAmmoSlot = (ok and id == AMMO_SLOT) and true or false
+    end
+    return _hasAmmoSlot
+end
+
+local function currentAmmoID()
+    if not hasAmmoSlot() or not GetInventoryItemID then return nil end
+    return GetInventoryItemID("player", AMMO_SLOT)
+end
+
 -- Slot display names (for UI / pickers)
 local SLOT_NAMES = {
     [1]  = L["Head"],    [2]  = L["Neck"],     [3]  = L["Shoulder"],
@@ -483,6 +503,9 @@ local function countSlots(loadout)
 end
 -- Fuer die spaeter geladenen Dateien (siehe Shared.lua).
 GS.EQUIP_SLOTS              = EQUIP_SLOTS
+GS.AMMO_SLOT                = AMMO_SLOT
+GS.hasAmmoSlot              = hasAmmoSlot
+GS.currentAmmoID            = currentAmmoID
 GS.GetContainerItemID       = GetContainerItemID
 GS.GetContainerItemLink     = GetContainerItemLink
 GS.GetContainerNumFreeSlots = GetContainerNumFreeSlots

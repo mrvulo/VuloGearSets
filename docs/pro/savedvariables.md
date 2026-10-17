@@ -43,6 +43,7 @@ der jeweiligen Datei (z. B. `Modules/SlotPicker.lua`).
 | `order` | Position in der Leiste, nil bis zum ersten Umsortieren |
 | `showHelm` / `showCloak` | nil = lassen, true/false = zeigen/verbergen |
 | `createdAt` | Zeitstempel der Anlage |
+| `ammo` | Item-ID der Munition (Slot 0), nur mit Fernkampfslot gespeichert; nil = Munition nicht anfassen (2026-10-17) |
 
 Umbenennen zieht `specMapping`, `formMapping`, `keybinds`, `blizzMirror`, Makro und die Auswahl in
 der Leiste mit (Rename-Hüllen in `Modules/GearSets/Sets.lua`).

@@ -60,6 +60,7 @@ Stand: 2026-10-10. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 | F058 | Chatmeldungen beim Anlegen: Alle / Nur Probleme / Keine | test-in-game | — | Modules/GearSets/Sets.lua, Modules/GearSets/Options.lua |
 | F059 | Slot-Menü: „Slot beim Anlegen leeren“ und „Slot nicht mehr verwalten“ getrennt, Hinweis im Tooltip der Teile | test-in-game | — | Modules/GearSets/Pickers.lua, Modules/GearSets/Sidebar.lua |
 | F064 | Einstellungsfenster mit sechs Seiten, Tooltips überall, Leistenposition als Regler, Seite/Alles zurücksetzen, `/vgs <seite>`, Erweitert-Blöcke, Schalter „Tasten für Sets erlauben“ | test-in-game | — | UI/OptionsFrame.lua, Modules/GearSets/Options.lua, alle Module (`GetOptions`) |
+| F071 | Munition im Set (Slot 0, nur mit Fernkampfslot gespeichert), Anzeige im Set-Tooltip, „Zurück“ nimmt sie mit | test-in-game | — | Modules/GearSets/Sets.lua, Modules/GearSets/Shared.lua |
 | D001 | Schlafmodus (Addon schaltet sich ab, wenn VuloClassicUI sein Set-Modul hat) | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D002 | Kontoweiter Set-Pool und separater Importbefehl der Altversion | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D003 | Auslöseart "Beim Überfahren" im Slot-Auswahl-Dropdown: Hover ist jetzt immer aktiv, das Dropdown wählt nur den Klick fürs große Fenster | dropped | — | Modules/SlotPicker.lua |
@@ -98,5 +99,4 @@ Neue Vorschläge von Claude hier mit ID als `idea` eintragen, damit „mach 1 un
 | F068 | Teile des gewählten Sets in offenen Taschen hervorheben (Blizzard-Taschen, verbreitete Taschen-Addons) | idea |
 | F069 | Sets einmalig aus einem anderen Ausrüstungs-Addon übernehmen (nur lesen; ergänzt F052) | idea |
 | F070 | Speichern-Knopf zeigt, wenn das Getragene vom gewählten Set abweicht | idea |
-| F071 | Munitionsplatz (Slot 0) im Set, z. B. Pfeile/Kugeln für Jäger | idea |
 | F072 | Sets anderer Charaktere des Kontos kopieren | idea |
