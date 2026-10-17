@@ -89,6 +89,14 @@ Neue Vorschläge von Claude hier mit ID als `idea` eintragen, damit „mach 1 un
 | F056 | Sets als Text exportieren/importieren | idea |
 | F057 | Automatik nach Ort (Schlachtfeld, Arena, Schlachtzug, Dungeon, Welt) | idea |
 | F060 | Warnung bei Instanz/Bereitschaftscheck, wenn ein gebundenes Set unvollständig ist | idea |
-| F061 | Sets per Taste durchschalten | idea |
+| F061 | Sets per Taste durchschalten bzw. zwischen zwei Sets umschalten | idea |
 | F062 | Notiz je Set im Set-Tooltip | idea |
 | F063 | Tooltip-Zeile „In keinem Set“ | idea |
+| F065 | Waffenwechsel im Kampf über die Set-Taste: Haupthand, Nebenhand, Distanz sofort, der Rest nach dem Kampf (nur echter Tastendruck; ändert I-15, braucht Spieltest auf allen drei Clients) | idea |
+| F066 | Schmuck-Warteschlange: Benutzen-Schmuck je Slot nach Rangfolge durchwechseln, sobald der getragene abklingt; nicht ablegen, solange sein Effekt läuft; nur außerhalb des Kampfs | idea |
+| F067 | Weitere Auslöser je Set mit Rückkehr zum vorigen Set: Reiten (ganzes Set), Schwimmen, Angeln, Essen/Trinken; zusammen mit F057 auf der Seite Automatik | idea |
+| F068 | Teile des gewählten Sets in offenen Taschen hervorheben (Blizzard-Taschen, verbreitete Taschen-Addons) | idea |
+| F069 | Sets einmalig aus einem anderen Ausrüstungs-Addon übernehmen (nur lesen; ergänzt F052) | idea |
+| F070 | Speichern-Knopf zeigt, wenn das Getragene vom gewählten Set abweicht | idea |
+| F071 | Munitionsplatz (Slot 0) im Set, z. B. Pfeile/Kugeln für Jäger | idea |
+| F072 | Sets anderer Charaktere des Kontos kopieren | idea |
