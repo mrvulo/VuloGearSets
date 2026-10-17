@@ -796,6 +796,15 @@ refreshSidebar = function()
             sidebar.equipBtn:Disable()
             sidebar.saveBtn:Disable()
         end
+        -- Weicht das Getragene vom gewaehlten Set ab, traegt "Speichern" ein
+        -- Sternchen: ein Klick wuerde das Set aendern. Laeuft bei jedem
+        -- Neuzeichnen, also auch nach jedem Ausruestungswechsel.
+        local differs = sidebarSelected and GS.setDiffersFromWorn
+            and GS.setDiffersFromWorn(sidebarSelected)
+        sidebar.saveBtn:SetText(differs and (L["Save"] .. " |cffffd100*|r") or L["Save"])
+        sidebar.saveBtn._tooltip = differs
+            and L["What you are wearing differs from this set. Save puts it into the set."]
+            or  L["Saves what you are wearing into the selected set."]
     end
 end
 

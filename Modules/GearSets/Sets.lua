@@ -343,6 +343,23 @@ local function captureAmmo(set, slotList)
     set.ammo = withRanged and currentAmmoID() or nil
 end
 
+-- Wuerde "Speichern" (Ueberschreiben) am Set etwas aendern? Verglichen
+-- wird wie beim Anlegen nach Exemplar, ueber die Slots der Maske; eine
+-- gerade nur automatisch angelegte Reitgerte zaehlt nicht (siehe
+-- captureCurrentEquipment).
+local function setDiffersFromWorn(name)
+    local set = LO()[name]
+    if type(set) ~= "table" then return false end
+    local mask  = set.slotMask or {}
+    local worn  = captureCurrentEquipment(mask)
+    local slots = set.slots or {}
+    for _, s in ipairs(mask) do
+        if variantKey(worn[s]) ~= variantKey(slots[s]) then return true end
+    end
+    if set.ammo and currentAmmoID() ~= set.ammo then return true end
+    return false
+end
+
 local function saveAs(name, slotList)
     -- Leerzeichen am Rand abschneiden wie beim Umbenennen: "Tank " und
     -- "Tank" waeren sonst zwei Sets, die gleich aussehen.
@@ -1477,6 +1494,7 @@ GS.VISIBILITY_FIELDS   = VISIBILITY_FIELDS
 GS.cycleVisibility     = cycleVisibility
 GS.deleteLoadout       = deleteLoadout
 GS.saveAs              = saveAs
+GS.setDiffersFromWorn  = setDiffersFromWorn
 GS.renameLoadout       = renameLoadout
 GS.depositLoadout      = depositLoadout
 GS.withdrawLoadout     = withdrawLoadout
