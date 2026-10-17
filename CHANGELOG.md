@@ -1,3 +1,15 @@
+## 1.21.0 — 2026-10-17
+
+After updating, restart the game once: this version brings a new file, which a `/reload` does not load.
+
+- New: Situations (Automation page). Pick a set for being mounted, swimming, holding a fishing pole or eating and drinking; it comes off again afterwards. Pick sets for battlegrounds, arenas, dungeons, raids, cities and inns or the open world; they go on when you get there. Out of combat only, and situations never change what "Back to previous gear" returns to.
+- New: In combat, equipping a set by its key, the sidebar or the minimap menu swaps main hand, off hand and ranged weapon right away; the rest of the set goes on when combat ends instead of being refused. Switch: "Swap weapons in combat" on the General page (not on Forever, where only the after-combat part applies).
+- New: Share a set as text. Right-click a set and choose "Export as text...", paste it with "Import set..." on the Saved Gear Sets page, or use `/vgs export <name>` and `/vgs import`.
+- New: Copy sets from your other characters on this account, at the bottom of the Saved Gear Sets page.
+- New: "Next gear set" and "Previous gear set" keys in Blizzard's key bindings, also as `/vgs next` and `/vgs prev`.
+- New: Ammo is saved with the ranged weapon and equipped with the set.
+- Improved: The sidebar's Save button shows an asterisk when what you wear differs from the selected set.
+
 ## 1.20.0 — 2026-10-13
 
 - New: The settings window has pages: General, Sidebar & Minimap, Automation, Slot Picker & Sockets, Saved Gear Sets and Commands & Info. Every option has a tooltip, and each page has "Reset page", next to "Reset all" at the bottom. Gear sets, keys and spec or form bindings are never reset.
