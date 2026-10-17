@@ -306,7 +306,8 @@ local function createSetRow(parent, index)
             GameTooltip:AddLine(string.format("%d %s", countSlots(loadout), L["items"]),
                 0.6, 0.6, 0.6)
             if loadout.ammo then
-                local ammoName = GetItemInfo and GetItemInfo(loadout.ammo)
+                local getInfo = _G.GetItemInfo or (C_Item and C_Item.GetItemInfo)
+                local ammoName = getInfo and getInfo(loadout.ammo)
                 GameTooltip:AddLine(string.format(L["Ammo: %s"],
                     ammoName or ("#" .. loadout.ammo)), 0.6, 0.6, 0.6)
             end
@@ -396,6 +397,9 @@ local function createSetRow(parent, index)
                 end },
                 { text = L["Rename..."], func = function()
                     promptRename(setName)
+                end },
+                { text = L["Export as text..."], func = function()
+                    if GS.showExport then GS.showExport(setName) end
                 end },
             }
             -- Direkt unter "Anlegen", und nur solange die Bank offen ist -

@@ -36,6 +36,9 @@ local mod = ns:RegisterModule("gearsets", {
         -- Chatzeilen beim Anlegen: "all" | "problems" | "none" (Sets.lua
         -- equipSay). Standard wie bisher: alles.
         chatMessages  = "all",
+        -- Im Kampf die Waffen eines Sets sofort wechseln (Taste/Klick),
+        -- der Rest folgt nach dem Kampf. Nicht auf Forever (Sets.lua).
+        combatWeaponSwap = true,
         -- Minimap button
         minimap = { hidden = false, angle = 45 },
         -- Auto-switch on stance/form change

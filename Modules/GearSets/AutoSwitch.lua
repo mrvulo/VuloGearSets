@@ -60,6 +60,9 @@ local function onShapeshiftChange()
     if not mod._enabled or not mod.db then return end
     if not mod.db.autoSwitchEnabled then return end
     if InCombatLockdown() then return end
+    -- Ein im Kampf per Taste gewaehltes Set wird gleich nachgeholt und hat
+    -- Vorrang; danach ruft Sets.lua diese Funktion erneut (F065).
+    if GS.hasPendingAfterCombat and GS.hasPendingAfterCombat() then return end
 
     local currentForm = getCurrentForm()
     if currentForm == _lastForm then return end
@@ -317,6 +320,8 @@ end
 -- sofortige Wirkung, obwohl _cropStateKey schon stimmt.
 local function applyMountState(force)
     if not mod._enabled or not mod.db then return end
+    -- Wie bei der Gestalt: erst das im Kampf gewaehlte Set (F065).
+    if GS.hasPendingAfterCombat and GS.hasPendingAfterCombat() then return end
 
     if not mod.db.ridingCropEnabled then
         -- Ausgeschaltet, waehrend unser Teil angelegt war: zurueck, sonst

@@ -125,7 +125,10 @@ local function getSetStatus(name)
     for slot, link in pairs(set.slots) do
         total = total + 1
         local id = getItemIDFromLink(link)
-        local itemName = (link:match("|h%[(.-)%]|h")) or link
+        -- Importierte Teile stehen bis zur Umwandlung als "item:..." im Set
+        -- (Share.lua); dann den Namen beim Client erfragen.
+        local itemName = (link:match("|h%[(.-)%]|h"))
+            or (GetItemInfo and (GetItemInfo(link))) or link
         local entry = { slot = slot, name = itemName, link = link, id = id,
                         key = variantKey(link) }
         entries[#entries + 1] = entry
@@ -586,18 +589,161 @@ local function equipSay(problem, text)
     ns:Print(text)
 end
 
+-- =========================================================
+-- Im Kampf (F065)
+--
+-- Ruestung laesst der Server im Kampf nicht wechseln, Waffen schon - aber
+-- nur aus einem echten Tastendruck oder Mausklick heraus (Set-Taste, Knopf
+-- in der Leiste, Minimap-Menue). Automatiken rufen equipLoadout im Kampf
+-- gar nicht erst auf. Auf Forever gelten die strengeren Kampfregeln der
+-- Mainline-Familie; dort bleibt es beim Nachholen.
+--
+-- Was im Kampf nicht geht, wird nach dem Kampf angelegt: das zuletzt
+-- gewuenschte Set gewinnt.
+-- =========================================================
+local COMBAT_SLOTS = { 16, 17, 18 }
+local _afterCombat   -- { name, loadout } fuer PLAYER_REGEN_ENABLED
+
+local function combatSwapAllowed()
+    return not ns.isForever and mod.db and mod.db.combatWeaponSwap ~= false
+end
+
+local function inMask(loadout, slot)
+    for _, s in ipairs(loadout.slotMask or {}) do
+        if s == slot then return true end
+    end
+    return false
+end
+
+-- Rueckgabe: Zahl der gewechselten Waffen. Kein Vorher-Stand, keine
+-- Meldung - das macht das Anlegen nach dem Kampf.
+local function swapWeaponsInCombat(loadout)
+    if not (_PickupContainerItem and EquipCursorItem) then return 0 end
+    local moved, taken = 0, {}
+    local mainSwapped = false
+    for _, slot in ipairs(COMBAT_SLOTS) do
+        local link = loadout.slots and loadout.slots[slot]
+        local worn = GetInventoryItemLink("player", slot)
+        -- Nach einem Haupthand-Tausch liest die Nebenhand im selben Frame
+        -- noch den alten Stand (eine Zweihandwaffe raeumt den Schild selbst
+        -- weg); der Rest wird nach dem Kampf ohnehin angeglichen.
+        if slot == 17 and mainSwapped then
+            -- nichts
+        elseif link and variantKey(link) ~= variantKey(worn) then
+            local bag, bagSlot, fromBank, idBag, idSlot = findVariantInBags(link, false, taken)
+            if not bag and getItemIDFromLink(worn) ~= getItemIDFromLink(link) then
+                bag, bagSlot = idBag, idSlot
+            end
+            if bag and not fromBank then
+                taken[bag .. ":" .. bagSlot] = true
+                ClearCursor()
+                local picked = GetContainerItemLink and GetContainerItemLink(bag, bagSlot)
+                _PickupContainerItem(bag, bagSlot)
+                if CursorHasItem and CursorHasItem() then
+                    pcall(EquipCursorItem, slot)
+                    local cursorLink = CursorHasItem() and GetCursorInfo
+                        and select(3, GetCursorInfo())
+                    if CursorHasItem() and cursorLink and cursorLink == picked then
+                        -- abgelehnt: das Teil zurueck an seinen Platz
+                        _PickupContainerItem(bag, bagSlot)
+                    else
+                        -- verdraengte Waffe in das frei gewordene Fach
+                        if CursorHasItem() then _PickupContainerItem(bag, bagSlot) end
+                        moved = moved + 1
+                        if slot == 16 then mainSwapped = true end
+                    end
+                    if CursorHasItem() then ClearCursor() end
+                end
+            end
+        elseif not link and worn and inMask(loadout, slot) then
+            -- Das Set will den Slot leer (z. B. Schild weg).
+            ClearCursor()
+            PickupInventoryItem(slot)
+            if CursorHasItem and CursorHasItem() then
+                if stowCursorItem(nil) then moved = moved + 1 end
+            end
+        end
+    end
+    return moved
+end
+
+local function queueAfterCombat(name, loadout, opts)
+    local first = (_afterCombat == nil)
+    _afterCombat = { name = name, loadout = loadout, opts = opts }
+    if not first then return end   -- schon angemeldet; das letzte Set gewinnt
+
+    local function run()
+        local job = _afterCombat
+        _afterCombat = nil
+        if job and mod._enabled then
+            -- Ein inzwischen geloeschtes Set (nur ohne eigenes loadout)
+            -- meldet equipLoadout selbst.
+            GS.equipLoadout(job.name, job.loadout, job.opts)
+        end
+        -- Was die Automatik wegen des Auftrags ausgelassen hat, danach.
+        if C_Timer and C_Timer.After then
+            C_Timer.After(1, function()
+                if GS.onShapeshiftChange then GS.onShapeshiftChange() end
+                if GS.applyMountState then GS.applyMountState(false) end
+            end)
+        end
+    end
+
+    -- Nicht im selben Frame wie die Automatiken (Haltung, Reitgerte), die
+    -- ebenfalls an PLAYER_REGEN_ENABLED haengen - sie stiessen sonst auf
+    -- gesperrte Teile. Sie warten, solange ein Auftrag offen ist
+    -- (GS.hasPendingAfterCombat): der Tastendruck im Kampf gewinnt.
+    local onRegen
+    onRegen = function()
+        ns:UnregisterEvent("PLAYER_REGEN_ENABLED", onRegen)
+        if C_Timer and C_Timer.After then C_Timer.After(0.5, run) else run() end
+    end
+    ns:RegisterEvent("PLAYER_REGEN_ENABLED", onRegen)
+end
+
+function GS.hasPendingAfterCombat()
+    return _afterCombat ~= nil
+end
+
+function GS.pendingAfterCombatName()
+    return _afterCombat and _afterCombat.name
+end
+
 -- `loadout` ist nur fuer "Zurueck" gesetzt: der Vorher-Stand ist kein
 -- gespeichertes Set und hat keinen Eintrag in LO(). `name` ist dann nur
 -- der Text fuer die Chatzeilen.
 local function equipLoadout(name, loadout, opts)
     _autoEquip = (opts and opts.auto) and true or false
     if InCombatLockdown() then
+        local target = loadout or LO()[name]
+        if not target then
+            ns:Print(string.format(L["Gear set '%s' does not exist."], tostring(name)))
+            return
+        end
+        -- Stand VOR dem Waffentausch fuer "Zurueck": nach dem Kampf sind die
+        -- neuen Waffen schon dran und gehoerten sonst zum Vorher-Stand.
+        local job = {}
+        for k, v in pairs(opts or {}) do job[k] = v end
+        if not job.before then
+            local touched = touchedSlots(target)
+            job.before = { slots = captureCurrentEquipment(touched), slotMask = touched,
+                           ammo = target.ammo and currentAmmoID() or nil }
+        end
+        local weapons = combatSwapAllowed() and swapWeaponsInCombat(target) or 0
+        job.combatWeapons = (weapons > 0) or (opts and opts.combatWeapons) or nil
+        queueAfterCombat(name, loadout, job)
         -- Dieselbe Sperre wie am Ende der Funktion: eine Taste ist im Kampf
-        -- schnell mehrfach gedrueckt, und die Absage aendert sich dabei nicht.
+        -- schnell mehrfach gedrueckt, und die Meldung aendert sich dabei
+        -- nicht. Ein echter Waffenwechsel meldet sich immer.
         local outcome = tostring(name) .. "\1combat"
-        if outcome ~= _lastEquipOutcome then
+        if weapons > 0 then
+            _lastEquipOutcome = nil
+            equipSay(false, string.format(
+                L["In combat: weapons of '%s' swapped, the rest follows when combat ends."], name))
+        elseif outcome ~= _lastEquipOutcome then
             _lastEquipOutcome = outcome
-            equipSay(true, L["Cannot change equipment in combat."])
+            equipSay(true, string.format(
+                L["In combat: '%s' will be equipped when combat ends."], name))
         end
         return
     end
@@ -618,8 +764,9 @@ local function equipLoadout(name, loadout, opts)
     -- nur, wenn sich wirklich etwas bewegt hat - sonst ueberschriebe ein
     -- zweiter Klick auf ein angelegtes Set den Stand von davor.
     local touched = touchedSlots(loadout)
-    local before  = { slots = captureCurrentEquipment(touched), slotMask = touched,
-                      ammo  = loadout.ammo and currentAmmoID() or nil }
+    local before  = (opts and opts.before)
+        or { slots = captureCurrentEquipment(touched), slotMask = touched,
+             ammo  = loadout.ammo and currentAmmoID() or nil }
 
     applySetVisibility(loadout)
 
@@ -812,7 +959,10 @@ local function equipLoadout(name, loadout, opts)
     -- Auch "Zurueck" selbst landet hier: der Stand vor dem Zuruecklegen
     -- wird der neue Vorher-Stand, ein zweites "Zurueck" wechselt also
     -- wieder hin.
-    if swapped + removed > 0 and not _autoEquip then
+    -- Im Kampf getauschte Waffen zaehlen mit: sonst setzte ein reines
+    -- Waffen-Set nach dem Kampf keinen Vorher-Stand.
+    local combatWeapons = opts and opts.combatWeapons
+    if (swapped + removed > 0 or combatWeapons) and not _autoEquip then
         charDB().previousGear = before
     end
     if isRealSet and not _autoEquip then charDB().lastSet = name end
@@ -842,7 +992,8 @@ local function equipLoadout(name, loadout, opts)
     elseif missing > 0 then
         equipSay(true, string.format(L["Gear set '%s': %d items missing from bags, nothing swapped."],
             name, missing))
-    elseif atBank == 0 and removed == 0 and bagsFull == 0 and failed == 0 then
+    elseif atBank == 0 and removed == 0 and bagsFull == 0 and failed == 0
+            and not combatWeapons then
         equipSay(false, string.format(L["Gear set '%s' already equipped."], name))
     end
 
@@ -907,6 +1058,10 @@ end
 -- "Naechstes" beginnt beim ersten Set.
 -- =========================================================
 local function currentSetName(names)
+    -- Im Kampf ist das zuletzt gewuenschte Set erst halb angelegt.
+    if _afterCombat and _afterCombat.name and LO()[_afterCombat.name] then
+        return _afterCombat.name
+    end
     local last = charDB().lastSet
     if last and LO()[last] then
         local st = getSetStatus(last)
@@ -1361,6 +1516,7 @@ local function commandLines()
         L["|cffffd100/vgs bank <name>|r — with the bank open, put the set's pieces from your bags into the bank"],
         L["|cffffd100/vgs fetch <name>|r — with the bank open, take the set's missing pieces from the bank into your bags"],
         L["|cffffd100/vgs list|r — list your gear sets in chat"],
+        L["|cffffd100/vgs export <name>|r, |cffffd100/vgs import|r — share a gear set as text"],
         L["|cffffd100/vgs unlock|r — move the sidebar (edit mode)"],
         L["|cffffd100/vgs help|r — this list in chat"],
     }
@@ -1421,6 +1577,14 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
         end
     elseif cmd == "back" or cmd == "undo" then
         equipPrevious()
+    elseif cmd == "export" then
+        if arg == "" then
+            ns:Print(L["Usage: /gearset export <name>"])
+        elseif GS.showExport then
+            GS.showExport(arg)
+        end
+    elseif cmd == "import" then
+        if GS.showImport then GS.showImport() end
     elseif cmd == "next" then
         cycleSet(1)
     elseif cmd == "prev" or cmd == "previous" then
@@ -1542,6 +1706,8 @@ local _origRename = renameLoadout
 renameLoadout = function(oldName, newName)
     local finalName = _origRename(oldName, newName)
     if not finalName then return end
+    -- Ein noch offener Auftrag fuer nach dem Kampf folgt dem neuen Namen.
+    if _afterCombat and _afterCombat.name == oldName then _afterCombat.name = finalName end
     if GS.sidebarAfterRename then GS.sidebarAfterRename(oldName, finalName) end
     if ns.RefreshOptions then ns:RefreshOptions() end
     return finalName

@@ -48,7 +48,7 @@ Spätere Dateien dürfen frühere benutzen, nie umgekehrt – außer zur Laufzei
 | `Core/PopupMenu.lua`, `Mover.lua` | gemeinsames Menü (I-07), Bearbeiten-Modus |
 | `UI/Widgets.lua` | `UI.Font` (I-05), Knöpfe (I-06), Schalter, Regler, Auswahllisten, Schatten |
 | `UI/OptionsFrame.lua` | Einstellungsfenster (`/vgs`): feste Seiten (`PAGES`) links, Inhalt aus `mod:GetOptions(page)` jedes Moduls, Reihenfolge `mod.optionsOrder[page]`, `default` je Option für „zurücksetzen“ |
-| `Modules/GearSets/` | Kernmodul: `Shared` → `Sets` (Speichern, Anlegen, Zurück, Bank, Slash) → `AutoSwitch` → `Minimap` → `Pickers` (Slot- und Symbolauswahl) → `Sidebar` → `Lifecycle` (Migrationen, Events) → `Options` |
+| `Modules/GearSets/` | Kernmodul: `Shared` → `Sets` (Speichern, Anlegen, Zurück, Bank, Slash) → `Share` (Text-Export/Import, Sets anderer Charaktere) → `AutoSwitch` (Haltung, Spec, Reitgerte, Situationen) → `Minimap` → `Pickers` (Slot- und Symbolauswahl) → `Sidebar` → `Lifecycle` (Migrationen, Events) → `Options` |
 | `Modules/SlotPicker.lua`, `SocketBar.lua` | Flyout am Slot, Sockel-Leiste |
 | `Modules/ItemTooltip.lua` | „Sets:“ im Tooltip (I-10) |
 | `Modules/SetKeybinds.lua`, `SetMacros.lua` | Tasten und Makros je Set |

@@ -8,8 +8,9 @@ der jeweiligen Datei (z. B. `Modules/SlotPicker.lua`).
 
 - `style` – `"classic"` | `"modern"` | `"forever"` (nur Forever, dort Standard); `Core/Skin.lua`
 - `debug` – nur von Hand gesetzt
+- `charSets["Name-Realm"]{class,sets,updated}` – Abbild der Sets jedes Charakters (Teile als Exemplar-Schlüssel), geschrieben beim An- und Abmelden; nur zum Kopieren auf andere Charaktere (2026-10-17)
 - `modules[key]` – Defaults jedes Moduls (`ns:RegisterModule`, `Core/Database.lua`)
-  - `gearsets`: `confirmDelete`, `chatMessages` (`"all"` | `"problems"` | `"none"`, 2026-10-13), `minimap{hidden,angle}`, `autoSwitchEnabled`,
+  - `gearsets`: `confirmDelete`, `chatMessages` (`"all"` | `"problems"` | `"none"`, 2026-10-13), `combatWeaponSwap` (2026-10-17), `minimap{hidden,angle}`, `autoSwitchEnabled`,
     `specSwitchEnabled`, `ridingCropEnabled`, `triggersEnabled` (2026-10-17), `sidebarEnabled`, `sidebarTopOffset`,
     `sidebarBottomOffset`, `sidebarXOffset`, `sidebarStatsGap`, `sidebarPos` (Alias der
     Charakterkopie), Migrationsmarke `_offsetMigrated_v3`
@@ -40,7 +41,7 @@ der jeweiligen Datei (z. B. `Modules/SlotPicker.lua`).
 
 | Feld | Bedeutung |
 |---|---|
-| `slots{[slot]=itemLink}` | gespeicherte Teile; leere Slots fehlen |
+| `slots{[slot]=itemLink}` | gespeicherte Teile; leere Slots fehlen. Importierte/kopierte Teile stehen kurz als `item:…`, bis der Client sie kennt (Share.lua) |
 | `slotMask{slot…}` | Slots, die das Set verwaltet; Slot im Mask ohne Teil = ablegen |
 | `iconOverride` | nil = automatisch, Zahl = Datei-ID, Text = Pfad |
 | `order` | Position in der Leiste, nil bis zum ersten Umsortieren |

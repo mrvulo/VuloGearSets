@@ -65,6 +65,9 @@ Stand: 2026-10-10. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 | F061 | „Nächstes/Vorheriges Set“ als Tasten in Blizzards Tastenbelegung und `/vgs next`/`prev` (Umschalten zwischen zwei Ständen kann „Zurück“ schon) | test-in-game | — | Modules/GearSets/Sets.lua, Bindings.xml |
 | F057 | Situationen nach Ort: Schlachtfeld, Arena, Dungeon, Schlachtzug, Stadt/Gasthaus, offene Welt (Automatik → Situationen) | test-in-game | — | Modules/GearSets/AutoSwitch.lua, Modules/GearSets/Options.lua |
 | F067 | Vorübergehende Situationen mit Rückkehr: beritten, schwimmen, Angel in der Hand, essen/trinken; Reitgerte weicht einem Reit-Set mit Schmuckslot | test-in-game | — | Modules/GearSets/AutoSwitch.lua, Modules/GearSets/Options.lua |
+| F056 | Set als Text teilen: Rechtsklick → „Als Text exportieren...“, „Set importieren...“ auf der Sets-Seite, `/vgs export`/`import` | test-in-game | — | Modules/GearSets/Share.lua |
+| F072 | Sets anderer Charaktere des Kontos kopieren (Sets-Seite unten) | test-in-game | — | Modules/GearSets/Share.lua, Modules/GearSets/Options.lua |
+| F065 | Im Kampf: Waffen eines Sets sofort (Taste, Leiste, Minimap; Schalter unter Allgemein, nicht auf Forever), der Rest des Sets wird nach dem Kampf angelegt | test-in-game | — | Modules/GearSets/Sets.lua |
 | D001 | Schlafmodus (Addon schaltet sich ab, wenn VuloClassicUI sein Set-Modul hat) | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D002 | Kontoweiter Set-Pool und separater Importbefehl der Altversion | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D003 | Auslöseart "Beim Überfahren" im Slot-Auswahl-Dropdown: Hover ist jetzt immer aktiv, das Dropdown wählt nur den Klick fürs große Fenster | dropped | — | Modules/SlotPicker.lua |
@@ -82,6 +85,8 @@ Stand: 2026-10-10. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 - F064: `/vgs` – sechs Seiten links, jede Option hat einen Tooltip; Sidebar & Minimap → Feinposition: Regler bewegen die Leiste live; „Seite zurücksetzen“ und „Alles zurücksetzen“ lassen Sets und Bindungen stehen; `/vgs sidebar` öffnet die Seite direkt.
 - F055/F058/F059: Bank öffnen, Rechtsklick auf ein Set → „Aus der Bank holen“; Allgemein → „Chatmeldungen beim Anlegen“ auf „Nur Probleme“; Teil eines aufgeklappten Sets anklicken → „Slot nicht mehr verwalten“.
 - F057/F067: Automatik → Situationen: ein Set für „Beritten“ und eins für „Stadt oder Gasthaus“ wählen; aufsitzen/absitzen, in eine Stadt reiten und hinaus.
+- F056/F072: Set exportieren, Text kopieren, wieder importieren → „Set (2)“ erscheint; mit einem zweiten Charakter einloggen, dort Sets-Seite → Sets deiner anderen Charaktere → kopieren. Neue Datei: einmal Spiel neu starten.
+- F065: Im Kampf die Set-Taste eines Sets mit anderer Waffe drücken – Waffe wechselt sofort, Rüstung nach dem Kampf. Klappt es über ein Makro (`/vgs equip`)? Auf Anniversary und Era testen.
 - F048: Spielsprache auf Français und Русский stellen – passen die Texte in die Knöpfe, sind russische Texte lesbar (Blizzard-Schrift)?
 
 ## Ideen
@@ -92,12 +97,9 @@ Neue Vorschläge von Claude hier mit ID als `idea` eintragen, damit „mach 1 un
 |---|---|---|
 | F052 | Vorhandene Blizzard-Sets, die nie neu gespeichert werden, einmalig in VuloGearSets übernehmen | idea |
 
-| F056 | Sets als Text exportieren/importieren | idea |
 | F060 | Warnung bei Instanz/Bereitschaftscheck, wenn ein gebundenes Set unvollständig ist | idea |
 | F062 | Notiz je Set im Set-Tooltip | idea |
 | F063 | Tooltip-Zeile „In keinem Set“ | idea |
-| F065 | Waffenwechsel im Kampf über die Set-Taste: Haupthand, Nebenhand, Distanz sofort, der Rest nach dem Kampf (nur echter Tastendruck; ändert I-15, braucht Spieltest auf allen drei Clients) | idea |
 | F066 | Schmuck-Warteschlange: Benutzen-Schmuck je Slot nach Rangfolge durchwechseln, sobald der getragene abklingt; nicht ablegen, solange sein Effekt läuft; nur außerhalb des Kampfs | idea |
 | F068 | Teile des gewählten Sets in offenen Taschen hervorheben (Blizzard-Taschen, verbreitete Taschen-Addons) | idea |
 | F069 | Sets einmalig aus einem anderen Ausrüstungs-Addon übernehmen (nur lesen; ergänzt F052) | idea |
-| F072 | Sets anderer Charaktere des Kontos kopieren | idea |

@@ -30,6 +30,7 @@ UI\Widgets.lua
 UI\OptionsFrame.lua
 Modules\GearSets\Shared.lua
 Modules\GearSets\Sets.lua
+Modules\GearSets\Share.lua
 Modules\GearSets\AutoSwitch.lua
 Modules\GearSets\Minimap.lua
 Modules\GearSets\Pickers.lua

@@ -66,7 +66,7 @@ local function reanchor()
 end
 
 local function generalPage()
-    return {
+    local items = {
         { type = "dropdown", label = L["Window style"],
           tooltip = ns.isForever
               and L["Forever takes the look of VuloForeverUI: its colors and, with its Blizzard themes, the client's metal frame. Modern uses the dark look with a purple accent. Classic uses Blizzard's dialog frame."]
@@ -91,6 +91,15 @@ local function generalPage()
           get = function() return mod.db.chatMessages or "all" end,
           set = function(_, v) mod.db.chatMessages = v end },
     }
+    -- Forever: die Kampfregeln der Mainline-Familie lassen das nicht zu.
+    if not ns.isForever then
+        table.insert(items, { type = "toggle", label = L["Swap weapons in combat"],
+          tooltip = L["Equipping a set in combat - by its key, the sidebar or the minimap menu - swaps main hand, off hand and ranged weapon right away. The game allows no other gear changes in combat; the rest of the set follows when combat ends."],
+          default = D.combatWeaponSwap ~= false,
+          get = function() return mod.db.combatWeaponSwap ~= false end,
+          set = function(_, v) mod.db.combatWeaponSwap = v end })
+    end
+    return items
 end
 
 local function sliderItem(label, tooltip, field, minV, maxV)
@@ -262,6 +271,45 @@ local function automationPage()
     return items
 end
 
+-- Sets der anderen Charaktere dieses Kontos (F072). Gewaehlter Charakter
+-- nur fuer die Sitzung gemerkt.
+local otherChar
+
+local function otherCharacterItems()
+    local chars = GS.otherCharacters()
+    local items = {
+        { type = "spacer", height = 8 },
+        { type = "header", text = L["Sets of your other characters"] },
+    }
+    if #chars == 0 then
+        table.insert(items, { type = "desc", text = L["|cffaaaaaaLog in with another character once - its gear sets then show up here.|r"] })
+        return items
+    end
+    local found = false
+    for _, c in ipairs(chars) do if c == otherChar then found = true end end
+    if not found then otherChar = chars[1] end
+
+    local values = {}
+    for _, c in ipairs(chars) do values[#values + 1] = { value = c, text = c } end
+    table.insert(items, { type = "dropdown", label = L["Character"],
+        tooltip = L["Characters of this account whose gear sets VuloGearSets has seen. Updated whenever that character logs in or out."],
+        values = values,
+        get = function() return otherChar end,
+        set = function(_, v) otherChar = v; ns:RefreshOptions() end })
+    for _, setName in ipairs(GS.setsOfCharacter(otherChar)) do
+        local n, c = setName, otherChar
+        table.insert(items, { type = "group", layout = "row", gap = 6, items = {
+            { type = "button", label = n, width = 236,
+              tooltip = L["Copies this set to the character you are playing. A set with the same name gets a number added."],
+              onClick = function() GS.copyFromCharacter(c, n) end },
+        } })
+    end
+    table.insert(items, { type = "button", label = L["Forget this character"], width = 180,
+        tooltip = L["Removes this character from the list, for example after deleting it. Its own gear sets are not touched."],
+        onClick = function() GS.forgetCharacter(otherChar); otherChar = nil end })
+    return items
+end
+
 local function setsPage()
     local partTip = L["Saves only these slots. Equipping the set later leaves all other slots alone."]
     local items = {
@@ -287,12 +335,20 @@ local function setsPage()
                 onClick = function() promptSaveWithSlots(SLOT_GROUPS.armor) end },
           },
         },
+        { type = "group", layout = "row", gap = 6,
+          items = {
+              { type = "button", label = L["Import set..."], width = 118,
+                tooltip = L["Paste a gear set someone shared as text. Their items are kept by ID, enchant and gems; what you do not have shows as missing."],
+                onClick = function() GS.showImport() end },
+          },
+        },
         { type = "spacer", height = 8 },
     }
 
     local names = sortedLoadoutNames()
     if #names == 0 then
         table.insert(items, { type = "desc", text = L["|cffaaaaaaNo gear sets saved yet. Use the button above to save your current gear.|r"] })
+        for _, it in ipairs(otherCharacterItems()) do table.insert(items, it) end
         return items
     end
 
@@ -377,6 +433,7 @@ local function setsPage()
         -- Separator before next loadout
         table.insert(items, { type = "spacer", height = 4 })
     end
+    for _, it in ipairs(otherCharacterItems()) do table.insert(items, it) end
     return items
 end
 
