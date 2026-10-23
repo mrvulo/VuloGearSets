@@ -87,6 +87,7 @@ Stand: 2026-10-10. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 - F057/F067: Automatik → Situationen: ein Set für „Beritten“ und eins für „Stadt oder Gasthaus“ wählen; aufsitzen/absitzen, in eine Stadt reiten und hinaus.
 - F056/F072: Set exportieren, Text kopieren, wieder importieren → „Set (2)“ erscheint; mit einem zweiten Charakter einloggen, dort Sets-Seite → Sets deiner anderen Charaktere → kopieren. Neue Datei: einmal Spiel neu starten.
 - F065: Im Kampf die Set-Taste eines Sets mit anderer Waffe drücken – Waffe wechselt sofort, Rüstung nach dem Kampf. Klappt es über ein Makro (`/vgs equip`)? Auf Anniversary und Era testen.
+- R-81: ungebundenes Teil über die Slot-Auswahl anlegen – Blizzards Bindungsfrage erscheint, nach „Okay“ ist es an.
 - F048: Spielsprache auf Français und Русский stellen – passen die Texte in die Knöpfe, sind russische Texte lesbar (Blizzard-Schrift)?
 
 ## Ideen

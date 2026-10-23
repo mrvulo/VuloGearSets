@@ -810,6 +810,8 @@ local function equipLoadout(name, loadout, opts)
     -- sich nicht anlegen", obwohl alles stimmt. Mit dem gemerkten Stand
     -- sieht er, dass schon das Richtige drinsteckt.
     local afterSwap = {}
+    -- Link eines Teils, fuer das gerade Blizzards Bindungsfrage offen ist.
+    local bindPending
 
     for _, slot in ipairs(sortedSlots) do
         local link = loadout.slots[slot]
@@ -842,8 +844,15 @@ local function equipLoadout(name, loadout, opts)
                 -- wenn schon das Aufnehmen scheiterte (Teil gesperrt) - dann
                 -- bewirkt auch UseContainerItem nichts, zaehlte aber als
                 -- angelegt und ueberschrieb den Stand fuer "Zurueck".
-                if ns:EquipBagItemToSlot(bag, bagSlot, slot) then
+                local ok, why = ns:EquipBagItemToSlot(bag, bagSlot, slot)
+                if ok then
                     swapped = swapped + 1
+                elseif why == "bind" then
+                    -- Blizzard fragt jetzt, ob das Teil gebunden werden
+                    -- darf. Jeder weitere Griff an den Cursor braeche die
+                    -- Frage ab - also hier aufhoeren (R-81).
+                    bindPending = link
+                    break
                 else
                     failed = failed + 1
                 end
@@ -899,7 +908,7 @@ local function equipLoadout(name, loadout, opts)
     -- Nach dem Tauschen, nicht davor: eine Zweihandwaffe raeumt die
     -- Schildhand von selbst, das Teil liegt dann schon in der Tasche.
     local removed, bagsFull = 0, 0
-    if loadout.slotMask and PickupInventoryItem then
+    if loadout.slotMask and PickupInventoryItem and not bindPending then
         -- Freie Plaetze einmal ermitteln und der Reihe nach vergeben: im
         -- selben Frame melden die Taschen ein abgelegtes Teil noch nicht,
         -- jedes weitere bekaeme sonst denselben Platz.
@@ -928,7 +937,7 @@ local function equipLoadout(name, loadout, opts)
 
     -- Munition zuletzt: sie haengt an der Fernkampfwaffe, die oben schon
     -- gewechselt wurde. Gesucht wird in allen Taschen samt Koecher.
-    if loadout.ammo and currentAmmoID() ~= loadout.ammo then
+    if loadout.ammo and not bindPending and currentAmmoID() ~= loadout.ammo then
         local abag, aslot
         for _, bag in ipairs(containerIDs(false)) do
             for s = 1, (GetContainerNumSlots(bag) or 0) do
@@ -975,12 +984,19 @@ local function equipLoadout(name, loadout, opts)
     --
     -- Sobald wirklich getauscht oder abgelegt wurde, faellt der Merker weg:
     -- dann ist die naechste "ist schon angelegt"-Meldung eine neue Auskunft.
-    local outcome = (swapped + removed == 0)
+    local outcome = (swapped + removed == 0 and not bindPending)
         and string.format("%s\1%d\1%d\1%d\1%d", name, missing, atBank, bagsFull, failed)
         or nil
     local repeated = (outcome ~= nil and outcome == _lastEquipOutcome)
     _lastEquipOutcome = outcome
     if repeated then return end
+
+    if bindPending then
+        local itemName = bindPending:match("|h%[(.-)%]|h") or bindPending
+        equipSay(true, string.format(
+            L["%s binds to you when equipped. Answer the game's question, then equip the set again for the rest."],
+            itemName))
+    end
 
     if swapped > 0 then
         if missing > 0 then

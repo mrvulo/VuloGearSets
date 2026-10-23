@@ -313,11 +313,48 @@ end
 -- =========================================================
 local _PickupContainerItem = (C_Container and C_Container.PickupContainerItem) or _G.PickupContainerItem
 
+-- Ist das Teil in der Tasche schon an den Charakter gebunden? true/false,
+-- nil = der Client sagt es nicht. Beide Wege, weil nicht jeder Client
+-- beide kennt.
+local function isBagItemBound(bag, bagSlot)
+    local CI, IL = _G.C_Item, _G.ItemLocation
+    if CI and CI.IsBound and IL and IL.CreateFromBagAndSlot then
+        local ok, loc = pcall(IL.CreateFromBagAndSlot, IL, bag, bagSlot)
+        if ok and loc and (not CI.DoesItemExist or CI.DoesItemExist(loc)) then
+            local ok2, bound = pcall(CI.IsBound, loc)
+            if ok2 and bound ~= nil then return bound and true or false end
+        end
+    end
+    local CC = _G.C_Container
+    if CC and CC.GetContainerItemInfo then
+        local ok, info = pcall(CC.GetContainerItemInfo, bag, bagSlot)
+        if ok and type(info) == "table" and info.isBound ~= nil then
+            return info.isBound and true or false
+        end
+    end
+    return nil
+end
+
+-- Steht Blizzards Rueckfrage "wird beim Anlegen gebunden" offen?
+local BIND_POPUPS = { "EQUIP_BIND", "EQUIP_BIND_TRADEABLE", "EQUIP_BIND_REFUNDABLE" }
+local function bindQuestionShown()
+    if not StaticPopup_Visible then return false end
+    for _, which in ipairs(BIND_POPUPS) do
+        if StaticPopup_Visible(which) then return true end
+    end
+    return false
+end
+
+-- Rueckgabe: true | false, Grund. Grund "bind": das Teil ist noch nicht
+-- gebunden, Blizzard fragt jetzt nach - dann bleibt es am Cursor und der
+-- Spieler entscheidet. Frueher raeumte der Cursor-Test unten auch diesen
+-- Fall ab und brach die Frage still ab (R-81).
 function ns:EquipBagItemToSlot(bag, bagSlot, equipSlot)
     if InCombatLockdown() then return false, "combat" end
     if not _PickupContainerItem or not _G.EquipCursorItem then return false, "noapi" end
 
     ClearCursor()
+    local unbound = (isBagItemBound(bag, bagSlot) == false)
     _PickupContainerItem(bag, bagSlot)
     -- Verify the pickup actually grabbed something
     if CursorHasItem and not CursorHasItem() then
@@ -325,6 +362,19 @@ function ns:EquipBagItemToSlot(bag, bagSlot, equipSlot)
     end
     -- EquipCursorItem honours the explicit slot (unlike UseContainerItem)
     local ok = pcall(_G.EquipCursorItem, equipSlot)
+    -- Ungebunden: Blizzard stellt jetzt die Bindungsfrage. Das Teil haengt
+    -- bis zur Antwort am Cursor; ClearCursor wuerde die Frage abbrechen.
+    if CursorHasItem and CursorHasItem() and (unbound or bindQuestionShown()) then
+        -- Lehnt der Client ein ungebundenes Teil aus anderem Grund ab (Stufe),
+        -- kommt keine Frage - dann haengt es kurz darauf noch ohne Frage am
+        -- Cursor und wird zurueckgelegt.
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0.5, function()
+                if CursorHasItem() and not bindQuestionShown() then ClearCursor() end
+            end)
+        end
+        return false, "bind"
+    end
     -- Erfolg heisst: der Cursor ist danach leer. Lehnt der Client das
     -- Anlegen still ab (falscher Slot, Stufe, gesperrtes Teil), wirft
     -- EquipCursorItem keinen Fehler, das Teil haengt nur noch am Cursor -
@@ -509,6 +559,7 @@ local function countSlots(loadout)
 end
 -- Fuer die spaeter geladenen Dateien (siehe Shared.lua).
 GS.EQUIP_SLOTS              = EQUIP_SLOTS
+GS.isBagItemBound           = isBagItemBound
 GS.AMMO_SLOT                = AMMO_SLOT
 GS.hasAmmoSlot              = hasAmmoSlot
 GS.currentAmmoID            = currentAmmoID

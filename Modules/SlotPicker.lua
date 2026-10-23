@@ -215,7 +215,12 @@ local function getItemButton(idx)
             -- Use the slot-aware equip helper (honours the exact target slot,
             -- so picking for the lower ring/trinket slot works correctly).
             if self.equipSlot and ns.EquipBagItemToSlot then
-                ns:EquipBagItemToSlot(self.bag, self.slot, self.equipSlot)
+                -- "bind": Blizzards Bindungsfrage steht offen, das Teil
+                -- haengt bis zur Antwort am Cursor - nichts dazu sagen.
+                local ok, why = ns:EquipBagItemToSlot(self.bag, self.slot, self.equipSlot)
+                if not ok and why ~= "bind" then
+                    ns:Print(L["The game refused to equip this item (level, slot or item locked)."])
+                end
             elseif UseContainerItem then
                 pcall(UseContainerItem, self.bag, self.slot)
             end
