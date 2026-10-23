@@ -62,3 +62,4 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-10-17 · Umsetzen: F056, F072, F061, F070, F071, F057+F067, F065 · user „F056, F072, F061, F070, F071, F057 + F067, F065“ · —
 - 2026-10-17 · F065 gewählt, obwohl er I-15 ändert (Hinweis stand in der Empfehlung) · user · I-15
 - 2026-10-17 · assumed · Munition nur als Item-ID, nur mit Fernkampfslot, nie „leer anlegen“ · F071
+- 2026-10-23 · R-81 (Bindungsfrage) im Spiel bestätigt, Release 1.21.1 · user „geht jetzt“ · R-81
