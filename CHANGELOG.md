@@ -1,3 +1,8 @@
+## 1.21.1 — 2026-10-23
+
+- Fixed: An item that is not bound to you yet can be equipped again from the slot picker and from gear sets. The game's "binds when equipped" question was cancelled at once, so nothing happened and nothing was said. Now the question shows up; a gear set stops at that item and asks you to equip it again after answering.
+- Fixed: The slot picker says so in chat when the game refuses to equip an item.
+
 ## 1.21.0 — 2026-10-17
 
 After updating, restart the game once: this version brings a new file, which a `/reload` does not load.
