@@ -31,18 +31,53 @@ if ns.isForever then
     table.insert(ns.STYLES, 1, { value = "forever", text = "Forever" })
 end
 
-local VALID = { classic = true, modern = true, forever = ns.isForever }
+-- "vuloclassic" (nicht auf Forever): folgt VuloClassicUI - Classic oder
+-- Modern, je nachdem was dessen Charakterfenster traegt (Coexistence.lua).
+-- Gespeichert wird "vuloclassic"; GetStyle liefert den aufgeloesten Stil,
+-- damit alle Fenster weiter nur classic/modern/forever kennen muessen.
+local VALID = { classic = true, modern = true, forever = ns.isForever,
+                vuloclassic = not ns.isForever }
 
 local registry = {}   -- { [frame] = kind }
 
-function ns:DefaultStyle()
-    return ns.isForever and "forever" or "classic"
+local function vuloClassicLoaded()
+    return ns.IsVuloClassicLoaded and ns:IsVuloClassicLoaded()
 end
 
-function ns:GetStyle()
+function ns:DefaultStyle()
+    if ns.isForever then return "forever" end
+    if vuloClassicLoaded() then return "vuloclassic" end
+    return "classic"
+end
+
+-- Die gespeicherte Wahl (fuer die Auswahlliste).
+function ns:GetStyleSetting()
     local s = ns.db and ns.db.style
     if s and VALID[s] then return s end
     return ns:DefaultStyle()
+end
+
+-- Folgt die Leiste gerade VuloClassicUI?
+function ns:FollowsVuloClassic()
+    return ns:GetStyleSetting() == "vuloclassic" and vuloClassicLoaded() and true or false
+end
+
+function ns:GetStyle()
+    local s = ns:GetStyleSetting()
+    if s == "vuloclassic" then
+        return (vuloClassicLoaded() and ns:VuloClassicPanelStyle()) or "classic"
+    end
+    return s
+end
+
+-- Auswahl fuer die Einstellungen: "VuloClassicUI" nur, wenn es laeuft.
+function ns:StyleChoices()
+    local list = {}
+    if vuloClassicLoaded() then
+        list[#list + 1] = { value = "vuloclassic", text = "VuloClassicUI" }
+    end
+    for _, e in ipairs(ns.STYLES) do list[#list + 1] = e end
+    return list
 end
 
 -- =========================================================
@@ -504,10 +539,23 @@ function ns:OnStyleChanged(fn)
     if type(fn) == "function" then callbacks[#callbacks + 1] = fn end
 end
 
+-- Stellt VuloClassicUI sein Charakterfenster um, aendert sich der
+-- aufgeloeste Stil, ohne dass hier jemand SetStyle ruft. Die Leiste fragt
+-- das beim Oeffnen und alle Viertelsekunde ab (Sidebar.lua).
+local _lastResolved
+function ns:CheckStyleFollow()
+    local now = ns:GetStyle()
+    if _lastResolved ~= nil and now ~= _lastResolved then
+        ns:RefreshStyle()
+    end
+    _lastResolved = now
+end
+
 -- Alle gemerkten Frames neu zeichnen.
 function ns:RefreshStyle()
     ns:ApplyStylePalette()
     local style = ns:GetStyle()
+    _lastResolved = style
     for frame, kind in pairs(registry) do
         apply(frame, kind, style)
     end

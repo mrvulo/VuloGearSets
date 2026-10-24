@@ -890,6 +890,32 @@ local function sideTabsShift()
     return shift
 end
 
+-- =========================================================
+-- Runen-Fenster (Season of Discovery)
+--
+-- Das Runen-Fenster oeffnet rechts neben dem Charakterfenster - genau dort,
+-- wo die Leiste sitzt. Es haengt an UIParent, nicht am Charakterfenster,
+-- und entsteht erst beim ersten Oeffnen; deshalb wird sein Hook nachgeholt,
+-- sobald es existiert. Ist es offen, entscheidet seine rechte Kante.
+-- =========================================================
+local _engravingHooked = false
+local function hookEngravingFrame(reanchor)
+    if _engravingHooked then return end
+    local ef = _G.EngravingFrame
+    if not (ef and ef.HookScript) then return end
+    _engravingHooked = true
+    ef:HookScript("OnShow", reanchor)
+    ef:HookScript("OnHide", reanchor)
+end
+
+local function engravingShift()
+    local ef, cf = _G.EngravingFrame, _G.CharacterFrame
+    if not (ef and ef.IsShown and ef:IsShown() and cf) then return nil end
+    local er, cr = ef:GetRight(), cf:GetRight()
+    if not (readable(er) and readable(cr)) or er <= cr then return nil end
+    return er - cr
+end
+
 local function createSidebar()
     if sidebar then return sidebar end
     if not CharacterFrame then return end
@@ -906,10 +932,12 @@ local function createSidebar()
     -- always line up. No GetHeight() snapshot that can be measured at the wrong
     -- time. The user-tunable offsets compensate if the frame bounds differ from
     -- the visible backdrop on a given client.
+    local lastX, lastTop, lastBot, lastFlip
     local anchorToCharacterFrame
     anchorToCharacterFrame = function()
         if not sidebar or not CharacterFrame then return end
         hookStatsColumn(anchorToCharacterFrame)
+        hookEngravingFrame(anchorToCharacterFrame)
         -- Direkt aus der Charakter-Datenbank: mod.db.sidebarPos wird erst
         -- weiter unten auf die Kopie DIESES Charakters umgehaengt, bis dahin
         -- stand die Leiste kurz an der Position des zuletzt gespielten.
@@ -918,15 +946,89 @@ local function createSidebar()
         local py     = (pos and pos.y) or 0   -- edit-mode drag offset (y)
         local topOff = ((mod.db and mod.db.sidebarTopOffset)    or 0) + py
         local botOff = ((mod.db and mod.db.sidebarBottomOffset) or 0) + py
-        sidebar:ClearAllPoints()
         local xOff = ((mod.db and mod.db.sidebarXOffset) or 0) + px
                      + statsColumnShift() + sideTabsShift()
                      + ns:WindowArtReach()
-        sidebar:SetPoint("TOPLEFT",    CharacterFrame, "TOPRIGHT", xOff, topOff)
-        sidebar:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMRIGHT", xOff, botOff)
+
+        -- Folgt die Leiste VuloClassicUI, dockt sie genau wie dessen eigene
+        -- Set-Liste an: dessen Ober-/Unterkante, 4 Pixel neben dem Fenster,
+        -- im Stil Modern hinter dem verbreiterten Fenster. Die eigenen
+        -- Regler wirken dann als Abweichung von ihrem Standard.
+        -- Abweichung des Reglers von seinem Standard: wirkt in den Faellen
+        -- unten, die den Abstand selbst festlegen, als Feinkorrektur.
+        local D  = mod.defaults or {}
+        local dX = ((mod.db and mod.db.sidebarXOffset) or 0) - (D.sidebarXOffset or 0)
+        if ns:FollowsVuloClassic() then
+            local dTop = ((mod.db and mod.db.sidebarTopOffset) or 0) - (D.sidebarTopOffset or 0)
+            local dBot = ((mod.db and mod.db.sidebarBottomOffset) or 0) - (D.sidebarBottomOffset or 0)
+            local vTop, vBot = ns:VuloClassicSidebarEdges()
+            local ext, extTop, extBot, modernOn = ns:VuloClassicPanelExtension()
+            xOff = -4 + px + dX + ext + (ext > 0 and 6 or 0) + statsColumnShift()
+            if modernOn then vTop, vBot = extTop, extBot end
+            topOff = vTop + py + dTop
+            botOff = vBot + py + dBot
+        end
+
+        -- Offenes Runen-Fenster: seine rechte Kante entscheidet, wie bei
+        -- VuloClassicUI 4 Pixel davor plus 6 Luft. Ersetzt den Wert (das
+        -- verbreiterte Modern-Fenster liegt dann schon unter dem Runen-
+        -- Fenster). Gelesen statt angenommen - seine Breite ist nicht unsere.
+        local rune = engravingShift()
+        if rune then xOff = -4 + px + dX + rune + 6 end
+
+        -- Charakterfenster, Runen-Fenster und Leiste sind zusammen breiter
+        -- als manche Bildschirme. Ragt die Leiste rechts hinaus, kommt sie
+        -- links neben das Charakterfenster - aber nur, wenn dort Platz ist.
+        local flip = false
+        local w  = sidebar:GetWidth() or 0
+        local cl, cr = CharacterFrame:GetLeft(), CharacterFrame:GetRight()
+        local screenR = UIParent and UIParent:GetRight()
+        if readable(cl) and readable(cr) and readable(screenR) and w > 0 then
+            flip = (cr + xOff + w) > screenR and (cl - w - 4) > 0
+        end
+
+        -- Nichts zu tun, wenn sich nichts bewegt hat: der Takt unten ruft
+        -- viermal pro Sekunde. Die Zahl der Ankerpunkte gehoert zur Frage -
+        -- der Bearbeiten-Modus setzt beim Zuruecksetzen einen einzelnen
+        -- Mittelpunkt und ruft dann hierher.
+        local intact = sidebar:GetNumPoints() == 2
+        if intact and xOff == lastX and topOff == lastTop and botOff == lastBot
+           and flip == lastFlip then
+            return
+        end
+        lastX, lastTop, lastBot, lastFlip = xOff, topOff, botOff, flip
+
+        sidebar:ClearAllPoints()
+        if flip then
+            -- Links ist nur der eigene Rahmen im Weg (Forever-Metall).
+            local lx = -4 - ns:WindowArtReach() + px
+            sidebar:SetPoint("TOPRIGHT",    CharacterFrame, "TOPLEFT",    lx, topOff)
+            sidebar:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMLEFT", lx, botOff)
+        else
+            sidebar:SetPoint("TOPLEFT",    CharacterFrame, "TOPRIGHT", xOff, topOff)
+            sidebar:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMRIGHT", xOff, botOff)
+        end
     end
     anchorToCharacterFrame()
     mod._reanchorSidebar = anchorToCharacterFrame
+
+    -- Takt, solange die Leiste sichtbar ist (also nur bei offenem
+    -- Charakterfenster): holt den Hook am Runen-Fenster in dem Moment nach,
+    -- in dem es entsteht, folgt dem verbreiterten Fenster von VuloClassicUI
+    -- und dessen Stilwechsel. Kostet sonst einen Vergleich - der Anker
+    -- steigt aus, solange sich nichts bewegt hat.
+    local sinceCheck = 0
+    sidebar:HookScript("OnUpdate", function(_, elapsed)
+        sinceCheck = sinceCheck + (elapsed or 0)
+        if sinceCheck < 0.25 then return end
+        sinceCheck = 0
+        anchorToCharacterFrame()
+        ns:CheckStyleFollow()
+    end)
+    sidebar:HookScript("OnShow", function()
+        ns:CheckStyleFollow()
+        anchorToCharacterFrame()
+    end)
     -- Fuer den Stilwechsel: die Zeilen muessen mit neuem Innenabstand
     -- neu gesetzt werden.
     mod._refreshSidebar = refreshSidebar
@@ -1138,9 +1240,16 @@ local function createSidebar()
     scrollLine:SetHeight(7)
     scrollLine:Hide()
 
+    -- Folgt die Leiste VuloClassicUI, traegt "Neues Set" dessen Knopf: ein
+    -- normaler Knopf des Stils mit "+ Neues Set" - wie in dessen Set-Liste.
+    local vcuiNewBtn = ns.UI:CreateButton(sidebar, "+ " .. L["New Set"], 100, 24)
+    vcuiNewBtn:SetOnClick(function() promptSaveWithSlots(nil) end)
+    vcuiNewBtn:Hide()
+
     -- Welcher "Neues Set"-Knopf gerade gilt.
     local function activeNewBtn()
         if blizzNewBtn and ns:UsesCharacterPaneArt() then return blizzNewBtn end
+        if ns:FollowsVuloClassic() then return vcuiNewBtn end
         return newBtn
     end
 
@@ -1165,36 +1274,45 @@ local function createSidebar()
         -- Die 4 sind der Innenabstand, mit dem refreshSidebar die
         -- Symbolzeile in den Scrollbereich setzt (je 2 links und rechts).
         local gridW = ITEM_COLS * (ITEM_SIZE + ITEM_PAD) - ITEM_PAD
-        sidebar:SetWidth(math.max(SIDEBAR_MIN_WIDTH,
-            gridW + 4 + pad + rightEdge))
+        local width = math.max(SIDEBAR_MIN_WIDTH, gridW + 4 + pad + rightEdge)
+        -- Folgt die Leiste VuloClassicUI: dessen Masse - 190 Pixel Inhalt,
+        -- der Rahmen des Stils kommt aussen dazu; Knoepfe oben 6, unten 5
+        -- Pixel vom Inhalt entfernt.
+        local follow = ns:FollowsVuloClassic()
+        local inset  = pad - 4
+        if follow then width = math.max(width, 190 + inset * 2) end
+        sidebar:SetWidth(width)
+        local topY = follow and (6 + inset) or pad
+        local botY = follow and (5 + inset) or pad
 
         local half = (sidebar:GetWidth() - pad * 2 - gap) / 2
 
         equipBtn:ClearAllPoints()
         equipBtn:SetWidth(half)
-        equipBtn:SetPoint("TOPLEFT", sidebar, "TOPLEFT", pad, -pad)
+        equipBtn:SetPoint("TOPLEFT", sidebar, "TOPLEFT", pad, -topY)
 
         saveBtn:ClearAllPoints()
         saveBtn:SetWidth(half)
-        saveBtn:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -pad, -pad)
+        saveBtn:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -pad, -topY)
 
         -- Nur einer der beiden "Neues Set"-Knoepfe ist sichtbar.
         local active = activeNewBtn()
         newBtn:SetShown(active == newBtn)
+        vcuiNewBtn:SetShown(active == vcuiNewBtn)
         if blizzNewBtn then blizzNewBtn:SetShown(active == blizzNewBtn) end
         active:ClearAllPoints()
-        active:SetPoint("BOTTOMLEFT",  sidebar, "BOTTOMLEFT",  pad, pad)
-        active:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -pad, pad)
+        active:SetPoint("BOTTOMLEFT",  sidebar, "BOTTOMLEFT",  pad, botY)
+        active:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -pad, botY)
         local newH = active:GetHeight() or 24
 
         -- Der Scrollbereich spannt sich zwischen die beiden Knopfreihen.
-        local topEdge = pad + 22 + 6                   -- unter Anlegen/Speichern
-        local botEdge = pad + newH + 6                 -- ueber "Neues Set"
+        local topEdge = topY + 22 + 6                  -- unter Anlegen/Speichern
+        local botEdge = botY + newH + 6                -- ueber "Neues Set"
 
         -- Die Doppellinie sitzt in der Luecke ueber "Neues Set".
         scrollLine:ClearAllPoints()
-        scrollLine:SetPoint("BOTTOMLEFT",  sidebar, "BOTTOMLEFT",  pad, pad + newH + 1)
-        scrollLine:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -pad, pad + newH + 1)
+        scrollLine:SetPoint("BOTTOMLEFT",  sidebar, "BOTTOMLEFT",  pad, botY + newH + 1)
+        scrollLine:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -pad, botY + newH + 1)
         scrollLine:SetShown(active == blizzNewBtn)
 
         scroll:ClearAllPoints()

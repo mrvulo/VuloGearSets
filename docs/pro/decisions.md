@@ -64,3 +64,6 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-10-17 · assumed · Munition nur als Item-ID, nur mit Fernkampfslot, nie „leer anlegen“ · F071
 - 2026-10-23 · R-81 (Bindungsfrage) im Spiel bestätigt, Release 1.21.1 · user „geht jetzt“ · R-81
 - 2026-10-23 · Neuerungen aus 1.20/1.21 im Spiel bestätigt (F055–F072 außer Ideen) · user „alles passt“ · F055, F056, F057, F058, F059, F061, F064, F065, F067, F070, F071, F072
+- 2026-10-24 · Classic/SoD: VuloGearSets sieht aus und dockt an wie die Set-Liste von VuloClassicUI · user Auswahl „Wie VuloClassicUI“ · F073, I-17
+- 2026-10-24 · Laufen beide: VuloGearSets übernimmt, Hinweis zum Abschalten des Set-Moduls von VuloClassicUI (kein Ausblenden) · user Auswahl „VGS übernimmt“ · F073
+- 2026-10-24 · assumed · Bisheriger Standard „classic“ wird einmalig zu „vuloclassic“, wenn VuloClassicUI läuft; eine später gewählte Einstellung bleibt · F073

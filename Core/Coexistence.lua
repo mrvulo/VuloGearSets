@@ -42,6 +42,58 @@ function ns:ImportFromVuloClassicUI()
     return n
 end
 
+-- =========================================================
+-- Aussehen und Fenster von VuloClassicUI (nur lesen)
+--
+-- VuloClassicUI legt seinen Namespace global als VuloClassicUI ab. Auf
+-- Classic Era, SoD und Anniversary uebernimmt der Stil "vuloclassic"
+-- (Core/Skin.lua) dessen Charakterfenster-Stil, und die Leiste dockt wie
+-- dessen eigene Set-Liste an (Sidebar.lua). Alles hier ist gelesen und
+-- gekapselt; faellt etwas davon weg, gelten die eigenen Werte.
+-- =========================================================
+local function vcui()
+    if ns.isForever then return nil end
+    local V = _G.VuloClassicUI
+    if type(V) == "table" and type(V.modules) == "table" then return V end
+    return nil
+end
+
+function ns:IsVuloClassicLoaded()
+    return vcui() ~= nil
+end
+
+-- "classic" | "modern" - so wie VuloClassicUI seine eigene Liste zeichnet:
+-- Modern nur, wenn sein Charakterfenster den Stil Modern traegt.
+function ns:VuloClassicPanelStyle()
+    local V = vcui()
+    if not V then return nil end
+    local cp = V.modules.characterpanel
+    local style = cp and type(cp.db) == "table" and cp.db.style
+    return (style == "modern") and "modern" or "classic"
+end
+
+-- Das Charakterfenster im Stil Modern ist nach rechts verbreitert.
+-- Rueckgabe wie dort: Breite, Ober-/Unterkante, Modern aktiv.
+function ns:VuloClassicPanelExtension()
+    local V = vcui()
+    if not (V and type(V.CharacterPanelModernExt) == "function") then
+        return 0, 0, 0, false
+    end
+    local ok, ext, top, bot, on = pcall(V.CharacterPanelModernExt)
+    if not ok then return 0, 0, 0, false end
+    return tonumber(ext) or 0, tonumber(top) or 0, tonumber(bot) or 0, on and true or false
+end
+
+-- Ober- und Unterkante, mit denen VuloClassicUI seine Liste andockt.
+local VCUI_SIDEBAR_TOP, VCUI_SIDEBAR_BOTTOM = -8, 45
+function ns:VuloClassicSidebarEdges()
+    local V = vcui()
+    local m = V and V.modules.loadouts
+    local db = m and type(m.db) == "table" and m.db or nil
+    return tonumber(db and db.sidebarTopOffset) or VCUI_SIDEBAR_TOP,
+           tonumber(db and db.sidebarBottomOffset) or VCUI_SIDEBAR_BOTTOM
+end
+
 -- Reiner Hinweis, einmal pro Sitzung. Aendert nichts am Verhalten.
 function ns:WarnIfVuloAlsoRunning()
     if not ns:IsAddOnLoaded("VuloClassicUI") then return end
@@ -61,5 +113,7 @@ function ns:WarnIfVuloAlsoRunning()
     end
     if not active then return end
 
-    ns:Print(L["VuloClassicUI also manages gear sets, so you will see two minimap buttons and two sidebars. Disable one of them if that bothers you."])
+    -- VuloGearSets uebernimmt (Nutzerentscheidung 2026-10-24): der Hinweis
+    -- sagt, was abzuschalten ist, statt zwei Listen nebeneinander zu zeigen.
+    ns:Print(L["VuloClassicUI shows its own gear set list as well. VuloGearSets takes over: turn off the gear set module in the VuloClassicUI settings so there are not two lists and two minimap buttons."])
 end

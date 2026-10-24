@@ -18,6 +18,14 @@ function ns:InitDB()
     -- "classic" | "modern" | "forever" (nur auf Forever und dort Standard),
     -- siehe Core/Skin.lua
     db.style   = db.style or ns:DefaultStyle()
+    -- Einmalig: laeuft VuloClassicUI, folgt der bisherige Standard "classic"
+    -- dessen Aussehen (Nutzerentscheidung 2026-10-24). Eine spaeter von Hand
+    -- gewaehlte Einstellung bleibt danach unangetastet.
+    if not ns.isForever and not db._vuloClassicStyleMigrated
+       and ns.IsVuloClassicLoaded and ns:IsVuloClassicLoaded() then
+        if db.style == "classic" then db.style = "vuloclassic" end
+        db._vuloClassicStyleMigrated = true
+    end
 
     for key, mod in pairs(ns.modules) do
         db.modules[key] = ns:ApplyDefaults(db.modules[key], mod.defaults or {})

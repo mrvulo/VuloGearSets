@@ -70,10 +70,18 @@ local function generalPage()
         { type = "dropdown", label = L["Window style"],
           tooltip = ns.isForever
               and L["Forever takes the look of VuloForeverUI: its colors and, with its Blizzard themes, the client's metal frame. Modern uses the dark look with a purple accent. Classic uses Blizzard's dialog frame."]
-              or  L["Modern uses the dark look with a purple accent. Classic uses Blizzard's dialog frame so the windows match the default interface."],
-          values = ns.STYLES,
+              or (ns:IsVuloClassicLoaded()
+                  and L["VuloClassicUI follows its character window: Classic or Modern, whichever it uses, and the sidebar docks where its own set list would. Modern uses the dark look with a purple accent. Classic uses Blizzard's dialog frame."]
+                  or  L["Modern uses the dark look with a purple accent. Classic uses Blizzard's dialog frame so the windows match the default interface."]),
+          values = ns:StyleChoices(),
           default = function() return ns:DefaultStyle() end,
-          get = function() return ns:GetStyle() end,
+          -- Ist VuloClassicUI inzwischen weg, steht "vuloclassic" nicht mehr
+          -- in der Liste - dann den Stil zeigen, der tatsaechlich gilt.
+          get = function()
+              local s = ns:GetStyleSetting()
+              if s == "vuloclassic" and not ns:IsVuloClassicLoaded() then return ns:GetStyle() end
+              return s
+          end,
           set = function(_, v) ns:SetStyle(v) end },
         { type = "toggle", label = L["Confirm before deleting a gear set"],
           tooltip = L["Asks before a gear set is deleted - from the sidebar, the settings or with /gearset delete."],

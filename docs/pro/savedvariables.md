@@ -6,7 +6,8 @@ der jeweiligen Datei (z. B. `Modules/SlotPicker.lua`).
 
 ## `VuloGearSetsDB` (Konto)
 
-- `style` – `"classic"` | `"modern"` | `"forever"` (nur Forever, dort Standard); `Core/Skin.lua`
+- `style` – `"classic"` | `"modern"` | `"forever"` (nur Forever, dort Standard) | `"vuloclassic"` (nicht Forever: folgt VuloClassicUI, Standard wenn es läuft); `Core/Skin.lua`
+- `_vuloClassicStyleMigrated` – einmalige Umstellung `classic` → `vuloclassic` bei laufendem VuloClassicUI (2026-10-24)
 - `debug` – nur von Hand gesetzt
 - `charSets["Name-Realm"]{class,sets,updated}` – Abbild der Sets jedes Charakters (Teile als Exemplar-Schlüssel), geschrieben beim An- und Abmelden; nur zum Kopieren auf andere Charaktere (2026-10-17)
 - `modules[key]` – Defaults jedes Moduls (`ns:RegisterModule`, `Core/Database.lua`)

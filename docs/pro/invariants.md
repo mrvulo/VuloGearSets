@@ -24,7 +24,7 @@ Eine Änderung, die eine Regel brechen würde: anhalten und den Nutzer fragen. N
 | I-14 | Was es nur auf Forever gibt (`C_EquipmentSet`-Spiegel, Forever-Stil), steht hinter `ns.isForever`; Texte über VuloClassicUI auf Forever nicht zeigen | VuloClassicUI gibt es auf Forever nicht | 2026-10-06 · user „VuloClassicUi soll da nicht stehen“ | manual |
 | I-15 | Im Kampf nichts tauschen, außer Waffen (16/17/18) bei einem Anlegen durch den Spieler (Taste, Klick), Schalter `combatWeaponSwap`, nie auf Forever; der Rest und alle Automatiken warten auf `PLAYER_REGEN_ENABLED` | Server erlaubt im Kampf nur Waffen, und nur aus einem echten Tastendruck; Forever hat strengere Regeln | 2026-07-29 · 5ff1363; geändert 2026-10-17 · user wählte F065 | manual |
 | I-16 | „In die Bank legen“ nimmt nur Teile aus den Taschen, getragene bleiben an | Nutzer hat Ausziehen abgelehnt | 2026-09-28 · user „nein“ | manual |
-| I-17 | VuloClassicUIs SavedVariables nur in `Core/Coexistence.lua` lesen | Keine Kopplung an ein anderes Addon | 2026-07-28 · spec | check |
+| I-17 | VuloClassicUIs SavedVariables und Namespace (`_G.VuloClassicUI`: Stil, Fensterbreite, Leisten-Kanten) nur in `Core/Coexistence.lua` lesen, nie schreiben | Keine Kopplung an ein anderes Addon | 2026-07-28 · spec | check |
 | I-18 | Nie ein fremdes Addon nennen – Code, Kommentare, Texte, Commits, Changelog, README, CurseForge | Hausregel | Hausregel | manual |
 | I-19 | Commits ohne `Co-Authored-By` | Hausregel | Hausregel | manual |
 | I-20 | Release nur auf ausdrückliches „release“ des Nutzers | Veröffentlichung erreicht andere | user | manual |
