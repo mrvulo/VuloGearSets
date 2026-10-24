@@ -4,7 +4,7 @@
 -- =========================================================
 local _, ns = ...
 
-ns.VERSION     = "1.21.1"
+ns.VERSION     = "1.22.0"
 ns.modules     = {}
 ns.moduleOrder = {}
 

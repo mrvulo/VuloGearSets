@@ -1,3 +1,11 @@
+## 1.22.0 — 2026-10-24
+
+- New: Classic Era, Season of Discovery and Anniversary with VuloClassicUI: a "VuloClassicUI" window style, the default there, follows its character window (Classic or Modern) and switches along when you change it.
+- Improved: With that style the sidebar docks exactly like VuloClassicUI's own gear set list: same edges and spacing, behind the wider Modern character window, and its "+ New Set" button.
+- Improved: The sidebar moves next to the Season of Discovery rune panel while it is open, live as you open and close it.
+- Improved: If the sidebar would run off the right edge of the screen, it sits to the left of the character window instead.
+- Changed: With VuloClassicUI also running, the login notice now says to turn off its gear set module, so there is only one list.
+
 ## 1.21.1 — 2026-10-23
 
 - Fixed: An item that is not bound to you yet can be equipped again from the slot picker and from gear sets. The game's "binds when equipped" question was cancelled at once, so nothing happened and nothing was said. Now the question shows up; a gear set stops at that item and asks you to equip it again after answering.
