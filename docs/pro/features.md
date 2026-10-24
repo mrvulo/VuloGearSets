@@ -1,6 +1,6 @@
 # Features
 
-Stand: 2026-10-23. Status: `done` = ausgeliefert und bestätigt, `test-in-game` = noch nicht im Spiel gesehen, `dropped` = entfernt oder ersetzt.
+Stand: 2026-10-24. Status: `done` = ausgeliefert und bestätigt, `test-in-game` = noch nicht im Spiel gesehen, `dropped` = entfernt oder ersetzt.
 
 | ID | Feature | Status | Spec | Hauptdateien |
 |---|---|---|---|---|
@@ -92,7 +92,6 @@ Neue Vorschläge von Claude hier mit ID als `idea` eintragen, damit „mach 1 un
 | ID | Idee | Status |
 |---|---|---|
 | F052 | Vorhandene Blizzard-Sets, die nie neu gespeichert werden, einmalig in VuloGearSets übernehmen | idea |
-
 | F060 | Warnung bei Instanz/Bereitschaftscheck, wenn ein gebundenes Set unvollständig ist | idea |
 | F062 | Notiz je Set im Set-Tooltip | idea |
 | F063 | Tooltip-Zeile „In keinem Set“ | idea |
