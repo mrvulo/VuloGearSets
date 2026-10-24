@@ -67,3 +67,4 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-10-24 · Classic/SoD: VuloGearSets sieht aus und dockt an wie die Set-Liste von VuloClassicUI · user Auswahl „Wie VuloClassicUI“ · F073, I-17
 - 2026-10-24 · Laufen beide: VuloGearSets übernimmt, Hinweis zum Abschalten des Set-Moduls von VuloClassicUI (kein Ausblenden) · user Auswahl „VGS übernimmt“ · F073
 - 2026-10-24 · assumed · Bisheriger Standard „classic“ wird einmalig zu „vuloclassic“, wenn VuloClassicUI läuft; eine später gewählte Einstellung bleibt · F073
+- 2026-10-24 · F073 (Classic/SoD im Look von VuloClassicUI) im Spiel bestätigt, Release 1.22.0 · user „passt alles“ · F073

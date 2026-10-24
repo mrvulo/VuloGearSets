@@ -68,7 +68,7 @@ Stand: 2026-10-23. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 | F056 | Set als Text teilen: Rechtsklick → „Als Text exportieren...“, „Set importieren...“ auf der Sets-Seite, `/vgs export`/`import` | done | — | Modules/GearSets/Share.lua |
 | F072 | Sets anderer Charaktere des Kontos kopieren (Sets-Seite unten) | done | — | Modules/GearSets/Share.lua, Modules/GearSets/Options.lua |
 | F065 | Im Kampf: Waffen eines Sets sofort (Taste, Leiste, Minimap; Schalter unter Allgemein, nicht auf Forever), der Rest des Sets wird nach dem Kampf angelegt | done | — | Modules/GearSets/Sets.lua |
-| F073 | Classic Era/SoD/Anniversary: Stil „VuloClassicUI“ folgt dessen Charakterfenster (Classic/Modern), Leiste dockt wie dessen Set-Liste an (verbreitertes Modern-Fenster, Runen-Fenster von SoD, links ausweichen am Bildschirmrand), „+ Neues Set“ wie dort; Hinweis, das Set-Modul von VuloClassicUI abzuschalten | test-in-game | — | Core/Skin.lua, Core/Coexistence.lua, Modules/GearSets/Sidebar.lua |
+| F073 | Classic Era/SoD/Anniversary: Stil „VuloClassicUI“ folgt dessen Charakterfenster (Classic/Modern), Leiste dockt wie dessen Set-Liste an (verbreitertes Modern-Fenster, Runen-Fenster von SoD, links ausweichen am Bildschirmrand), „+ Neues Set“ wie dort; Hinweis, das Set-Modul von VuloClassicUI abzuschalten | done | — | Core/Skin.lua, Core/Coexistence.lua, Modules/GearSets/Sidebar.lua |
 | D001 | Schlafmodus (Addon schaltet sich ab, wenn VuloClassicUI sein Set-Modul hat) | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D002 | Kontoweiter Set-Pool und separater Importbefehl der Altversion | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D003 | Auslöseart "Beim Überfahren" im Slot-Auswahl-Dropdown: Hover ist jetzt immer aktiv, das Dropdown wählt nur den Klick fürs große Fenster | dropped | — | Modules/SlotPicker.lua |
@@ -83,7 +83,6 @@ Stand: 2026-10-23. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 - F054: Sets-Menü → „Nur Schmuck speichern…“, vorhandenen Namen eingeben – Rückfrage mit Hinweis; Nein lässt das Set unverändert.
 - R-69 bis R-75 (Code-Audit 2026-10-13): Set mit zwei gleichen Ringen und mit mehreren Leer-Slots anlegen; Tastenabfrage offen lassen und Kampf beginnen; im Sattel mit Auto-Reitgerte speichern.
 - R-76 bis R-79 (Analyse 2026-10-13): Einhandwaffe ins Set für die Nebenhand ohne Beidhändigkeit – Meldung „ließen sich nicht anlegen“; Set-Tasten im Kampf abschalten, nach dem Kampf ist die Taste wieder normal.
-- F073: Classic Era/SoD mit VuloClassicUI: Charakterfenster öffnen – Sidebar sitzt bündig rechts, gleicher Look; Runen-Fenster öffnen/schließen – Sidebar rückt live mit; Charakterfenster-Stil in VuloClassicUI auf Modern stellen – Sidebar folgt.
 - F048: Spielsprache auf Français und Русский stellen – passen die Texte in die Knöpfe, sind russische Texte lesbar (Blizzard-Schrift)?
 
 ## Ideen
