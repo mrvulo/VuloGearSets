@@ -69,6 +69,8 @@ Stand: 2026-10-24. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 | F072 | Sets anderer Charaktere des Kontos kopieren (Sets-Seite unten) | done | — | Modules/GearSets/Share.lua, Modules/GearSets/Options.lua |
 | F065 | Im Kampf: Waffen eines Sets sofort (Taste, Leiste, Minimap; Schalter unter Allgemein, nicht auf Forever), der Rest des Sets wird nach dem Kampf angelegt | done | — | Modules/GearSets/Sets.lua |
 | F073 | Classic Era/SoD/Anniversary: Stil „VuloClassicUI“ folgt dessen Charakterfenster (Classic/Modern), Leiste dockt wie dessen Set-Liste an (verbreitertes Modern-Fenster, Runen-Fenster von SoD, links ausweichen am Bildschirmrand), „+ Neues Set“ wie dort; Hinweis, das Set-Modul von VuloClassicUI abzuschalten | done | — | Core/Skin.lua, Core/Coexistence.lua, Modules/GearSets/Sidebar.lua |
+| F074 | Dual-Spec: je Talentgruppe direkt das Set wählen (Automatik → Dual-Spec; gleiche Bindung wie am Set) | test-in-game | — | Modules/GearSets/Options.lua |
+| F075 | Twitch-Knopf neben Discord unten im Einstellungsfenster (Link kopieren) | test-in-game | — | UI/OptionsFrame.lua, Media/Icons/TwitchV.tga |
 | D001 | Schlafmodus (Addon schaltet sich ab, wenn VuloClassicUI sein Set-Modul hat) | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D002 | Kontoweiter Set-Pool und separater Importbefehl der Altversion | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D003 | Auslöseart "Beim Überfahren" im Slot-Auswahl-Dropdown: Hover ist jetzt immer aktiv, das Dropdown wählt nur den Klick fürs große Fenster | dropped | — | Modules/SlotPicker.lua |

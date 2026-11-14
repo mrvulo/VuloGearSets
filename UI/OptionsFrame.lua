@@ -29,8 +29,9 @@ local PAD           = 16
 local NAV_W         = 150                    -- Seitenliste links
 local HEAD_H        = 30                     -- Seitentitel + Zuruecksetzen
 local CONTENT_W     = WIDTH - PAD * 3 - NAV_W - 20   -- 20px fuer die Scrollleiste
-local FOOTER_H      = 26                     -- Leiste unten fuer Discord und Version
+local FOOTER_H      = 26                     -- Leiste unten fuer Twitch, Discord und Version
 
+local TWITCH_URL  = "https://www.twitch.tv/mrvulo"
 local DISCORD_URL = "https://discord.gg/P5dTSB6wC"
 
 -- Feste Seitenliste. key ist auch der Name fuer /vgs <seite>.
@@ -544,8 +545,10 @@ local function createFrame()
     sep:SetPoint("BOTTOMLEFT",  PAD, PAD + FOOTER_H - 4)
     sep:SetPoint("BOTTOMRIGHT", -PAD, PAD + FOOTER_H - 4)
 
+    local twitch = createSocialButton(frame, "TwitchV.tga", "Twitch", TWITCH_URL)
+    twitch:SetPoint("BOTTOMLEFT", PAD, PAD)
     local discord = createSocialButton(frame, "DiscordV.tga", "Discord", DISCORD_URL)
-    discord:SetPoint("BOTTOMLEFT", PAD, PAD)
+    discord:SetPoint("LEFT", twitch, "RIGHT", 8, 0)
 
     local resetAll = UI:CreateButton(frame, L["Reset all"], 160, 20)
     resetAll:SetPoint("LEFT", discord, "RIGHT", 12, 0)

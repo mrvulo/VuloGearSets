@@ -256,6 +256,28 @@ local function automationPage()
             default = D.specSwitchEnabled ~= false,
             get = function() return mod.db.specSwitchEnabled ~= false end,
             set = function(_, v) mod.db.specSwitchEnabled = v end })
+        -- Je Talentgruppe direkt das Set waehlen - dieselbe Bindung wie die
+        -- Spec-Auswahl am Set und im Rechtsklick-Menue der Leiste. Kein
+        -- default: Bindungen sind Daten und bleiben beim Zuruecksetzen (I-21).
+        local values = setChoiceValues()
+        for g = 1, getNumSpecGroups() do
+            table.insert(items, { type = "dropdown", label = getSpecGroupLabel(g),
+                tooltip = L["Equip this gear set automatically when you switch to this spec."],
+                values = values,
+                get = function()
+                    for name, gi in pairs(specMap()) do
+                        if gi == g and LO()[name] then return name end
+                    end
+                    return ""
+                end,
+                set = function(_, v)
+                    -- 1:1 - ein Set je Gruppe, eine Gruppe je Set
+                    for name, gi in pairs(specMap()) do
+                        if gi == g then specMap()[name] = nil end
+                    end
+                    if v ~= "" then specMap()[v] = g end
+                end })
+        end
     end
 
     table.insert(items, { type = "spacer", height = 6 })
