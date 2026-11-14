@@ -1,3 +1,9 @@
+## 1.24.0 — 2026-11-14
+
+- Fixed: Switching between your two specs equips the gear set bound to the new spec again. The talent group was read through an outdated fallback first, which could keep answering the same group.
+- Improved: `/vgs spec` also shows what each talent source reports and the state of the spec automation, to help when a switch does not equip.
+- Changed: The options window has a new layout like VuloForeverUI's main window: title bar with icon and version, page list with an accent bar, a header per page with "Reset page", and a bottom bar with "Reset all", the links and "Done". On Forever with a Blizzard theme it wears the metal frame with a title band.
+
 ## 1.23.0 — 2026-11-14
 
 After updating, restart the game once: this version brings a new file, which a `/reload` does not load.
