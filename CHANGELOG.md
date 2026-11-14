@@ -1,3 +1,10 @@
+## 1.23.0 — 2026-11-14
+
+After updating, restart the game once: this version brings a new file, which a `/reload` does not load.
+
+- New: Dual spec: pick the gear set for each spec right on the Automation page. It is the same binding as the spec choice on each set and in the sidebar's right-click menu.
+- New: Twitch button next to Discord at the bottom of the options window; a click shows the link to copy.
+
 ## 1.22.0 — 2026-10-24
 
 - New: Classic Era, Season of Discovery and Anniversary with VuloClassicUI: a "VuloClassicUI" window style, the default there, follows its character window (Classic or Modern) and switches along when you change it.
