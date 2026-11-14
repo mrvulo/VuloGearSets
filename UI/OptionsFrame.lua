@@ -24,12 +24,15 @@ local UI = ns.UI
 local L  = ns.L
 local C  = ns.COLORS
 
-local WIDTH, HEIGHT = 620, 580
-local PAD           = 16
-local NAV_W         = 150                    -- Seitenliste links
-local HEAD_H        = 30                     -- Seitentitel + Zuruecksetzen
-local CONTENT_W     = WIDTH - PAD * 3 - NAV_W - 20   -- 20px fuer die Scrollleiste
-local FOOTER_H      = 26                     -- Leiste unten fuer Twitch, Discord und Version
+local WIDTH, HEIGHT = 760, 600
+local PAD           = 16                     -- Einrueckung der Eintraege im Inhalt
+local NAV_W         = 190                    -- Seitenliste links
+local ROW_H         = 28                     -- Zeile der Seitenliste
+local TITLE_H       = 32                     -- Titelleiste
+local BAND_TITLE_H  = 58                     -- mit Titelband: Band + Zeile fuer die Version
+local PAGEBAR_H     = 34                     -- Seitentitel + Zuruecksetzen
+local BOTTOM_H      = 44                     -- Fussleiste
+local SCROLLBAR_W   = 26
 
 local TWITCH_URL  = "https://www.twitch.tv/mrvulo"
 local DISCORD_URL = "https://discord.gg/P5dTSB6wC"
@@ -435,25 +438,68 @@ StaticPopupDialogs["VGS_RESET_ALL"] = {
 
 -- =========================================================
 -- Fenster
+--
+-- Aufbau wie das Hauptfenster der Vulo-Familie: oben die Titelleiste
+-- (Symbol, Titel, Version, Schliessen), links die Seitenliste, rechts eine
+-- Kopfzeile mit Seitentitel und "Seite zuruecksetzen", darunter der
+-- Inhalt, unten eine Leiste mit "Alles zuruecksetzen", den Links und
+-- "Fertig". Traegt das Fenster den Metallrahmen mit Titelband (Forever,
+-- Blizzard-Themes), sitzt der Titel im Band und die Version in einer
+-- Zeile darunter.
+--
+-- applyLayout setzt Lage und Farben bei jedem Neuzeichnen neu: ein
+-- Stilwechsel aendert Rahmen, Einrueckung und Titelleiste, und das soll
+-- ohne /reload greifen.
 -- =========================================================
 local navButtons = {}
+local parts = {}
 local pageTitle, resetBtn
 
--- Seitenknopf links. Eigener schlichter Knopf statt UI:CreateButton: die
--- gewaehlte Seite traegt die Auswahlfarbe des Stils, wie eine Zeile in
--- der Set-Leiste.
+-- Verlauf auf einer Textur; aeltere Clients kennen nur SetGradientAlpha.
+local function setGradient(tex, orient, r1, g1, b1, a1, r2, g2, b2, a2)
+    tex:SetTexture("Interface\\Buttons\\WHITE8X8")
+    if tex.SetGradient and CreateColor then
+        tex:SetGradient(orient, CreateColor(r1, g1, b1, a1), CreateColor(r2, g2, b2, a2))
+    elseif tex.SetGradientAlpha then
+        tex:SetGradientAlpha(orient, r1, g1, b1, a1, r2, g2, b2, a2)
+    else
+        tex:SetColorTexture((r1 + r2) / 2, (g1 + g2) / 2, (b1 + b2) / 2, (a1 + a2) / 2)
+    end
+end
+
+-- Breite des Scroll-Inhalts: Fenster ohne Rahmen, Seitenliste, deren
+-- Trennlinie und Scrollleiste.
+-- Im Titelband reicht das Metall rechts ein paar Pixel ins Fenster; so weit
+-- rueckt der Inhalt dort ab, damit die Scrollleiste frei bleibt.
+local BAND_RIGHT = 6
+
+local function contentWidth()
+    local band  = ns:WindowHasTitleBand(frame)
+    local inset = band and 0 or ns:FrameInset("window")
+    return WIDTH - inset * 2 - NAV_W - 1 - SCROLLBAR_W - (band and BAND_RIGHT or 0)
+end
+
+-- Seitenknopf links. Die gewaehlte Seite traegt einen Akzent-Verlauf und
+-- einen Akzentbalken am linken Rand.
 local function createNavButton(parent, page, index)
     local b = CreateFrame("Button", nil, parent)
-    b:SetSize(NAV_W, 24)
-    b:SetPoint("TOPLEFT", PAD, -PAD - 30 - (index - 1) * 26)
+    local y = -6 - (index - 1) * ROW_H
+    b:SetHeight(ROW_H)
+    b:SetPoint("TOPLEFT", parent, "TOPLEFT", 6, y)
+    b:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -6, y)
     b.sel = b:CreateTexture(nil, "BACKGROUND")
     b.sel:SetAllPoints(b)
+    b.bar = b:CreateTexture(nil, "ARTWORK")
+    b.bar:SetPoint("TOPLEFT")
+    b.bar:SetPoint("BOTTOMLEFT")
+    b.bar:SetWidth(3)
     b.hl = b:CreateTexture(nil, "HIGHLIGHT")
     b.hl:SetAllPoints(b)
+    b.hl:SetColorTexture(1, 1, 1, 0.05)
     b.text = b:CreateFontString(nil, "OVERLAY")
     UI.Font(b.text, 12)
-    b.text:SetPoint("LEFT", 8, 0)
-    b.text:SetPoint("RIGHT", -4, 0)
+    b.text:SetPoint("LEFT", 12, 0)
+    b.text:SetPoint("RIGHT", -6, 0)
     b.text:SetJustifyH("LEFT")
     b.text:SetWordWrap(false)
     b.text:SetText(page.title)
@@ -467,17 +513,24 @@ local function createNavButton(parent, page, index)
 end
 
 local function updateNav()
+    local ar, ag, ab = ns:AccentColor()
     for _, b in ipairs(navButtons) do
-        b.hl:SetColorTexture(ns:HoverColor())
         if b.key == currentPage then
-            b.sel:SetColorTexture(ns:SelectionColor())
+            setGradient(b.sel, "HORIZONTAL", ar, ag, ab, 0.26, ar, ag, ab, 0.02)
             b.sel:Show()
-            b.text:SetTextColor(ns:AccentColor())
+            b.bar:SetColorTexture(ar, ag, ab, 1)
+            b.bar:Show()
+            b.text:SetTextColor(1, 1, 1)
         else
             b.sel:Hide()
-            b.text:SetTextColor(C.text.r, C.text.g, C.text.b)
+            b.bar:Hide()
+            b.text:SetTextColor(C.textDim.r, C.textDim.g, C.textDim.b)
         end
     end
+end
+
+local function newLine()
+    return frame:CreateTexture(nil, "ARTWORK")
 end
 
 local function createFrame()
@@ -492,40 +545,134 @@ local function createFrame()
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop",  frame.StopMovingOrSizing)
-    UI:CreateBackdrop(frame)
+    UI:CreateBackdrop(frame, "main")
     UI:CreateShadow(frame)
     tinsert(UISpecialFrames, "VuloGearSetsOptions")   -- Escape schliesst
 
-    local title = frame:CreateFontString(nil, "OVERLAY")
-    UI.Font(title, 15, "OUTLINE")
-    title:SetPoint("TOPLEFT", PAD, -PAD)
+    -- ---- Titelleiste ----
+    local titleBar = CreateFrame("Frame", nil, frame)
+    titleBar:EnableMouse(true)
+    titleBar:RegisterForDrag("LeftButton")
+    titleBar:SetScript("OnDragStart", function() frame:StartMoving() end)
+    titleBar:SetScript("OnDragStop",  function() frame:StopMovingOrSizing() end)
+    parts.titleBar = titleBar
+
+    parts.titleBG = titleBar:CreateTexture(nil, "BACKGROUND")
+    parts.titleBG:SetAllPoints(titleBar)
+
+    -- Akzentlinie ganz oben, nur bei den flachen Stilen.
+    local brand = titleBar:CreateTexture(nil, "ARTWORK")
+    brand:SetPoint("TOPLEFT", titleBar, "TOPLEFT", 1, -1)
+    brand:SetPoint("TOPRIGHT", titleBar, "TOPRIGHT", -1, -1)
+    brand:SetHeight(2)
+    parts.brand = brand
+
+    local icon = titleBar:CreateTexture(nil, "OVERLAY")
+    icon:SetTexture("Interface\\AddOns\\VuloGearSets\\Media\\Icons\\vgs")
+    parts.icon = icon
+
+    local title = titleBar:CreateFontString(nil, "OVERLAY")
+    UI.Font(title, 15)
     title:SetText(L["Gear Sets"])
-    title:SetTextColor(ns:AccentColor())
-    frame.title = title
+    parts.title = title
 
-    local close = UI:CreateButton(frame, "X", 22, 22)
-    close:SetPoint("TOPRIGHT", -PAD, -PAD + 2)
-    close:SetOnClick(function() frame:Hide() end)
+    -- Im Titelband Blizzards Schrift, wie Blizzards eigene Fenster (I-04).
+    local bandTitle = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    bandTitle:SetText(L["Gear Sets"])
+    parts.bandTitle = bandTitle
 
-    for i, page in ipairs(PAGES) do
-        navButtons[i] = createNavButton(frame, page, i)
+    local ver = titleBar:CreateFontString(nil, "OVERLAY")
+    UI.Font(ver, 10)
+    ver:SetText("v" .. (ns.VERSION or "?"))
+    parts.version = ver
+
+    -- Flaches Schliessen: rot hinterlegt beim Ueberfahren.
+    local close = CreateFrame("Button", nil, titleBar)
+    close.bg = close:CreateTexture(nil, "BACKGROUND")
+    close.bg:SetAllPoints(close)
+    close.bg:SetColorTexture(0.78, 0.16, 0.16, 1)
+    close.bg:Hide()
+    close.text = close:CreateFontString(nil, "OVERLAY")
+    UI.Font(close.text, 20)
+    close.text:SetPoint("CENTER")
+    close.text:SetText("\195\151")   -- Malzeichen
+    close:SetScript("OnEnter", function(self)
+        self.bg:Show()
+        self.text:SetTextColor(1, 1, 1)
+    end)
+    close:SetScript("OnLeave", function(self)
+        self.bg:Hide()
+        self.text:SetTextColor(C.textDim.r, C.textDim.g, C.textDim.b)
+    end)
+    close:SetScript("OnClick", function() frame:Hide() end)
+    parts.close = close
+
+    -- Im Titelband Blizzards Schliessen-Knopf. Die Vorlage heisst nicht
+    -- auf jedem Client gleich; eine unbekannte Vorlage wirft nicht, sie
+    -- liefert einen nackten Knopf - deshalb an der Grafik pruefen. Fehlt
+    -- sie, bleibt der flache Knopf.
+    local function closeFrom(template)
+        local ok, b = pcall(CreateFrame, "Button", nil, titleBar, template)
+        if ok and b and b.GetNormalTexture and b:GetNormalTexture() then return b end
+        if ok and b then b:Hide() end
+        return nil
+    end
+    local bc = closeFrom("UIPanelCloseButtonNoScripts") or closeFrom("UIPanelCloseButton")
+    if bc then
+        bc:SetScript("OnClick", function() frame:Hide() end)
+        bc:Hide()
+        parts.bandClose = bc
     end
 
-    -- Trennlinie zwischen Navigation und Inhalt
-    local vsep = frame:CreateTexture(nil, "ARTWORK")
-    vsep:SetColorTexture(C.border.r, C.border.g, C.border.b, 1)
-    vsep:SetWidth(1)
-    vsep:SetPoint("TOPLEFT", PAD + NAV_W + PAD / 2, -PAD - 30)
-    vsep:SetPoint("BOTTOMLEFT", PAD + NAV_W + PAD / 2, PAD + FOOTER_H)
+    parts.titleSep = newLine()
 
-    local left = PAD * 2 + NAV_W
+    -- ---- Fussleiste ----
+    local bottomBar = CreateFrame("Frame", nil, frame)
+    bottomBar:SetHeight(BOTTOM_H)
+    parts.bottomBar = bottomBar
+    parts.bottomBG = bottomBar:CreateTexture(nil, "BACKGROUND")
+    parts.bottomBG:SetAllPoints(bottomBar)
+    parts.bottomSep = newLine()
 
-    pageTitle = frame:CreateFontString(nil, "OVERLAY")
-    UI.Font(pageTitle, 14, "OUTLINE")
-    pageTitle:SetPoint("TOPLEFT", left, -PAD - 34)
+    local resetAll = UI:CreateButton(bottomBar, L["Reset all"], 150, 26)
+    resetAll:SetPoint("LEFT", bottomBar, "LEFT", 10, 0)
+    resetAll._tooltip = L["Sets every option on every page back to its default. Gear sets, keys and spec or form bindings are not touched."]
+    resetAll:SetOnClick(function() StaticPopup_Show("VGS_RESET_ALL") end)
 
-    resetBtn = UI:CreateButton(frame, L["Reset page"], 160, 20)
-    resetBtn:SetPoint("TOPRIGHT", -PAD, -PAD - 30)
+    local twitch = createSocialButton(bottomBar, "TwitchV.tga", "Twitch", TWITCH_URL)
+    twitch:SetPoint("LEFT", resetAll, "RIGHT", 14, 0)
+    local discord = createSocialButton(bottomBar, "DiscordV.tga", "Discord", DISCORD_URL)
+    discord:SetPoint("LEFT", twitch, "RIGHT", 8, 0)
+
+    local done = UI:CreateButton(bottomBar, DONE or CLOSE or "OK", 90, 26)
+    done:SetPoint("RIGHT", bottomBar, "RIGHT", -10, 0)
+    done:SetOnClick(function() frame:Hide() end)
+
+    -- ---- Seitenliste ----
+    local sidebar = CreateFrame("Frame", nil, frame)
+    sidebar:SetWidth(NAV_W)
+    parts.sidebar = sidebar
+    parts.sidebarBG = sidebar:CreateTexture(nil, "BACKGROUND")
+    parts.sidebarBG:SetAllPoints(sidebar)
+    parts.sidebarSep = newLine()
+    for i, page in ipairs(PAGES) do
+        navButtons[i] = createNavButton(sidebar, page, i)
+    end
+
+    -- ---- Kopfzeile der Seite ----
+    local pageBar = CreateFrame("Frame", nil, frame)
+    pageBar:SetHeight(PAGEBAR_H)
+    parts.pageBar = pageBar
+    parts.pageBarBG = pageBar:CreateTexture(nil, "BACKGROUND")
+    parts.pageBarBG:SetAllPoints(pageBar)
+    parts.pageSep = newLine()
+
+    pageTitle = pageBar:CreateFontString(nil, "OVERLAY")
+    UI.Font(pageTitle, 14)
+    pageTitle:SetPoint("LEFT", pageBar, "LEFT", PAD, 0)
+
+    resetBtn = UI:CreateButton(pageBar, L["Reset page"], 160, 22)
+    resetBtn:SetPoint("RIGHT", pageBar, "RIGHT", -10, 0)
     resetBtn._tooltip = L["Sets every option on this page back to its default. Gear sets, keys and spec or form bindings are not touched."]
     resetBtn:SetOnClick(function()
         local dlg = StaticPopup_Show("VGS_RESET_PAGE", nil, nil, currentPage)
@@ -533,39 +680,139 @@ local function createFrame()
         if dlg then dlg.data = currentPage end
     end)
 
-    local scroll = CreateFrame("ScrollFrame", "VuloGearSetsOptionsScroll", frame,
+    -- ---- Inhalt ----
+    local body = CreateFrame("Frame", nil, frame)
+    parts.body = body
+    parts.bodyBG = body:CreateTexture(nil, "BACKGROUND")
+    parts.bodyBG:SetAllPoints(body)
+
+    local scroll = CreateFrame("ScrollFrame", "VuloGearSetsOptionsScroll", body,
                                "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT",     left, -PAD - 30 - HEAD_H)
-    scroll:SetPoint("BOTTOMRIGHT", -PAD - 20, PAD + FOOTER_H)
-
-    -- Fusszeile mit Trennlinie
-    local sep = frame:CreateTexture(nil, "ARTWORK")
-    sep:SetColorTexture(C.border.r, C.border.g, C.border.b, 1)
-    sep:SetHeight(1)
-    sep:SetPoint("BOTTOMLEFT",  PAD, PAD + FOOTER_H - 4)
-    sep:SetPoint("BOTTOMRIGHT", -PAD, PAD + FOOTER_H - 4)
-
-    local twitch = createSocialButton(frame, "TwitchV.tga", "Twitch", TWITCH_URL)
-    twitch:SetPoint("BOTTOMLEFT", PAD, PAD)
-    local discord = createSocialButton(frame, "DiscordV.tga", "Discord", DISCORD_URL)
-    discord:SetPoint("LEFT", twitch, "RIGHT", 8, 0)
-
-    local resetAll = UI:CreateButton(frame, L["Reset all"], 160, 20)
-    resetAll:SetPoint("LEFT", discord, "RIGHT", 12, 0)
-    resetAll._tooltip = L["Sets every option on every page back to its default. Gear sets, keys and spec or form bindings are not touched."]
-    resetAll:SetOnClick(function() StaticPopup_Show("VGS_RESET_ALL") end)
-
-    local ver = frame:CreateFontString(nil, "OVERLAY")
-    UI.Font(ver, 11)
-    ver:SetPoint("BOTTOMRIGHT", -PAD, PAD + 4)
-    ver:SetText("v" .. (ns.VERSION or "?"))
-    ver:SetTextColor(C.textDim.r, C.textDim.g, C.textDim.b)
+    scroll:SetPoint("TOPLEFT",     body, "TOPLEFT",     0, -8)
+    scroll:SetPoint("BOTTOMRIGHT", body, "BOTTOMRIGHT", -SCROLLBAR_W, 8)
 
     content = CreateFrame("Frame", nil, scroll)
-    content:SetSize(CONTENT_W, 10)
+    content:SetSize(contentWidth(), 10)
     scroll:SetScrollChild(content)
     frame.scroll = scroll
 end
+
+-- Lage und Farben nach dem aktiven Stil (siehe oben).
+local function applyLayout()
+    local P = parts
+    local band   = ns:WindowHasTitleBand(frame)
+    local inset  = band and 0 or ns:FrameInset("window")
+    local titleH = band and BAND_TITLE_H or TITLE_H
+    local ar, ag, ab = ns:AccentColor()
+    local br, bg, bb = C.border.r, C.border.g, C.border.b
+
+    -- Titelleiste. Im Titelband liegt sie ueber dem Metall (+30), sonst
+    -- verdeckte das Band den Titel.
+    P.titleBar:ClearAllPoints()
+    P.titleBar:SetPoint("TOPLEFT",  frame, "TOPLEFT",  inset, -inset)
+    P.titleBar:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -inset, -inset)
+    P.titleBar:SetHeight(titleH)
+    P.titleBar:SetFrameLevel(frame:GetFrameLevel() + (band and 35 or 2))
+
+    local tr, tg, tb, ta = ns:WindowColor("barTop")
+    local lr, lg, lb, la = ns:WindowColor("barBottom")
+    setGradient(P.titleBG, "VERTICAL", lr, lg, lb, la, tr, tg, tb, ta)
+    P.titleBG:SetShown(not band)
+    setGradient(P.brand, "HORIZONTAL", ar, ag, ab, 1, ar, ag, ab, 0.10)
+    P.brand:SetShown(not band and ns:GetStyle() ~= "classic")
+
+    P.title:SetTextColor(ar, ag, ab)
+    P.version:SetTextColor(ns:WindowColor("textMuted"))
+    P.icon:ClearAllPoints()
+    P.title:ClearAllPoints()
+    P.version:ClearAllPoints()
+    if band then
+        P.title:Hide()
+        P.bandTitle:Show()
+        P.icon:SetSize(17, 17)
+        P.bandTitle:ClearAllPoints()
+        P.bandTitle:SetPoint("TOP", P.titleBar, "TOP", 17 / 2, -5)
+        P.icon:SetPoint("RIGHT", P.bandTitle, "LEFT", -2, 0)
+        P.version:SetPoint("LEFT", P.titleBar, "BOTTOMLEFT", 16, 17)
+    else
+        P.bandTitle:Hide()
+        P.title:Show()
+        P.icon:SetSize(19, 19)
+        P.icon:SetPoint("LEFT", P.titleBar, "LEFT", 10, 0)
+        P.title:SetPoint("LEFT", P.icon, "RIGHT", 4, 0)
+        P.version:SetPoint("LEFT", P.title, "RIGHT", 8, -1)
+    end
+
+    if band and P.bandClose then
+        P.close:Hide()
+        P.bandClose:ClearAllPoints()
+        P.bandClose:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -2, 1)
+        P.bandClose:SetFrameLevel(P.titleBar:GetFrameLevel() + 2)
+        P.bandClose:Show()
+    else
+        if P.bandClose then P.bandClose:Hide() end
+        P.close:ClearAllPoints()
+        P.close:SetSize(38, TITLE_H - 3)
+        P.close:SetPoint("TOPRIGHT", P.titleBar, "TOPRIGHT", -1, -3)
+        P.close:SetFrameLevel(P.titleBar:GetFrameLevel() + 2)
+        P.close.bg:Hide()
+        P.close.text:SetTextColor(C.textDim.r, C.textDim.g, C.textDim.b)
+        P.close:Show()
+    end
+
+    P.titleSep:ClearAllPoints()
+    P.titleSep:SetPoint("TOPLEFT",  P.titleBar, "BOTTOMLEFT",  0, 0)
+    P.titleSep:SetPoint("TOPRIGHT", P.titleBar, "BOTTOMRIGHT", 0, 0)
+    P.titleSep:SetHeight(1)
+    P.titleSep:SetColorTexture(br, bg, bb, 1)
+
+    -- Fussleiste
+    P.bottomBar:ClearAllPoints()
+    P.bottomBar:SetPoint("BOTTOMLEFT",  frame, "BOTTOMLEFT",  inset, inset)
+    P.bottomBar:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -inset, inset)
+    setGradient(P.bottomBG, "VERTICAL", tr, tg, tb, ta, lr, lg, lb, la)
+    P.bottomSep:ClearAllPoints()
+    P.bottomSep:SetPoint("BOTTOMLEFT",  P.bottomBar, "TOPLEFT",  0, 0)
+    P.bottomSep:SetPoint("BOTTOMRIGHT", P.bottomBar, "TOPRIGHT", 0, 0)
+    P.bottomSep:SetHeight(1)
+    P.bottomSep:SetColorTexture(br, bg, bb, 1)
+
+    -- Seitenliste zwischen den beiden Trennlinien
+    local above = inset + BOTTOM_H + 1
+    P.sidebar:ClearAllPoints()
+    P.sidebar:SetPoint("TOPLEFT",    P.titleSep, "BOTTOMLEFT", 0, 0)
+    P.sidebar:SetPoint("BOTTOMLEFT", frame,      "BOTTOMLEFT", inset, above)
+    P.sidebarBG:SetColorTexture(ns:WindowColor("sidebar"))
+    P.sidebarSep:ClearAllPoints()
+    P.sidebarSep:SetPoint("TOPLEFT",    P.sidebar, "TOPRIGHT",    0, 0)
+    P.sidebarSep:SetPoint("BOTTOMLEFT", P.sidebar, "BOTTOMRIGHT", 0, 0)
+    P.sidebarSep:SetWidth(1)
+    P.sidebarSep:SetColorTexture(br, bg, bb, 1)
+
+    -- Kopfzeile und Inhalt rechts daneben
+    local cr, cg, cb, ca = ns:WindowColor("content")
+    P.pageBar:ClearAllPoints()
+    P.pageBar:SetPoint("TOPLEFT",  P.sidebar,  "TOPRIGHT",    1, 0)
+    P.pageBar:SetPoint("TOPRIGHT", P.titleSep, "BOTTOMRIGHT", 0, 0)
+    P.pageBarBG:SetColorTexture(cr, cg, cb, ca)
+    P.pageSep:ClearAllPoints()
+    P.pageSep:SetPoint("TOPLEFT",  P.pageBar, "BOTTOMLEFT",  0, 0)
+    P.pageSep:SetPoint("TOPRIGHT", P.pageBar, "BOTTOMRIGHT", 0, 0)
+    P.pageSep:SetHeight(1)
+    P.pageSep:SetColorTexture(br, bg, bb, 1)
+
+    P.body:ClearAllPoints()
+    P.body:SetPoint("TOPLEFT",     P.pageSep, "BOTTOMLEFT", 0, 0)
+    P.body:SetPoint("BOTTOMRIGHT", frame,     "BOTTOMRIGHT", -inset - (band and BAND_RIGHT or 0), above)
+    P.bodyBG:SetColorTexture(cr, cg, cb, ca)
+end
+
+-- Ein Stilwechsel, den niemand ueber SetStyle ausloest (der Stil folgt
+-- VuloClassicUI), erreicht das offene Fenster sonst erst beim naechsten
+-- Seitenwechsel.
+ns:OnStyleChanged(function()
+    if frame and frame:IsShown() then ns:RefreshOptions() end
+end)
 
 local function pageTitleOf(key)
     for _, pg in ipairs(PAGES) do
@@ -580,16 +827,16 @@ end
 function ns:RefreshOptions()
     if not frame or not frame:IsShown() then return end
     resetPools()
+    applyLayout()
     updateNav()
-    frame.title:SetTextColor(ns:AccentColor())
     pageTitle:SetText(pageTitleOf(currentPage))
     pageTitle:SetTextColor(ns:AccentColor())
     if pageHasDefaults(currentPage) then resetBtn:Show() else resetBtn:Hide() end
 
-    -- Der Inhalt beginnt direkt oben: der Seitentitel steht schon ueber
-    -- dem Scrollbereich. Die Breite ohne den zweiten PAD - der Renderer
-    -- setzt PAD links selbst.
-    local height = renderItems(content, pageItems(currentPage), 0, CONTENT_W - PAD)
+    -- Der Renderer setzt PAD links selbst; rechts bleibt derselbe Abstand.
+    local w = contentWidth()
+    content:SetWidth(w)
+    local height = renderItems(content, pageItems(currentPage), 0, w - PAD * 2)
     content:SetHeight(math.max(height + PAD, 10))
 end
 

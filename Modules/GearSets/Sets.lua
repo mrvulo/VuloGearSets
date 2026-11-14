@@ -1572,6 +1572,9 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
         DEFAULT_CHAT_FRAME:AddMessage(string.format("  active spec group = %s", tostring(active)))
         DEFAULT_CHAT_FRAME:AddMessage(string.format("  spec groups       = %s", tostring(numG)))
         DEFAULT_CHAT_FRAME:AddMessage(string.format("  specSwitchEnabled      = %s", tostring(mod.db.specSwitchEnabled)))
+        for _, line in ipairs(GS.specDebugLines and GS.specDebugLines() or {}) do
+            DEFAULT_CHAT_FRAME:AddMessage(line)
+        end
         local anyMap = false
         for name, g in pairs(specMap() or {}) do
             DEFAULT_CHAT_FRAME:AddMessage(string.format("  mapping: '%s' -> spec %d", name, g))

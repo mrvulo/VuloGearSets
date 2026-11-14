@@ -103,6 +103,9 @@ local FOREVER_COLORS = {
     text    = rgb(1, 1, 1),                 textDim = rgb(0.72, 0.68, 0.58),
     popup   = rgb(0.07, 0.06, 0.05, 0.98),
     control = rgb(0.42, 0.08, 0.04, 1),     controlHover = rgb(0.56, 0.12, 0.06, 1),
+    -- Flaechen im Einstellungsfenster (ns:WindowColor)
+    bgContent = rgb(0.02, 0.02, 0.02, 0.40), textMuted = rgb(0.50, 0.47, 0.40),
+    barTop    = rgb(0.13, 0.11, 0.08, 0.45), barBottom = rgb(0.07, 0.06, 0.045, 0.45),
 }
 
 local function foreverSource()
@@ -392,8 +395,86 @@ local function setSelectorArt(frame, on)
     return true
 end
 
+-- =========================================================
+-- Forever: das Einstellungsfenster mit Titelband ("main")
+--
+-- Wie das Hauptfenster der Familie bei den Blizzard-Themes: der
+-- Metallrahmen MIT Titelband (ButtonFrameTemplateNoPortrait). Der Titel
+-- sitzt im Band; das Fenster legt seine Leisten selbst darunter
+-- (UI/OptionsFrame.lua). Die Metall-Ecken sitzen links INNERHALB des
+-- Rahmens, deshalb ragt die Art links 11 px hinaus und ein Streifen
+-- Fels-Grund laeuft darunter mit, damit keine Luecke klafft.
+-- =========================================================
+local TITLED_LAYOUT = "ButtonFrameTemplateNoPortrait"
+local TITLED_REACH  = 11
+
+local titled = setmetatable({}, { __mode = "k" })   -- [frame] = { art, strip } | false
+
+local function setTitledMetal(frame, on, bgFile)
+    local t = titled[frame]
+    if not on then
+        if t then t.art:Hide(); t.strip:Hide() end
+        return false
+    end
+    if t == nil then
+        local art = CreateFrame("Frame", nil, frame)
+        art:SetPoint("TOPLEFT", frame, "TOPLEFT", -TITLED_REACH, 0)
+        art:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+        art:EnableMouse(false)
+        if not pcall(NineSliceUtil.ApplyLayoutByName, art, TITLED_LAYOUT) then
+            art:Hide()
+            titled[frame] = false
+            return false
+        end
+        local strip = frame:CreateTexture(nil, "BACKGROUND")
+        strip:SetPoint("TOPRIGHT", frame, "TOPLEFT", 0, 0)
+        strip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", 0, 0)
+        strip:SetWidth(TITLED_REACH - 3)
+        t = { art = art, strip = strip }
+        titled[frame] = t
+    end
+    if not t then return false end
+    if bgFile then
+        t.strip:SetTexture(bgFile, "REPEAT", "REPEAT")
+        t.strip:SetHorizTile(true); t.strip:SetVertTile(true)
+        t.strip:SetVertexColor(1, 1, 1, 1)
+    else
+        local c = C.bg
+        t.strip:SetColorTexture(c.r, c.g, c.b, 0.95)
+    end
+    t.art:SetFrameLevel((frame:GetFrameLevel() or 1) + 30)
+    t.art:Show(); t.strip:Show()
+    return true
+end
+
+-- Traegt dieses Fenster gerade den Rahmen mit Titelband?
+function ns:WindowHasTitleBand(frame)
+    local t = frame and titled[frame]
+    return (t and t.art:IsShown()) and true or false
+end
+
 local function apply(frame, kind, style)
     if not frame or not frame.SetBackdrop then return end
+    if kind == "main" then
+        if style == "forever" and foreverHasMetal() then
+            local theme = foreverSource()
+            local bgFile = type(theme.window) == "table" and theme.window.bgFile or nil
+            if setTitledMetal(frame, true, bgFile) then
+                setMetal(frame, false)
+                local bd, textured = foreverBackdrop("window")
+                frame:SetBackdrop(bd)
+                if textured then
+                    frame:SetBackdropColor(1, 1, 1, 1)
+                else
+                    frame:SetBackdropColor(C.bg.r, C.bg.g, C.bg.b, 0.95)
+                end
+                frame:SetBackdropBorderColor(0, 0, 0, 0)
+                return
+            end
+        end
+        setTitledMetal(frame, false)
+        kind = "window"
+    end
     -- "flyout" = kleines Aufklappfenster am Charakterfenster. Im
     -- Forever-Stil nur der schmale Rand des Themes, ohne Metall und
     -- Fels - das Metall ist dicker als der Inhalt hoch.
@@ -500,6 +581,36 @@ function ns:WindowArtReach()
     if ns:UsesCharacterPaneArt() then return 0 end
     if ns:GetStyle() == "forever" and foreverHasMetal() then return 5 end
     return 0
+end
+
+-- Flaechen des Einstellungsfensters: Seitenliste ("sidebar"), Inhalt
+-- ("content"), Leisten oben und unten ("barTop"/"barBottom", Verlauf) und
+-- gedaempfter Text ("textMuted"). Liefert r, g, b, a.
+local WINDOW_COLORS = {
+    modern = {
+        sidebar = rgb(0.055, 0.055, 0.07, 0.96), content = rgb(0.08, 0.08, 0.10, 0.96),
+        barTop  = rgb(0.085, 0.085, 0.11, 1),     barBottom = rgb(0.045, 0.045, 0.06, 1),
+        textMuted = rgb(0.50, 0.50, 0.56, 1),
+    },
+    classic = {
+        sidebar = rgb(0, 0, 0, 0.30),             content = rgb(0, 0, 0, 0.15),
+        barTop  = rgb(0.16, 0.13, 0.08, 0.55),    barBottom = rgb(0.07, 0.06, 0.04, 0.55),
+        textMuted = rgb(0.55, 0.52, 0.45, 1),
+    },
+}
+local FOREVER_WINDOW_KEYS = { sidebar = "bgLight", content = "bgContent",
+    barTop = "barTop", barBottom = "barBottom", textMuted = "textMuted" }
+
+function ns:WindowColor(key)
+    local style = ns:GetStyle()
+    local c
+    if style == "forever" then
+        c = foreverColor(FOREVER_WINDOW_KEYS[key] or key)
+    else
+        c = (WINDOW_COLORS[style] or WINDOW_COLORS.modern)[key]
+    end
+    if not c then c = C.bg end
+    return c.r, c.g, c.b, c.a or 1
 end
 
 -- Hinterlegung beim Ueberfahren.

@@ -767,19 +767,55 @@ local _lastSpecGroup = -1
 -- PLAYER_ENTERING_WORLD sah sonst wie ein Specwechsel aus (R-30).
 local _specBaselineConfirmed = false
 
--- Forever hat ebenfalls zwei Talentgruppen, fragt sie aber ueber die
--- Retail-Aufrufe ab: C_SpecializationInfo.GetActiveSpecGroup und
--- GetNumSpecGroups. GetActiveTalentGroup gibt es dort nicht.
-local CSI = _G.C_SpecializationInfo
-local GetActiveGroupFn = _G.GetActiveTalentGroup
-    or (CSI and CSI.GetActiveSpecGroup) or _G.GetActiveSpecGroup
-local GetNumGroupsFn = _G.GetNumTalentGroups or _G.GetNumSpecGroups
+-- Woher die Talentgruppe kommt. Die echte Schnittstelle ist auf allen
+-- Clients mit Dual-Spec C_SpecializationInfo; GetActiveTalentGroup und
+-- GetNumTalentGroups gibt es auf Anniversary nur noch als Altlast-Ersatz
+-- (hinter einer CVar), auf Wrath dagegen allein. Frueher stand die Altlast
+-- VORN - antwortete sie mit einem festen Wert, sah die Automatik nie einen
+-- Wechsel. Jetzt zuerst die echte Quelle, die anderen nur als Rueckfall.
+-- Zur Laufzeit nachgeschlagen: der Altlast-Ersatz kann nach dieser Datei
+-- geladen werden.
+local function activeSources()
+    local CSI = _G.C_SpecializationInfo
+    return { CSI and CSI.GetActiveSpecGroup, _G.GetActiveTalentGroup, _G.GetActiveSpecGroup },
+           { "C_SpecializationInfo.GetActiveSpecGroup", "GetActiveTalentGroup", "GetActiveSpecGroup" }
+end
 
--- nil, solange der Client keine Zahl liefert.
+local function numSources()
+    local CSI = _G.C_SpecializationInfo
+    return { CSI and CSI.GetNumSpecGroups, _G.GetNumTalentGroups, _G.GetNumSpecGroups },
+           { "C_SpecializationInfo.GetNumSpecGroups", "GetNumTalentGroups", "GetNumSpecGroups" }
+end
+
+-- Eine Quelle abfragen: Zahl ab 1 oder nil.
+local function askGroup(fn)
+    if type(fn) ~= "function" then return nil end
+    local ok, v = pcall(fn)
+    if ok and type(v) == "number" and v > 0 then return v end
+    return nil
+end
+
+-- Erste Quelle, die eine echte Zahl liefert. Feste Laenge 3 statt ipairs:
+-- fehlende Funktionen stehen als nil in der Liste.
+local function firstGroupNumber(fns)
+    for i = 1, 3 do
+        local v = askGroup(fns[i])
+        if v then return v end
+    end
+    return nil
+end
+
+-- Die aktive Gruppe bleibt bei der Quelle, die zuerst eine Zahl geliefert
+-- hat. Sprang sie bei einem kurzen Aussetzer (Ladebildschirm) auf die
+-- naechste, und stuende die Altlast fest auf 1, saehe das wie ein
+-- Specwechsel aus und legte hin und her an. nil, solange keine antwortet.
+local _activeSource
 local function readActiveSpecGroup()
-    if GetActiveGroupFn then
-        local ok, g = pcall(GetActiveGroupFn)
-        if ok and type(g) == "number" then return g end
+    local fns = activeSources()
+    if _activeSource then return askGroup(fns[_activeSource]) end
+    for i = 1, 3 do
+        local v = askGroup(fns[i])
+        if v then _activeSource = i; return v end
     end
     return nil
 end
@@ -789,11 +825,7 @@ local function getActiveSpecGroup()
 end
 
 local function getNumSpecGroups()
-    if GetNumGroupsFn then
-        local ok, n = pcall(GetNumGroupsFn)
-        if ok and type(n) == "number" then return n end
-    end
-    return 1
+    return firstGroupNumber((numSources())) or 1
 end
 
 -- Name und Punkte eines Talentbaums. TBC Anniversary und Classic Era
@@ -925,6 +957,28 @@ end
 
 function GS.stopSpecPolling()
     if _specPoller then _specPoller:Cancel(); _specPoller = nil end
+end
+
+-- Fuer /gearset spec: was jede Quelle roh antwortet und wie die Automatik
+-- gerade steht. Liest nur, legt nichts an (R-78).
+function GS.specDebugLines()
+    local lines = {}
+    local function addSources(fns, names)
+        for i = 1, 3 do
+            local fn, v = fns[i], "-"
+            if type(fn) == "function" then
+                local ok, r = pcall(fn)
+                v = ok and tostring(r) or "error"
+            end
+            lines[#lines + 1] = string.format("  %s = %s", names[i], v)
+        end
+    end
+    addSources(activeSources())
+    addSources(numSources())
+    lines[#lines + 1] = string.format("  source = %s, baseline = %s, confirmed = %s, poller = %s",
+        tostring(_activeSource), tostring(_lastSpecGroup), tostring(_specBaselineConfirmed),
+        _specPoller and "on" or "off")
+    return lines
 end
 
 -- Fuer die spaeter geladenen Dateien (siehe Shared.lua).
