@@ -1,3 +1,7 @@
+## 1.24.1 — 2026-11-15
+
+- Fixed: Switching between a set with a one-hand weapon and off-hand and a set with a two-hand weapon equips both sides again. The swap now runs in two steps: towards the two-hander the off-hand goes into your bags first, away from it the main hand comes first; the second weapon follows as soon as the game releases the first.
+
 ## 1.24.0 — 2026-11-14
 
 - Fixed: Switching between your two specs equips the gear set bound to the new spec again. The talent group was read through an outdated fallback first, which could keep answering the same group.
