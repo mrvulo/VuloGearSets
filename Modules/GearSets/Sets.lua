@@ -709,11 +709,87 @@ function GS.pendingAfterCombatName()
     return _afterCombat and _afterCombat.name
 end
 
+-- =========================================================
+-- Zweihaender gegen Einhand plus Nebenhand (R-83)
+--
+-- Alles in einem Frame klappt hier nicht: nach dem ersten Griff sind die
+-- Waffen gesperrt, bis der Server antwortet, und der Client liest noch den
+-- alten Stand. Ein Schild in die Nebenhand, waehrend der Zweihaender noch
+-- (gesperrt) in der Haupthand steckt, lehnt er ab; ein Zweihaender, der
+-- eine Nebenhand verdraengen muss, ebenso. Darum in zwei Schritten:
+--   * zum Zweihaender: erst die Nebenhand in die Tasche, dann die Waffe
+--   * vom Zweihaender: erst die Haupthand, dann die Nebenhand
+-- Der zweite Schritt laeuft, sobald die Sperre weg ist.
+-- =========================================================
+local GetItemInfoInstant = _G.GetItemInfoInstant
+    or (_G.C_Item and _G.C_Item.GetItemInfoInstant)
+local TWO_HAND_LOC = { INVTYPE_2HWEAPON = true, INVTYPE_RANGED = true, INVTYPE_RANGEDRIGHT = true }
+
+local function isTwoHander(link)
+    if not (link and GetItemInfoInstant) then return false end
+    local ok, _, _, _, loc = pcall(GetItemInfoInstant, link)
+    return ok and TWO_HAND_LOC[loc] or false
+end
+
+-- Welcher Waffenslot wartet auf den zweiten Schritt: 16, 17 oder nil.
+local function weaponStep(loadout)
+    local slots  = loadout.slots or {}
+    local want16 = slots[16]
+    local worn16 = GetInventoryItemLink("player", 16)
+    if not want16 or variantKey(want16) == variantKey(worn16) then return nil end
+    if isTwoHander(want16) and not slots[17] and GetInventoryItemLink("player", 17) then
+        return 16
+    end
+    if isTwoHander(worn16) and slots[17]
+       and variantKey(slots[17]) ~= variantKey(GetInventoryItemLink("player", 17)) then
+        return 17
+    end
+    return nil
+end
+
+-- Jeder neue Wechsel macht einen noch wartenden zweiten Schritt ungueltig.
+local _equipToken = 0
+
+local function weaponsLocked()
+    if CursorHasItem and CursorHasItem() then return true end
+    return IsInventoryItemLocked
+        and (IsInventoryItemLocked(16) or IsInventoryItemLocked(17)) or false
+end
+
+-- Bewegtes aus dem ersten Schritt zaehlt in der Meldung des zweiten mit.
+-- Fehlendes oder Abgelehntes nicht: das prueft der zweite Schritt neu.
+local function scheduleWeaponStep(name, loadoutArg, opts, before, swapped, removed)
+    local token = _equipToken
+    local job = {}
+    for k, v in pairs(opts or {}) do job[k] = v end
+    job.before, job.followUp = before, true
+    job.carrySwapped, job.carryRemoved = swapped, removed
+    local waited = 0
+    local function try()
+        if token ~= _equipToken or not mod._enabled then return end
+        if InCombatLockdown() then
+            -- Nach dem Kampf wieder von vorn, wieder in zwei Schritten.
+            queueAfterCombat(name, loadoutArg, { auto = job.auto, before = before })
+            return
+        end
+        if waited < 2 and weaponsLocked() then
+            waited = waited + 0.1
+            C_Timer.After(0.1, try)
+            return
+        end
+        GS.equipLoadout(name, loadoutArg, job)
+    end
+    C_Timer.After(0.2, try)
+end
+
 -- `loadout` ist nur fuer "Zurueck" gesetzt: der Vorher-Stand ist kein
 -- gespeichertes Set und hat keinen Eintrag in LO(). `name` ist dann nur
 -- der Text fuer die Chatzeilen.
 local function equipLoadout(name, loadout, opts)
     _autoEquip = (opts and opts.auto) and true or false
+    local followUp = opts and opts.followUp
+    if not followUp then _equipToken = _equipToken + 1 end
+    local loadoutArg = loadout
     if InCombatLockdown() then
         local target = loadout or LO()[name]
         if not target then
@@ -772,7 +848,8 @@ local function equipLoadout(name, loadout, opts)
 
     -- failed: Teil war greifbar, der Client hat das Anlegen aber abgelehnt
     -- (Stufe, falscher Slot, gesperrt) - nicht dasselbe wie "fehlt".
-    local swapped, missing, atBank, failed = 0, 0, 0, 0
+    local swapped, missing, atBank, failed = (opts and opts.carrySwapped) or 0, 0, 0, 0
+    local removed, bagsFull = (opts and opts.carryRemoved) or 0, 0
 
     -- Einmal am Anfang festgehalten: waehrend des Anlegens soll sich der
     -- Suchraum nicht aendern.
@@ -813,6 +890,39 @@ local function equipLoadout(name, loadout, opts)
     -- Link eines Teils, fuer das gerade Blizzards Bindungsfrage offen ist.
     local bindPending
 
+    -- Freie Taschenplaetze einmal ermitteln und der Reihe nach vergeben: im
+    -- selben Frame melden die Taschen ein abgelegtes Teil noch nicht, jedes
+    -- weitere bekaeme sonst denselben Platz.
+    local free, nextFree = nil, 1
+    local function nextFreeTarget()
+        free = free or freeBagSlotList()
+        local target = free[nextFree] or false   -- false = nur Rueckfallebene
+        if target then nextFree = nextFree + 1 end
+        return target
+    end
+
+    -- Waffen in zwei Schritten (siehe weaponStep). Zum Zweihaender raeumt
+    -- dieser Durchgang die Nebenhand, die Waffe selbst kommt im zweiten.
+    local deferSlot = (not followUp) and PickupInventoryItem and weaponStep(loadout) or nil
+    local nextStep = deferSlot ~= nil
+    local skipMask = {}
+    if deferSlot == 16 then
+        skipMask[17] = true
+        ClearCursor()
+        PickupInventoryItem(17)
+        if CursorHasItem and CursorHasItem() then
+            if stowCursorItem(nextFreeTarget()) then
+                removed = removed + 1
+            else
+                -- Kein Platz fuer die Nebenhand: dann passt auch der
+                -- Zweihaender nicht. Die Meldung sagt, woran es liegt.
+                bagsFull = bagsFull + 1
+                nextStep = false
+            end
+        end
+        -- Nichts aufgenommen (gerade gesperrt): der zweite Schritt sieht neu nach.
+    end
+
     for _, slot in ipairs(sortedSlots) do
         local link = loadout.slots[slot]
         -- Verglichen wird das EXEMPLAR (ID plus Sockel/Verzauberung/Suffix,
@@ -828,7 +938,7 @@ local function equipLoadout(name, loadout, opts)
         local wornLink = GetInventoryItemLink("player", slot)
         local wantKey  = variantKey(link)
         if afterSwap[slot] then wornLink = afterSwap[slot] end
-        if itemID and wantKey ~= variantKey(wornLink) then
+        if itemID and slot ~= deferSlot and wantKey ~= variantKey(wornLink) then
             local wornID = getItemIDFromLink(wornLink)
             local bag, bagSlot, fromBank, idBag, idSlot, idFromBank =
                 findVariantInBags(link, useBank, taken)
@@ -907,25 +1017,16 @@ local function equipLoadout(name, loadout, opts)
     -- die kennen keine Leer-Slots und verhalten sich wie bisher.
     -- Nach dem Tauschen, nicht davor: eine Zweihandwaffe raeumt die
     -- Schildhand von selbst, das Teil liegt dann schon in der Tasche.
-    local removed, bagsFull = 0, 0
     if loadout.slotMask and PickupInventoryItem and not bindPending then
-        -- Freie Plaetze einmal ermitteln und der Reihe nach vergeben: im
-        -- selben Frame melden die Taschen ein abgelegtes Teil noch nicht,
-        -- jedes weitere bekaeme sonst denselben Platz.
-        local free, nextFree = nil, 1
         for _, slot in ipairs(loadout.slotMask) do
-            if not loadout.slots[slot]
+            if not loadout.slots[slot] and not skipMask[slot] and slot ~= deferSlot
                and GetInventoryItemLink("player", slot) then
-                free = free or freeBagSlotList()
                 ClearCursor()
                 PickupInventoryItem(slot)
                 if CursorHasItem and not CursorHasItem() then
                     -- nichts aufgenommen - dann gibt es nichts abzulegen
                 else
-                    -- false = Liste aufgebraucht, nur noch die Rueckfallebene
-                    local target = free[nextFree] or false
-                    if target then nextFree = nextFree + 1 end
-                    if stowCursorItem(target) then
+                    if stowCursorItem(nextFreeTarget()) then
                         removed = removed + 1
                     else
                         bagsFull = bagsFull + 1
@@ -975,6 +1076,13 @@ local function equipLoadout(name, loadout, opts)
         charDB().previousGear = before
     end
     if isRealSet and not _autoEquip then charDB().lastSet = name end
+
+    -- Zweiter Waffenschritt steht aus: gemeldet wird erst danach, mit allem.
+    if nextStep and not bindPending and C_Timer and C_Timer.After then
+        _lastEquipOutcome = nil
+        scheduleWeaponStep(name, loadoutArg, opts, before, swapped, removed)
+        return
+    end
 
     -- Hat der Aufruf nichts bewegt, wird dieselbe Meldung nicht wiederholt:
     -- wer ein angelegtes Set noch einmal anklickt oder seine Taste zweimal
