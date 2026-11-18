@@ -311,6 +311,10 @@ local function createSetRow(parent, index)
                 GameTooltip:AddLine(string.format(L["Ammo: %s"],
                     ammoName or ("#" .. loadout.ammo)), 0.6, 0.6, 0.6)
             end
+            -- Notiz des Spielers (F062), umgebrochen
+            if loadout.note then
+                GameTooltip:AddLine(loadout.note, 1, 0.95, 0.75, true)
+            end
 
             -- Zustand im Klartext, und bei fehlenden Teilen auch welche.
             local st = self.statusInfo
@@ -397,6 +401,9 @@ local function createSetRow(parent, index)
                 end },
                 { text = L["Rename..."], func = function()
                     promptRename(setName)
+                end },
+                { text = L["Edit note..."], func = function()
+                    if GS.promptNote then GS.promptNote(setName) end
                 end },
                 { text = L["Export as text..."], func = function()
                     if GS.showExport then GS.showExport(setName) end

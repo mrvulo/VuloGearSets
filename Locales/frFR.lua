@@ -332,4 +332,11 @@ ns:RegisterLocale("frFR", {
     ["|cffffd100/vgs unlock|r — move the sidebar (edit mode)"] = "|cffffd100/vgs unlock|r — déplacer la barre latérale (mode édition)",
     ["|cffffd100/vgs|r or |cffffd100/gearset|r — open or close the settings"] = "|cffffd100/vgs|r ou |cffffd100/gearset|r — ouvrir ou fermer les paramètres",
     ["|cffffffffGEAR SETS SIDEBAR|r\n|cffaaaaaaDrag or arrow keys|r"] = "|cffffffffBARRE DES ENSEMBLES|r\n|cffaaaaaaGlisser ou touches fléchées|r",
+    ["%s (bank)"] = "%s (banque)",
+    ["Edit note..."] = "Modifier la note...",
+    ["Gear set '%s' is incomplete:"] = "L'ensemble '%s' est incomplet :",
+    ["Incomplete Sets"] = "Ensembles incomplets",
+    ["Note for gear set '%s' (shown in its tooltip, empty = none):"] = "Note pour l'ensemble '%s' (affichée dans son infobulle, vide = aucune) :",
+    ["On a ready check and when you enter a dungeon, raid, battleground or arena, the chat names the items missing from the sets you are about to need: the set of your active spec and the set chosen for that place under Situations. Items in the bank count as missing."] = "Lors d'un appel et en entrant dans un donjon, un raid, un champ de bataille ou une arène, le chat indique les objets manquants des ensembles dont vous aurez besoin : celui de votre spécialisation active et celui choisi pour ce lieu sous Situations. Les objets en banque comptent comme manquants.",
+    ["Warn about incomplete sets"] = "Avertir des ensembles incomplets",
 })

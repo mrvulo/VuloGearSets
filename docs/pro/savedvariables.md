@@ -12,7 +12,7 @@ der jeweiligen Datei (z. B. `Modules/SlotPicker.lua`).
 - `charSets["Name-Realm"]{class,sets,updated}` – Abbild der Sets jedes Charakters (Teile als Exemplar-Schlüssel), geschrieben beim An- und Abmelden; nur zum Kopieren auf andere Charaktere (2026-10-17)
 - `modules[key]` – Defaults jedes Moduls (`ns:RegisterModule`, `Core/Database.lua`)
   - `gearsets`: `confirmDelete`, `chatMessages` (`"all"` | `"problems"` | `"none"`, 2026-10-13), `combatWeaponSwap` (2026-10-17), `minimap{hidden,angle}`, `autoSwitchEnabled`,
-    `specSwitchEnabled`, `ridingCropEnabled`, `triggersEnabled` (2026-10-17), `sidebarEnabled`, `sidebarTopOffset`,
+    `specSwitchEnabled`, `ridingCropEnabled`, `triggersEnabled` (2026-10-17), `warnIncomplete` (2026-11-18), `sidebarEnabled`, `sidebarTopOffset`,
     `sidebarBottomOffset`, `sidebarXOffset`, `sidebarStatsGap`, `sidebarPos` (Alias der
     Charakterkopie), Migrationsmarke `_offsetMigrated_v3`
   - `slotpicker`: `modifier` (`right` | `shift-right` | `alt-right` | `ctrl-right`), `cols`,
@@ -48,6 +48,7 @@ der jeweiligen Datei (z. B. `Modules/SlotPicker.lua`).
 | `order` | Position in der Leiste, nil bis zum ersten Umsortieren |
 | `showHelm` / `showCloak` | nil = lassen, true/false = zeigen/verbergen |
 | `createdAt` | Zeitstempel der Anlage |
+| `note` | Notiz des Spielers, höchstens 200 Zeichen, ohne Senkrechtstrich; nil = keine (2026-11-18) |
 | `ammo` | Item-ID der Munition (Slot 0), nur mit Fernkampfslot gespeichert; nil = Munition nicht anfassen (2026-10-17) |
 
 Umbenennen zieht `specMapping`, `formMapping`, `keybinds`, `blizzMirror`, Makro und die Auswahl in

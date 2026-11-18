@@ -332,4 +332,11 @@ ns:RegisterLocale("ruRU", {
     ["|cffffd100/vgs unlock|r — move the sidebar (edit mode)"] = "|cffffd100/vgs unlock|r — переместить панель (режим редактирования)",
     ["|cffffd100/vgs|r or |cffffd100/gearset|r — open or close the settings"] = "|cffffd100/vgs|r или |cffffd100/gearset|r — открыть или закрыть настройки",
     ["|cffffffffGEAR SETS SIDEBAR|r\n|cffaaaaaaDrag or arrow keys|r"] = "|cffffffffПАНЕЛЬ КОМПЛЕКТОВ|r\n|cffaaaaaaПеретаскивание или стрелки|r",
+    ["%s (bank)"] = "%s (банк)",
+    ["Edit note..."] = "Изменить заметку...",
+    ["Gear set '%s' is incomplete:"] = "Комплект '%s' неполный:",
+    ["Incomplete Sets"] = "Неполные комплекты",
+    ["Note for gear set '%s' (shown in its tooltip, empty = none):"] = "Заметка для комплекта '%s' (видна в подсказке, пусто = нет):",
+    ["On a ready check and when you enter a dungeon, raid, battleground or arena, the chat names the items missing from the sets you are about to need: the set of your active spec and the set chosen for that place under Situations. Items in the bank count as missing."] = "При проверке готовности и при входе в подземелье, рейд, поле боя или на арену чат называет предметы, которых не хватает в нужных сейчас комплектах: комплекте активной специализации и комплекте, выбранном для этого места в разделе «Ситуации». Предметы в банке считаются отсутствующими.",
+    ["Warn about incomplete sets"] = "Предупреждать о неполных комплектах",
 })

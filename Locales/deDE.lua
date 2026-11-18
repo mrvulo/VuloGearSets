@@ -333,4 +333,11 @@ ns:RegisterLocale("deDE", {
     ["|cffffd100/vgs unlock|r — move the sidebar (edit mode)"] = "|cffffd100/vgs unlock|r — Sidebar verschieben (Bearbeitungsmodus)",
     ["|cffffd100/vgs|r or |cffffd100/gearset|r — open or close the settings"] = "|cffffd100/vgs|r oder |cffffd100/gearset|r — Einstellungen öffnen oder schließen",
     ["|cffffffffGEAR SETS SIDEBAR|r\n|cffaaaaaaDrag or arrow keys|r"] = "|cffffffffLOADOUTS-LEISTE|r\n|cffaaaaaaZiehen oder Pfeiltasten|r",
+    ["%s (bank)"] = "%s (Bank)",
+    ["Edit note..."] = "Notiz bearbeiten...",
+    ["Gear set '%s' is incomplete:"] = "Set '%s' ist unvollständig:",
+    ["Incomplete Sets"] = "Unvollständige Sets",
+    ["Note for gear set '%s' (shown in its tooltip, empty = none):"] = "Notiz für Set '%s' (steht im Tooltip, leer = keine):",
+    ["On a ready check and when you enter a dungeon, raid, battleground or arena, the chat names the items missing from the sets you are about to need: the set of your active spec and the set chosen for that place under Situations. Items in the bank count as missing."] = "Beim Bereitschaftscheck und beim Betreten von Dungeon, Schlachtzug, Schlachtfeld oder Arena nennt der Chat die Teile, die den gleich gebrauchten Sets fehlen: dem Set der aktiven Spec und dem Set, das unter Situationen für diesen Ort gewählt ist. Teile in der Bank zählen als fehlend.",
+    ["Warn about incomplete sets"] = "Bei unvollständigen Sets warnen",
 })

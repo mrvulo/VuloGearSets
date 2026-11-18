@@ -47,6 +47,7 @@ local function snapshotSet(set)
     out.ammo         = tonumber(set.ammo)
     out.showHelm     = set.showHelm
     out.showCloak    = set.showCloak
+    out.note         = set.note
     return out
 end
 
@@ -151,6 +152,7 @@ local function addFromSnapshot(name, snap)
     set.ammo         = snap.ammo
     set.showHelm     = snap.showHelm
     set.showCloak    = snap.showCloak
+    set.note         = type(snap.note) == "string" and snap.note or nil
     LO()[name] = set
     upgradeLinks()
 

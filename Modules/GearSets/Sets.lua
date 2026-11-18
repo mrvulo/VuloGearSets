@@ -1609,6 +1609,78 @@ local function promptRename(name)
     StaticPopup_Show("VGS_GEARSET_RENAME", name)
 end
 
+-- Notiz je Set (F062): freier Text, erscheint im Tooltip der Leiste.
+-- Leer = keine Notiz. Haengt am Set-Eintrag und zieht deshalb beim
+-- Umbenennen von selbst mit; Ueberschreiben laesst sie stehen.
+local NOTE_MAX = 200
+local _pendingNoteName = nil
+
+local function setNote(name, text)
+    local set = name and LO()[name]
+    if not set then return end
+    text = tostring(text or ""):gsub("|", ""):match("^%s*(.-)%s*$")
+    -- Laenge in Bytes; ein dabei angeschnittenes Mehrbyte-Zeichen am Ende
+    -- faellt weg (wie bei Setnamen in Share.lua).
+    if #text > NOTE_MAX then
+        text = text:sub(1, NOTE_MAX):gsub("[\192-\255][\128-\191]*$", "")
+    end
+    set.note = (text ~= "") and text or nil
+    if GS.refreshSidebar then GS.refreshSidebar() end
+    if ns.RefreshOptions then ns:RefreshOptions() end
+end
+
+local function acceptNote(text)
+    local name = _pendingNoteName
+    _pendingNoteName = nil
+    setNote(name, text)
+end
+
+StaticPopupDialogs["VGS_GEARSET_NOTE"] = {
+    text = L["Note for gear set '%s' (shown in its tooltip, empty = none):"],
+    button1 = L["Save"],
+    button2 = CANCEL or L["Cancel"],
+    hasEditBox = true,
+    maxLetters = NOTE_MAX,
+    -- Neu oeffnen fuer ein anderes Set, waehrend der Dialog noch offen
+    -- ist: ohne das liefe OnCancel und loeschte den gerade gemerkten Namen.
+    noCancelOnReuse = true,
+    OnShow = function(self)
+        local eb = ns.PopupEditBox(self)
+        local set = _pendingNoteName and LO()[_pendingNoteName]
+        if eb then
+            eb:SetText((set and set.note) or "")
+            eb:HighlightText()
+        end
+    end,
+    OnAccept = function(self)
+        local eb = ns.PopupEditBox(self)
+        if not eb then
+            ns:Print(L["Could not read the name field on this client."])
+            return
+        end
+        acceptNote(eb:GetText())
+    end,
+    EditBoxOnEnterPressed = function(self)
+        acceptNote(self:GetText())
+        StaticPopup_Hide("VGS_GEARSET_NOTE")
+    end,
+    OnCancel = function() _pendingNoteName = nil end,
+    EditBoxOnEscapePressed = function()
+        _pendingNoteName = nil
+        StaticPopup_Hide("VGS_GEARSET_NOTE")
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
+local function promptNote(name)
+    if not LO()[name] then return end
+    _pendingNoteName = name
+    StaticPopup_Show("VGS_GEARSET_NOTE", name)
+end
+
 StaticPopupDialogs["VGS_GEARSET_DELETE"] = {
     text = L["Delete gear set '%s'?"],
     button1 = YES or L["Yes"],
@@ -1868,6 +1940,7 @@ GS.moveLoadout         = moveLoadout
 GS.moveLoadoutTo       = moveLoadoutTo
 GS.overwriteLoadout    = overwriteLoadout
 GS.promptRename        = promptRename
+GS.promptNote          = promptNote
 GS.promptSaveWithSlots = promptSaveWithSlots
 GS.sortedLoadoutNames  = sortedLoadoutNames
 GS.visibilityText      = visibilityText

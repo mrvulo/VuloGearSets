@@ -281,6 +281,14 @@ local function automationPage()
     end
 
     table.insert(items, { type = "spacer", height = 6 })
+    table.insert(items, { type = "header", text = L["Incomplete Sets"] })
+    table.insert(items, { type = "toggle", label = L["Warn about incomplete sets"],
+        tooltip = L["On a ready check and when you enter a dungeon, raid, battleground or arena, the chat names the items missing from the sets you are about to need: the set of your active spec and the set chosen for that place under Situations. Items in the bank count as missing."],
+        default = D.warnIncomplete ~= false,
+        get = function() return mod.db.warnIncomplete ~= false end,
+        set = function(_, v) mod.db.warnIncomplete = v end })
+
+    table.insert(items, { type = "spacer", height = 6 })
     table.insert(items, { type = "header", text = L["Mount Speed Trinket"] })
     table.insert(items, { type = "toggle", label = L["Equip speed trinket when mounting"],
         tooltip = L["Equips the Riding Crop (or Carrot on a Stick) from your bags into a trinket slot when you mount up, and puts it back when you dismount. Druids in flight form get the Charm of Swift Flight instead — the riding crop only affects mount speed and does nothing in flight form. Prefers a free trinket slot; otherwise the lower one is used and its item is restored afterwards. Out-of-combat only — a swap that falls into combat is deferred until combat ends."],
@@ -395,6 +403,10 @@ local function setsPage()
         table.insert(items, { type = "desc",
             text = string.format("|cffffd100%s|r |cff888888(%d %s)|r",
                 name, slotCount, L["items"]) })
+        if LO()[name].note then
+            table.insert(items, { type = "desc",
+                text = "|cffe6dcb4" .. LO()[name].note .. "|r" })
+        end
 
         -- Row 2: action buttons (under the name, fits properly in content width)
         table.insert(items, { type = "group", layout = "row", gap = 6,

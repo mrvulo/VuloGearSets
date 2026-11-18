@@ -1,6 +1,6 @@
 # Features
 
-Stand: 2026-10-24. Status: `done` = ausgeliefert und bestätigt, `test-in-game` = noch nicht im Spiel gesehen, `dropped` = entfernt oder ersetzt.
+Stand: 2026-11-18. Status: `done` = ausgeliefert und bestätigt, `test-in-game` = noch nicht im Spiel gesehen, `dropped` = entfernt oder ersetzt.
 
 | ID | Feature | Status | Spec | Hauptdateien |
 |---|---|---|---|---|
@@ -51,11 +51,11 @@ Stand: 2026-10-24. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 | F045 | Forever-Look für Symbolauswahl und Slot-Flyout (Blizzard-Rahmen, schmaler Theme-Rand) | done | — | Core/Skin.lua, Modules/GearSets/Pickers.lua, Modules/SlotPicker.lua |
 | F046 | Auswahllisten in den Einstellungen klappen direkt unter der Liste auf, über allen Fenstern | done | — | Core/PopupMenu.lua, UI/Widgets.lua |
 | F047 | Kein Schlagschatten im Forever-Stil (Classic/Modern behalten ihn) | done | — | UI/Widgets.lua, Core/Skin.lua |
-| F048 | Neue Sprachen Französisch, Spanisch (auch esMX), Russisch, Chinesisch (vereinfacht) | test-in-game | — | Locales/frFR.lua, Locales/esES.lua, Locales/ruRU.lua, Locales/zhCN.lua |
+| F048 | Neue Sprachen Französisch, Spanisch (auch esMX), Russisch, Chinesisch (vereinfacht) | done | — | Locales/frFR.lua, Locales/esES.lua, Locales/ruRU.lua, Locales/zhCN.lua |
 | F049 | `/vgs` und `/gearset` allein öffnen/schließen die Einstellungen (Hilfe unter `/vgs help`) | done | — | Modules/GearSets/Sets.lua |
-| F050 | Forever: Anlegen/Speichern in Blizzards Ausrüstungsmanager speichert das Set auch in VuloGearSets und verknüpft es | test-in-game | [F050](features/F050-blizzard-speichern-uebernehmen.md) | Modules/BlizzardSets.lua, Modules/GearSets/Sets.lua |
+| F050 | Forever: Anlegen/Speichern in Blizzards Ausrüstungsmanager speichert das Set auch in VuloGearSets und verknüpft es | done | [F050](features/F050-blizzard-speichern-uebernehmen.md) | Modules/BlizzardSets.lua, Modules/GearSets/Sets.lua |
 | F051 | Forever: Umbenennen und Symbolwechsel in Blizzards Bearbeiten-Fenster übernehmen | done | [F051](features/F051-blizzard-bearbeiten-uebernehmen.md) | Modules/BlizzardSets.lua, Modules/GearSets/Sets.lua |
-| F054 | Speichern unter vorhandenem Namen (Namensdialog, auch „Nur Schmuck/Waffen/…“) fragt erst nach; bei Teilgruppen mit Hinweis, dass die übrigen Teile wegfallen | test-in-game | — | Modules/GearSets/Sets.lua |
+| F054 | Speichern unter vorhandenem Namen (Namensdialog, auch „Nur Schmuck/Waffen/…“) fragt erst nach; bei Teilgruppen mit Hinweis, dass die übrigen Teile wegfallen | done | — | Modules/GearSets/Sets.lua |
 | F055 | Set aus der Bank holen (Rechtsklick „Aus der Bank holen“ bei offener Bank, `/gearset fetch <Name>`), nur fehlende Teile | done | — | Modules/GearSets/Sets.lua, Modules/GearSets/Sidebar.lua |
 | F058 | Chatmeldungen beim Anlegen: Alle / Nur Probleme / Keine | done | — | Modules/GearSets/Sets.lua, Modules/GearSets/Options.lua |
 | F059 | Slot-Menü: „Slot beim Anlegen leeren“ und „Slot nicht mehr verwalten“ getrennt, Hinweis im Tooltip der Teile | done | — | Modules/GearSets/Pickers.lua, Modules/GearSets/Sidebar.lua |
@@ -69,9 +69,11 @@ Stand: 2026-10-24. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 | F072 | Sets anderer Charaktere des Kontos kopieren (Sets-Seite unten) | done | — | Modules/GearSets/Share.lua, Modules/GearSets/Options.lua |
 | F065 | Im Kampf: Waffen eines Sets sofort (Taste, Leiste, Minimap; Schalter unter Allgemein, nicht auf Forever), der Rest des Sets wird nach dem Kampf angelegt | done | — | Modules/GearSets/Sets.lua |
 | F073 | Classic Era/SoD/Anniversary: Stil „VuloClassicUI“ folgt dessen Charakterfenster (Classic/Modern), Leiste dockt wie dessen Set-Liste an (verbreitertes Modern-Fenster, Runen-Fenster von SoD, links ausweichen am Bildschirmrand), „+ Neues Set“ wie dort; Hinweis, das Set-Modul von VuloClassicUI abzuschalten | done | — | Core/Skin.lua, Core/Coexistence.lua, Modules/GearSets/Sidebar.lua |
-| F074 | Dual-Spec: je Talentgruppe direkt das Set wählen (Automatik → Dual-Spec; gleiche Bindung wie am Set) | test-in-game | — | Modules/GearSets/Options.lua |
-| F075 | Twitch-Knopf neben Discord unten im Einstellungsfenster (Link kopieren) | test-in-game | — | UI/OptionsFrame.lua, Media/Icons/TwitchV.tga |
-| F076 | Einstellungsfenster im Aufbau des Forever-Hauptfensters der Familie: Titelleiste mit Symbol und Version, Seitenliste mit Akzentbalken, Kopfzeile je Seite, Fußleiste mit „Alles zurücksetzen“, Links und „Fertig“; Forever mit Blizzard-Theme: Metallrahmen mit Titelband | test-in-game | — | UI/OptionsFrame.lua, Core/Skin.lua |
+| F074 | Dual-Spec: je Talentgruppe direkt das Set wählen (Automatik → Dual-Spec; gleiche Bindung wie am Set) | done | — | Modules/GearSets/Options.lua |
+| F075 | Twitch-Knopf neben Discord unten im Einstellungsfenster (Link kopieren) | done | — | UI/OptionsFrame.lua, Media/Icons/TwitchV.tga |
+| F076 | Einstellungsfenster im Aufbau des Forever-Hauptfensters der Familie: Titelleiste mit Symbol und Version, Seitenliste mit Akzentbalken, Kopfzeile je Seite, Fußleiste mit „Alles zurücksetzen“, Links und „Fertig“; Forever mit Blizzard-Theme: Metallrahmen mit Titelband | done | — | UI/OptionsFrame.lua, Core/Skin.lua |
+| F060 | Warnung im Chat bei Bereitschaftscheck und Instanz-Eintritt, wenn dem Set der aktiven Spec oder dem Situations-Set des Orts Teile fehlen (Bank zählt als fehlend); Schalter Automatik → Unvollständige Sets | test-in-game | — | Modules/GearSets/AutoSwitch.lua, Modules/GearSets/Lifecycle.lua, Modules/GearSets/Options.lua |
+| F062 | Notiz je Set: Rechtsklick → „Notiz bearbeiten...“, steht im Set-Tooltip und auf der Sets-Seite, wandert beim Kopieren auf andere Charaktere mit | test-in-game | — | Modules/GearSets/Sets.lua, Modules/GearSets/Sidebar.lua, Modules/GearSets/Share.lua |
 | D001 | Schlafmodus (Addon schaltet sich ab, wenn VuloClassicUI sein Set-Modul hat) | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D002 | Kontoweiter Set-Pool und separater Importbefehl der Altversion | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D003 | Auslöseart "Beim Überfahren" im Slot-Auswahl-Dropdown: Hover ist jetzt immer aktiv, das Dropdown wählt nur den Klick fürs große Fenster | dropped | — | Modules/SlotPicker.lua |
@@ -82,11 +84,8 @@ Stand: 2026-10-24. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 
 ## Wartet auf Spieltest
 
-- F050: siehe Spieltest in der Spezifikation (neues Set in Blizzards Fenster, Speichern, Umbenennen bei uns).
-- F054: Sets-Menü → „Nur Schmuck speichern…“, vorhandenen Namen eingeben – Rückfrage mit Hinweis; Nein lässt das Set unverändert.
-- R-69 bis R-75 (Code-Audit 2026-10-13): Set mit zwei gleichen Ringen und mit mehreren Leer-Slots anlegen; Tastenabfrage offen lassen und Kampf beginnen; im Sattel mit Auto-Reitgerte speichern.
-- R-76 bis R-79 (Analyse 2026-10-13): Einhandwaffe ins Set für die Nebenhand ohne Beidhändigkeit – Meldung „ließen sich nicht anlegen“; Set-Tasten im Kampf abschalten, nach dem Kampf ist die Taste wieder normal.
-- F048: Spielsprache auf Français und Русский stellen – passen die Texte in die Knöpfe, sind russische Texte lesbar (Blizzard-Schrift)?
+- F060: Set an die aktive Spec binden, ein Teil davon in die Bank legen, Bereitschaftscheck starten bzw. Dungeon betreten – Chat nennt das Teil mit „(Bank)“.
+- F062: Rechtsklick auf ein Set → „Notiz bearbeiten...“, Text eingeben – steht im Tooltip der Leiste; leeren entfernt ihn.
 
 ## Ideen
 
@@ -95,8 +94,6 @@ Neue Vorschläge von Claude hier mit ID als `idea` eintragen, damit „mach 1 un
 | ID | Idee | Status |
 |---|---|---|
 | F052 | Vorhandene Blizzard-Sets, die nie neu gespeichert werden, einmalig in VuloGearSets übernehmen | idea |
-| F060 | Warnung bei Instanz/Bereitschaftscheck, wenn ein gebundenes Set unvollständig ist | idea |
-| F062 | Notiz je Set im Set-Tooltip | idea |
 | F063 | Tooltip-Zeile „In keinem Set“ | idea |
 | F066 | Schmuck-Warteschlange: Benutzen-Schmuck je Slot nach Rangfolge durchwechseln, sobald der getragene abklingt; nicht ablegen, solange sein Effekt läuft; nur außerhalb des Kampfs | idea |
 | F068 | Teile des gewählten Sets in offenen Taschen hervorheben (Blizzard-Taschen, verbreitete Taschen-Addons) | idea |

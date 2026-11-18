@@ -332,4 +332,11 @@ ns:RegisterLocale("zhCN", {
     ["|cffffd100/vgs unlock|r — move the sidebar (edit mode)"] = "|cffffd100/vgs unlock|r — 移动侧边栏（编辑模式）",
     ["|cffffd100/vgs|r or |cffffd100/gearset|r — open or close the settings"] = "|cffffd100/vgs|r 或 |cffffd100/gearset|r — 打开或关闭设置",
     ["|cffffffffGEAR SETS SIDEBAR|r\n|cffaaaaaaDrag or arrow keys|r"] = "|cffffffff装备方案侧边栏|r\n|cffaaaaaa拖动或使用方向键|r",
+    ["%s (bank)"] = "%s（银行）",
+    ["Edit note..."] = "编辑备注...",
+    ["Gear set '%s' is incomplete:"] = "套装'%s'不完整：",
+    ["Incomplete Sets"] = "不完整的套装",
+    ["Note for gear set '%s' (shown in its tooltip, empty = none):"] = "套装'%s'的备注（显示在其鼠标提示中，留空 = 无）：",
+    ["On a ready check and when you enter a dungeon, raid, battleground or arena, the chat names the items missing from the sets you are about to need: the set of your active spec and the set chosen for that place under Situations. Items in the bank count as missing."] = "在就位确认以及进入地下城、团队副本、战场或竞技场时，聊天框会列出即将需要的套装所缺少的物品：当前专精的套装，以及在“情境”中为该地点选择的套装。银行中的物品视为缺失。",
+    ["Warn about incomplete sets"] = "套装不完整时提醒",
 })

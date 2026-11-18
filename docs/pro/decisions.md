@@ -69,3 +69,7 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-10-24 · assumed · Bisheriger Standard „classic“ wird einmalig zu „vuloclassic“, wenn VuloClassicUI läuft; eine später gewählte Einstellung bleibt · F073
 - 2026-10-24 · F073 (Classic/SoD im Look von VuloClassicUI) im Spiel bestätigt, Release 1.22.0 · user „passt alles“ · F073
 - 2026-11-14 · Einstellungsfenster sieht aus wie das Hauptfenster von VuloForeverUI (in allen Stilen derselbe Aufbau) · user „mach die optik von ui fenster so wie bei VuloForeverUI“ · F076
+- 2026-11-18 · Alle offenen Spieltests (F048, F050, F054, F074–F076, R-69–R-77, R-82, R-83) im Spiel bestätigt · user „Alle Sachen gehen im Spiel“ · —
+- 2026-11-18 · Ideen F060 und F062 umsetzen · user „Die Ideen F062,F060 machen“ · F060, F062
+- 2026-11-18 · assumed · F060 prüft nur gebundene Sets (aktive Spec, Situations-Set des Orts), nicht das zuletzt angelegte; Warnung nur im Chat, Standard an · F060
+- 2026-11-18 · assumed · Notiz (F062) wandert beim Kopieren auf andere Charaktere mit, nicht im Text-Export (F056-Format bleibt gleich) · F062

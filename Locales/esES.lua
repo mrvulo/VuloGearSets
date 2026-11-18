@@ -332,6 +332,13 @@ local T = {
     ["|cffffd100/vgs unlock|r — move the sidebar (edit mode)"] = "|cffffd100/vgs unlock|r — mover la barra lateral (modo de edición)",
     ["|cffffd100/vgs|r or |cffffd100/gearset|r — open or close the settings"] = "|cffffd100/vgs|r o |cffffd100/gearset|r — abrir o cerrar los ajustes",
     ["|cffffffffGEAR SETS SIDEBAR|r\n|cffaaaaaaDrag or arrow keys|r"] = "|cffffffffBARRA DE CONJUNTOS|r\n|cffaaaaaaArrastra o usa las flechas|r",
+    ["%s (bank)"] = "%s (banco)",
+    ["Edit note..."] = "Editar nota...",
+    ["Gear set '%s' is incomplete:"] = "El conjunto '%s' está incompleto:",
+    ["Incomplete Sets"] = "Conjuntos incompletos",
+    ["Note for gear set '%s' (shown in its tooltip, empty = none):"] = "Nota para el conjunto '%s' (se muestra en su descripción, vacía = ninguna):",
+    ["On a ready check and when you enter a dungeon, raid, battleground or arena, the chat names the items missing from the sets you are about to need: the set of your active spec and the set chosen for that place under Situations. Items in the bank count as missing."] = "Al comprobar si todos están listos y al entrar en una mazmorra, banda, campo de batalla o arena, el chat nombra los objetos que faltan en los conjuntos que vas a necesitar: el de tu especialización activa y el elegido para ese lugar en Situaciones. Los objetos del banco cuentan como faltantes.",
+    ["Warn about incomplete sets"] = "Avisar de conjuntos incompletos",
 }
 
 ns:RegisterLocale("esES", T)

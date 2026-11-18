@@ -16,7 +16,9 @@ local createMinimapButton    = GS.createMinimapButton
 local createSidebar          = GS.createSidebar
 local cropState              = GS.cropState
 local formMap                = GS.formMap
+local onInstanceWarn         = GS.onInstanceWarn
 local onInventoryChanged     = GS.onInventoryChanged
+local onReadyCheckWarn       = GS.onReadyCheckWarn
 local onMountStateChange     = GS.onMountStateChange
 local onShapeshiftChange     = GS.onShapeshiftChange
 local onTalentChange         = GS.onTalentChange
@@ -124,6 +126,11 @@ function mod:OnEnable()
     ns:RegisterEvent("PLAYER_ENTERING_WORLD",       onTalentChange)
     ns:RegisterEvent("PLAYER_REGEN_ENABLED",        onTalentChange)  -- retry after combat
 
+    -- Warnung bei unvollstaendigem Set (F060)
+    ns:RegisterEvent("READY_CHECK",           onReadyCheckWarn)
+    ns:RegisterEvent("PLAYER_ENTERING_WORLD", onInstanceWarn)
+    ns:RegisterEvent("ZONE_CHANGED_NEW_AREA", onInstanceWarn)
+
     -- Vergleichsbasis SOFORT setzen, nicht erst per Timer.
     --
     -- _lastSpecGroup stand sonst noch auf -1, waehrend PLAYER_ENTERING_WORLD
@@ -177,6 +184,9 @@ function mod:OnDisable()
     ns:UnregisterEvent("ACTIVE_COMBAT_CONFIG_CHANGED", onTalentChange)
     ns:UnregisterEvent("PLAYER_ENTERING_WORLD",       onTalentChange)
     ns:UnregisterEvent("PLAYER_REGEN_ENABLED",        onTalentChange)
+    ns:UnregisterEvent("READY_CHECK",           onReadyCheckWarn)
+    ns:UnregisterEvent("PLAYER_ENTERING_WORLD", onInstanceWarn)
+    ns:UnregisterEvent("ZONE_CHANGED_NEW_AREA", onInstanceWarn)
     GS.stopSpecPolling()
     GS.stopTriggers()
     GS.hideMinimapButton()

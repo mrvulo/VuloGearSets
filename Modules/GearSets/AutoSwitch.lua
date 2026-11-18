@@ -981,7 +981,95 @@ function GS.specDebugLines()
     return lines
 end
 
+-- =========================================================
+-- Warnung bei unvollstaendigem Set (F060)
+--
+-- Beim Bereitschaftscheck und beim Betreten einer Instanz sagt der Chat,
+-- welche Teile den Sets fehlen, die gleich gebraucht werden: das Set der
+-- aktiven Spec und das Set, das unter Situationen fuer diesen Ort gewaehlt
+-- ist. Teile auf der Bank zaehlen als fehlend - drinnen kommt man nicht
+-- mehr an sie heran.
+-- =========================================================
+local function itemText(e)
+    if type(e.link) == "string" and e.link:find("|H", 1, true) then return e.link end
+    return e.name or ("#" .. tostring(e.id))
+end
+
+local function setsNeededNow()
+    local names, seen = {}, {}
+    local function add(n)
+        if n and LO()[n] and not seen[n] then
+            seen[n] = true
+            names[#names + 1] = n
+        end
+    end
+    if mod.db.specSwitchEnabled ~= false and getNumSpecGroups() >= 2 then
+        local g = readActiveSpecGroup()
+        if g then
+            for n, gi in pairs(specMap()) do
+                if gi == g then add(n) end
+            end
+        end
+    end
+    if mod.db.triggersEnabled ~= false then
+        local loc = locationKey()
+        if loc ~= "rest" and loc ~= "world" then add(triggerSet(loc)) end
+    end
+    return names
+end
+
+local function warnWanted()
+    return mod._enabled and mod.db and mod.db.warnIncomplete ~= false
+end
+
+local function warnIncompleteSets()
+    if not warnWanted() or not GS.getSetStatus then return end
+    for _, name in ipairs(setsNeededNow()) do
+        local st = GS.getSetStatus(name)
+        if st and (#st.missing > 0 or #st.inBank > 0) then
+            local parts = {}
+            for _, e in ipairs(st.missing) do parts[#parts + 1] = itemText(e) end
+            for _, e in ipairs(st.inBank) do
+                parts[#parts + 1] = string.format(L["%s (bank)"], itemText(e))
+            end
+            ns:Print("|cffff5555" .. string.format(L["Gear set '%s' is incomplete:"], name)
+                .. "|r " .. table.concat(parts, ", "))
+        end
+    end
+end
+
+-- Je Instanz nur einmal warnen. Ladebildschirm und Gebietswechsel melden
+-- sich mehrfach; erst beim Verlassen darf die naechste Instanz wieder.
+local _warnedInstance
+local function onInstanceWarn()
+    -- Erst zuruecksetzen, dann fragen, ob gewarnt werden soll: sonst bliebe
+    -- die Sperre stehen, wenn der Schalter beim Verlassen aus war.
+    local inInstance, instType = IsInInstance()
+    if not inInstance or not (instType == "party" or instType == "raid"
+                              or instType == "pvp" or instType == "arena") then
+        _warnedInstance = nil
+        return
+    end
+    if not warnWanted() then return end
+    local key = instType .. ":" .. tostring(select(8, GetInstanceInfo()))
+    if key == _warnedInstance then return end
+    _warnedInstance = key
+    -- Taschen und Gegenstandsnamen stehen kurz nach dem Ladebildschirm
+    -- noch nicht sicher fest.
+    if C_Timer and C_Timer.After then
+        C_Timer.After(3, warnIncompleteSets)
+    else
+        warnIncompleteSets()
+    end
+end
+
+local function onReadyCheckWarn()
+    warnIncompleteSets()
+end
+
 -- Fuer die spaeter geladenen Dateien (siehe Shared.lua).
+GS.onInstanceWarn        = onInstanceWarn
+GS.onReadyCheckWarn      = onReadyCheckWarn
 GS.applyMountEvents      = applyMountEvents
 GS.applyMountState       = applyMountState
 GS.cropState             = cropState

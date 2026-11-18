@@ -51,6 +51,8 @@ local mod = ns:RegisterModule("gearsets", {
         -- Situationen (Reiten, Ort ...) legen ihr Set an, sofern einer
         -- Situation eins zugeordnet ist (charDB().triggers).
         triggersEnabled   = true,
+        -- Chat-Warnung, wenn einem gleich gebrauchten Set Teile fehlen (F060)
+        warnIncomplete    = true,
         -- Character-frame sidebar
         sidebarEnabled      = true,
         -- Feinjustierung gegenueber dem Charakterfenster. Blizzards Frame
