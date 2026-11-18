@@ -73,3 +73,4 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-11-18 · Ideen F060 und F062 umsetzen · user „Die Ideen F062,F060 machen“ · F060, F062
 - 2026-11-18 · assumed · F060 prüft nur gebundene Sets (aktive Spec, Situations-Set des Orts), nicht das zuletzt angelegte; Warnung nur im Chat, Standard an · F060
 - 2026-11-18 · assumed · Notiz (F062) wandert beim Kopieren auf andere Charaktere mit, nicht im Text-Export (F056-Format bleibt gleich) · F062
+- 2026-11-18 · Aufräumen erlaubt: unbenutzte Exporte und Hilfen entfernt (nur Interna, keine Funktion für Spieler) · user „cleanup von gesamten addon … toter kaputter Code“ · I-03

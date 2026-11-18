@@ -705,10 +705,6 @@ function GS.hasPendingAfterCombat()
     return _afterCombat ~= nil
 end
 
-function GS.pendingAfterCombatName()
-    return _afterCombat and _afterCombat.name
-end
-
 -- =========================================================
 -- Zweihaender gegen Einhand plus Nebenhand (R-83)
 --
@@ -940,13 +936,13 @@ local function equipLoadout(name, loadout, opts)
         if afterSwap[slot] then wornLink = afterSwap[slot] end
         if itemID and slot ~= deferSlot and wantKey ~= variantKey(wornLink) then
             local wornID = getItemIDFromLink(wornLink)
-            local bag, bagSlot, fromBank, idBag, idSlot, idFromBank =
+            local bag, bagSlot, _, idBag, idSlot =
                 findVariantInBags(link, useBank, taken)
             -- Rueckfallebene "gleiche ID reicht" nur, wenn im Slot nicht
             -- schon ein Exemplar dieser ID sitzt - sonst wuerde das
             -- Schwester-Teil aus der Tasche sinnlos hin- und hergetauscht.
             if not bag and wornID ~= itemID then
-                bag, bagSlot, fromBank = idBag, idSlot, idFromBank
+                bag, bagSlot = idBag, idSlot
             end
             if bag and bagSlot then
                 taken[bag .. ":" .. bagSlot] = true

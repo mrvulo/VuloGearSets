@@ -1168,9 +1168,6 @@ unwatchSession = function()
     end
 end
 
--- Von den Optionen und von der Seitenleiste aus erreichbar.
-ns.RefreshSocketBar = function() queueRefresh() end
-
 -- =========================================================
 -- Modul-Lebenszyklus
 -- =========================================================

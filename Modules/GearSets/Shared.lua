@@ -3,9 +3,8 @@
 -- Equipment set manager.
 -- Save current gear as a named "loadout" and quickly swap between sets.
 --
--- Equipping in Anniversary is restricted (AutoEquipCursorItem is protected),
--- so we use UseContainerItem(bag, slot) which acts as a normal "use" on
--- equipable items → swap works out-of-combat for items located in bags.
+-- Angelegt wird ueber Aufnehmen und EquipCursorItem in den Ziel-Slot
+-- (ns:EquipBagItemToSlot), nur ausserhalb des Kampfs - ausser Waffen (I-15).
 --
 -- Das Modul ist auf mehrere Dateien verteilt, geladen in dieser Reihenfolge:
 --   Shared      Modul, Speicher, Konstanten, Item-/Taschen-/Bank-Helfer
@@ -102,7 +101,6 @@ end
 -- =========================================================
 local GetContainerItemID    = (C_Container and C_Container.GetContainerItemID)    or _G.GetContainerItemID
 local GetContainerNumSlots  = (C_Container and C_Container.GetContainerNumSlots)  or _G.GetContainerNumSlots
-local UseContainerItem      = (C_Container and C_Container.UseContainerItem)      or _G.UseContainerItem
 local ContainerIDToInventoryID = (C_Container and C_Container.ContainerIDToInventoryID) or _G.ContainerIDToInventoryID
 local GetContainerNumFreeSlots = (C_Container and C_Container.GetContainerNumFreeSlots) or _G.GetContainerNumFreeSlots
 
@@ -561,9 +559,7 @@ local function countSlots(loadout)
 end
 -- Fuer die spaeter geladenen Dateien (siehe Shared.lua).
 GS.EQUIP_SLOTS              = EQUIP_SLOTS
-GS.isBagItemBound           = isBagItemBound
 GS.AMMO_SLOT                = AMMO_SLOT
-GS.hasAmmoSlot              = hasAmmoSlot
 GS.currentAmmoID            = currentAmmoID
 GS.GetContainerItemID       = GetContainerItemID
 GS.GetContainerItemLink     = GetContainerItemLink
@@ -574,7 +570,6 @@ GS.GetItemInfoInstant       = GetItemInfoInstant
 GS.LO                       = LO
 GS.SLOT_GROUPS              = SLOT_GROUPS
 GS.SLOT_NAMES               = SLOT_NAMES
-GS.UseContainerItem         = UseContainerItem
 GS._PickupContainerItem     = _PickupContainerItem
 GS.bankIsOpen               = bankIsOpen
 GS.captureCurrentEquipment  = captureCurrentEquipment

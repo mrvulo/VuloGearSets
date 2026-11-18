@@ -413,8 +413,6 @@ frame:SetScript("OnEvent", function(_, event)
 end)
 
 -- Fuer die spaeter geladenen Dateien und /vgs (siehe Shared.lua).
-GS.exportString      = exportString
-GS.importString      = importString
 GS.showExport        = showExport
 GS.showImport        = showImport
 GS.otherCharacters   = otherCharacters

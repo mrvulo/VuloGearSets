@@ -402,7 +402,6 @@ local function applyMountEvents()
     fn(ns, "PLAYER_REGEN_ENABLED",   onMountStateChange)
     fn(ns, "PLAYER_ENTERING_WORLD",  onMountStateChange)
 end
-mod._applyMountEvents = applyMountEvents
 
 -- =========================================================
 -- Situationen
@@ -412,7 +411,7 @@ mod._applyMountEvents = applyMountEvents
 --   voruebergehend (TEMP_TRIGGERS): beritten, schwimmen, Angel in der
 --     Waffenhand, essen/trinken. Endet die Situation, kommt der Stand von
 --     davor zurueck.
---   Ort (LOC_TRIGGERS): Schlachtfeld, Arena, Dungeon, Schlachtzug,
+--   Ort (locationKey): Schlachtfeld, Arena, Dungeon, Schlachtzug,
 --     Erholungsgebiet (Stadt, Gasthaus), offene Welt. Gilt, bis ein anderer
 --     Ort ein anderes Set will; ein Ort ohne Set stellt den Stand von vor
 --     dem ersten Ort-Set wieder her.
@@ -428,7 +427,6 @@ mod._applyMountEvents = applyMountEvents
 -- Nur ausserhalb des Kampfs und nicht tot; PLAYER_REGEN_ENABLED holt nach.
 -- =========================================================
 local TEMP_TRIGGERS = { "swim", "mount", "fishing", "eat" }   -- Rangfolge
-local LOC_TRIGGERS  = { "pvp", "arena", "party", "raid", "rest", "world" }
 
 local function triggerMap()
     local c = charDB()
@@ -748,8 +746,6 @@ function GS.mountSetCoversTrinkets()
     return false
 end
 
-GS.TEMP_TRIGGERS      = TEMP_TRIGGERS
-GS.LOC_TRIGGERS       = LOC_TRIGGERS
 GS.triggerMap         = triggerMap
 GS.applyTriggerEvents = applyTriggerEvents
 

@@ -46,7 +46,6 @@ local PAGES = {
     { key = "sets",       title = L["Saved Gear Sets"] },
     { key = "info",       title = L["Commands & Info"] },
 }
-ns.OPTIONS_PAGES = PAGES
 
 local currentPage = "general"
 local frame, content
