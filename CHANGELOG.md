@@ -1,3 +1,22 @@
+## 1.25.0 — 2026-11-27
+
+- New: A note for each gear set. Right-click a set and choose "Edit note..."; the note shows in the set's tooltip and on the Saved Gear Sets page, and comes along when you copy the set to another character.
+- New: Warning about incomplete sets. On a ready check and when you enter a dungeon, raid, battleground or arena, the chat names the items missing from the set of your active spec and from the set chosen for that place under Situations. Items in the bank count as missing. Switch: "Warn about incomplete sets" on the Automation page.
+- Fixed: A shared set text could carry a hidden line break in its name, and putting that set on the action bar built a macro with an extra command. Set names no longer accept control characters, and existing names with them are cleaned at login. Imported and copied sets also check their items, icon, ammo and helm or cloak setting.
+- Fixed: Equipping a set with a two-hand weapon that is not in your bags keeps your shield or off-hand on instead of leaving you with an empty hand.
+- Fixed: A set queued for after combat no longer goes on if the next fight starts right away, and a set you pick right after combat wins over the queued one. Automatic switches never swap weapons in combat.
+- Fixed: Situations wait for a set you picked in combat, leave a set you equipped yourself in place when they end, are checked again after you resurrect, and turning them off in combat restores your gear once combat ends.
+- Fixed: The riding crop no longer stays in your trinket slot after the game asks to bind it, or after turning the option off in combat.
+- Fixed: `/vgs save` on an existing partial set keeps it partial. "Next gear set" no longer bounces between two sets and follows a rename.
+- Fixed: Opening the rename dialog a second time no longer causes an error, and saving only trinkets or weapons while the save dialog is open no longer saves the whole set.
+- Fixed: A set key removed or a set deleted in combat no longer creates a new set of that name until combat ends.
+- Fixed: "Forget this character" clicked twice no longer causes an error, "Reset page" no longer takes the situation set off and on again, the icon picker keeps working after its set is renamed, and "Settings..." in the minimap menu no longer closes an open options window.
+- Fixed: The slot picker equips exactly the item you click even after your bags changed, and closes together with the character window.
+- Fixed: The "Sets:" tooltip line also shows in comparison tooltips, and on Forever a set with a comma in its name is no longer listed twice.
+- Fixed: On Forever, saving in Blizzard's equipment manager under the name of one of your own unlinked sets no longer overwrites it; the chat says so instead. Importing a set no longer takes over a Blizzard set of the same name.
+- Fixed: Errors inside the addon's event handlers now reach the game's error display instead of disappearing.
+- Improved: The socket bar and the tooltip line do less work per update.
+
 ## 1.24.1 — 2026-11-15
 
 - Fixed: Switching between a set with a one-hand weapon and off-hand and a set with a two-hand weapon equips both sides again. The swap now runs in two steps: towards the two-hander the off-hand goes into your bags first, away from it the main hand comes first; the second weapon follows as soon as the game releases the first.
