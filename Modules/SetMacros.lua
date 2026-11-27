@@ -31,8 +31,10 @@ local BODY_PREFIX = "/gearset equip "
 local MACRO_NAME_BYTES = 16
 local FALLBACK_ICON = "INV_Misc_QuestionMark"
 
+-- Ohne Steuerzeichen: ein Zeilenumbruch im Namen (etwa aus einem Import
+-- vor der Bereinigung) wuerde sonst eine zweite Befehlszeile im Makro.
 local function macroBody(name)
-    return BODY_PREFIX .. name
+    return BODY_PREFIX .. (name:gsub("%c", ""))
 end
 
 -- Auf MACRO_NAME_BYTES kuerzen, ohne ein Umlaut-Zeichen zu zerschneiden.

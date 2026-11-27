@@ -55,8 +55,10 @@ end
 local function uniqueName(name)
     -- Wie beim Speichern hoechstens 32 Zeichen (Bytes; ein angeschnittenes
     -- Mehrbyte-Zeichen am Ende faellt weg) und kein "|" - das kaeme nach
-    -- Kopieren und Einfuegen als Steuerzeichen oder doppelt an.
-    name = tostring(name or ""):gsub("|", "")
+    -- Kopieren und Einfuegen als Steuerzeichen oder doppelt an. Auch keine
+    -- Steuerzeichen: ein Zeilenumbruch (%0A im Text) liefe sonst als eigene
+    -- Befehlszeile im Makro des Sets mit.
+    name = tostring(name or ""):gsub("[%c|]", "")
     if #name > 32 then
         name = name:sub(1, 32):gsub("[\192-\255][\128-\191]*$", "")
     end
@@ -236,7 +238,11 @@ local function importString(text)
     local name = dec(fields[1])
     local icon = dec(fields[2])
     snap.iconOverride = (icon ~= "") and (tonumber(icon) or icon) or nil
-    snap.ammo         = tonumber(fields[3])
+    -- Munition nur als positive ganze Item-ID und nur, wo es den Platz gibt:
+    -- sonst meldete jedes Anlegen sie als fehlend.
+    local ammo = tonumber(fields[3])
+    snap.ammo = (GS.hasAmmoSlot() and ammo and ammo > 0 and ammo < 2^31
+                 and ammo == math.floor(ammo)) and ammo or nil
     snap.showHelm     = parseTriState(fields[4])
     snap.showCloak    = parseTriState(fields[5])
     for s in fields[6]:gmatch("(%d+)") do

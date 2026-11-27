@@ -561,6 +561,7 @@ end
 GS.EQUIP_SLOTS              = EQUIP_SLOTS
 GS.AMMO_SLOT                = AMMO_SLOT
 GS.currentAmmoID            = currentAmmoID
+GS.hasAmmoSlot              = hasAmmoSlot
 GS.GetContainerItemID       = GetContainerItemID
 GS.GetContainerItemLink     = GetContainerItemLink
 GS.GetContainerNumFreeSlots = GetContainerNumFreeSlots

@@ -185,6 +185,11 @@ function ns:RenameSetKeybind(oldName, newName)
     if not key then return end
     keyMap()[oldName] = nil
     keyMap()[newName] = key
+    -- setName ist kein geschuetztes Attribut: im Kampf wartet applyBindings,
+    -- die Taste soll aber schon jetzt das umbenannte Set anlegen.
+    for _, btn in pairs(runners) do
+        if btn.setName == oldName then btn.setName = newName end
+    end
     applyBindings()
 end
 

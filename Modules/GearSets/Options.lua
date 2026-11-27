@@ -276,6 +276,8 @@ local function automationPage()
                         if gi == g then specMap()[name] = nil end
                     end
                     if v ~= "" then specMap()[v] = g end
+                    -- Die bisherige Gruppe des Sets zeigt es sonst weiter an.
+                    ns:RefreshOptions()
                 end })
         end
     end
@@ -447,6 +449,7 @@ local function setsPage()
                         end
                     end
                     specMap()[capturedName] = (v ~= 0) and v or nil
+                    ns:RefreshOptions()
                 end,
             })
         end
@@ -468,6 +471,7 @@ local function setsPage()
                         end
                     end
                     formMap()[capturedName] = (v ~= 0) and v or nil
+                    ns:RefreshOptions()
                 end,
             })
         end

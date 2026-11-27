@@ -13,6 +13,7 @@ local mod = GS.mod
 local AMMO_SLOT                = GS.AMMO_SLOT
 local EQUIP_SLOTS              = GS.EQUIP_SLOTS
 local currentAmmoID            = GS.currentAmmoID
+local hasAmmoSlot              = GS.hasAmmoSlot
 local GetContainerItemID       = GS.GetContainerItemID
 local GetContainerItemLink     = GS.GetContainerItemLink
 local GetContainerNumFreeSlots = GS.GetContainerNumFreeSlots
@@ -359,14 +360,14 @@ local function setDiffersFromWorn(name)
     for _, s in ipairs(mask) do
         if variantKey(worn[s]) ~= variantKey(slots[s]) then return true end
     end
-    if set.ammo and currentAmmoID() ~= set.ammo then return true end
+    if set.ammo and hasAmmoSlot() and currentAmmoID() ~= set.ammo then return true end
     return false
 end
 
 local function saveAs(name, slotList)
     -- Leerzeichen am Rand abschneiden wie beim Umbenennen: "Tank " und
     -- "Tank" waeren sonst zwei Sets, die gleich aussehen.
-    name = name and name:match("^%s*(.-)%s*$")
+    name = name and name:gsub("%c", ""):match("^%s*(.-)%s*$")
     if not name or name == "" then
         ns:Print(L["Please provide a name for the gear set."])
         return
@@ -467,7 +468,7 @@ end
 -- zeigen sie nach dem Umbenennen ins Leere. Gibt bei Erfolg den endgueltigen
 -- (getrimmten) Namen zurueck, damit der Aufrufer die Auswahl nachfuehren kann.
 local function renameLoadout(oldName, newName)
-    newName = newName and newName:match("^%s*(.-)%s*$") or ""
+    newName = newName and newName:gsub("%c", ""):match("^%s*(.-)%s*$") or ""
     if newName == "" then
         ns:Print(L["Please provide a name for the gear set."])
         return
@@ -1034,7 +1035,8 @@ local function equipLoadout(name, loadout, opts)
 
     -- Munition zuletzt: sie haengt an der Fernkampfwaffe, die oben schon
     -- gewechselt wurde. Gesucht wird in allen Taschen samt Koecher.
-    if loadout.ammo and not bindPending and currentAmmoID() ~= loadout.ammo then
+    if loadout.ammo and hasAmmoSlot() and not bindPending
+        and currentAmmoID() ~= loadout.ammo then
         local abag, aslot
         for _, bag in ipairs(containerIDs(false)) do
             for s = 1, (GetContainerNumSlots(bag) or 0) do
@@ -1530,6 +1532,9 @@ StaticPopupDialogs["VGS_GEARSET_SAVE"] = {
         saveFromDialog(text, slots)
     end,
     OnCancel = function() _pendingSaveSlots = nil end,
+    -- Erneut geoeffnet (andere Gruppe), waehrend der Dialog noch offen ist:
+    -- ohne das liefe OnCancel und loeschte die gerade gemerkten Slots.
+    noCancelOnReuse = true,
     EditBoxOnEscapePressed = function(self)
         _pendingSaveSlots = nil
         StaticPopup_Hide("VGS_GEARSET_SAVE")
@@ -1590,6 +1595,9 @@ StaticPopupDialogs["VGS_GEARSET_RENAME"] = {
         StaticPopup_Hide("VGS_GEARSET_RENAME")
     end,
     OnCancel = function() _pendingRenameName = nil end,
+    -- Wie beim Notiz-Dialog: sonst loeschte OnCancel den gerade gemerkten
+    -- Namen, und Bestaetigen liefe mit nil in einen Lua-Fehler.
+    noCancelOnReuse = true,
     EditBoxOnEscapePressed = function()
         _pendingRenameName = nil
         StaticPopup_Hide("VGS_GEARSET_RENAME")
