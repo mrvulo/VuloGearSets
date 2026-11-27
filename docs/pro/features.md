@@ -1,6 +1,6 @@
 # Features
 
-Stand: 2026-11-18. Status: `done` = ausgeliefert und bestätigt, `test-in-game` = noch nicht im Spiel gesehen, `dropped` = entfernt oder ersetzt.
+Stand: 2026-11-27. Status: `done` = ausgeliefert und bestätigt, `test-in-game` = noch nicht im Spiel gesehen, `dropped` = entfernt oder ersetzt.
 
 | ID | Feature | Status | Spec | Hauptdateien |
 |---|---|---|---|---|
@@ -72,8 +72,8 @@ Stand: 2026-11-18. Status: `done` = ausgeliefert und bestätigt, `test-in-game` 
 | F074 | Dual-Spec: je Talentgruppe direkt das Set wählen (Automatik → Dual-Spec; gleiche Bindung wie am Set) | done | — | Modules/GearSets/Options.lua |
 | F075 | Twitch-Knopf neben Discord unten im Einstellungsfenster (Link kopieren) | done | — | UI/OptionsFrame.lua, Media/Icons/TwitchV.tga |
 | F076 | Einstellungsfenster im Aufbau des Forever-Hauptfensters der Familie: Titelleiste mit Symbol und Version, Seitenliste mit Akzentbalken, Kopfzeile je Seite, Fußleiste mit „Alles zurücksetzen“, Links und „Fertig“; Forever mit Blizzard-Theme: Metallrahmen mit Titelband | done | — | UI/OptionsFrame.lua, Core/Skin.lua |
-| F060 | Warnung im Chat bei Bereitschaftscheck und Instanz-Eintritt, wenn dem Set der aktiven Spec oder dem Situations-Set des Orts Teile fehlen (Bank zählt als fehlend); Schalter Automatik → Unvollständige Sets | test-in-game | — | Modules/GearSets/AutoSwitch.lua, Modules/GearSets/Lifecycle.lua, Modules/GearSets/Options.lua |
-| F062 | Notiz je Set: Rechtsklick → „Notiz bearbeiten...“, steht im Set-Tooltip und auf der Sets-Seite, wandert beim Kopieren auf andere Charaktere mit | test-in-game | — | Modules/GearSets/Sets.lua, Modules/GearSets/Sidebar.lua, Modules/GearSets/Share.lua |
+| F060 | Warnung im Chat bei Bereitschaftscheck und Instanz-Eintritt, wenn dem Set der aktiven Spec oder dem Situations-Set des Orts Teile fehlen (Bank zählt als fehlend); Schalter Automatik → Unvollständige Sets | done | — | Modules/GearSets/AutoSwitch.lua, Modules/GearSets/Lifecycle.lua, Modules/GearSets/Options.lua |
+| F062 | Notiz je Set: Rechtsklick → „Notiz bearbeiten...“, steht im Set-Tooltip und auf der Sets-Seite, wandert beim Kopieren auf andere Charaktere mit | done | — | Modules/GearSets/Sets.lua, Modules/GearSets/Sidebar.lua, Modules/GearSets/Share.lua |
 | D001 | Schlafmodus (Addon schaltet sich ab, wenn VuloClassicUI sein Set-Modul hat) | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D002 | Kontoweiter Set-Pool und separater Importbefehl der Altversion | dropped | [spec](../superpowers/specs/2026-07-28-vulogearsets-standalone-design.md) | Core/Coexistence.lua |
 | D003 | Auslöseart "Beim Überfahren" im Slot-Auswahl-Dropdown: Hover ist jetzt immer aktiv, das Dropdown wählt nur den Klick fürs große Fenster | dropped | — | Modules/SlotPicker.lua |
