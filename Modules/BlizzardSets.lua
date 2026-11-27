@@ -40,7 +40,6 @@ local L = ns.L
 
 local mod = ns:RegisterModule("blizzsets", {
     name     = "Blizzard Equipment Manager",
-    group    = "_hidden",
     defaults = { enabled = true },
 })
 
@@ -610,6 +609,14 @@ local function adoptFromBlizzard(name, icon, isNew, setID)
     if name == "" then return end
     local GS = ns.GS
     if not (GS and GS.saveAs) then return end
+    -- Ein eigenes, nicht verknuepftes Set gleichen Namens (Kopie frueher in
+    -- Blizzards Fenster geloescht, Manager war voll) nicht still
+    -- ueberschreiben: Teile, Slot-Maske und Symbol waeren weg. Unser
+    -- Speichern-Dialog fragt in diesem Fall nach; hier gibt es keine Frage.
+    if ourSets()[name] ~= nil and mirrorMap()[name] ~= true then
+        ns:Print(string.format(L["Blizzard's set '%s' was not copied: a gear set with that name already exists here. Rename one of them."], name))
+        return
+    end
 
     local slotList = savedSlotList(setID)
     _fromBlizzard = true

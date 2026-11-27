@@ -15,7 +15,6 @@ local L = ns.L
 -- trotzdem - es hookt die Slots und stellt ns:ScanBagsForSlot bereit.
 local mod = ns:RegisterModule("slotpicker", {
     name        = "Slot Picker",
-    group       = "_hidden",
     defaults = {
         enabled  = true,
         -- Steuert nur den KLICK-Weg. Das Ueberfahren zeigt die kompakte
@@ -30,7 +29,6 @@ local mod = ns:RegisterModule("slotpicker", {
 -- API compat
 -- =========================================================
 local GetContainerItemID    = (C_Container and C_Container.GetContainerItemID)    or _G.GetContainerItemID
-local GetContainerItemLink  = (C_Container and C_Container.GetContainerItemLink)  or _G.GetContainerItemLink
 local GetContainerNumSlots  = (C_Container and C_Container.GetContainerNumSlots)  or _G.GetContainerNumSlots
 local UseContainerItem      = (C_Container and C_Container.UseContainerItem)      or _G.UseContainerItem
 -- Forever kennt nur die C_Item-Fassung.
@@ -101,13 +99,7 @@ local function scanBagsForSlot(slotID)
     for bag = 0, (NUM_BAG_SLOTS or 4) do
         local numSlots = GetContainerNumSlots(bag) or 0
         for slot = 1, numSlots do
-            local itemID
-            if GetContainerItemID then
-                itemID = GetContainerItemID(bag, slot)
-            elseif GetContainerItemLink then
-                local link = GetContainerItemLink(bag, slot)
-                if link then itemID = tonumber(link:match("item:(%d+)")) end
-            end
+            local itemID = GetContainerItemID and GetContainerItemID(bag, slot)
             if itemID then
                 local _, _, _, equipLoc, icon = GetItemInfoInstant(itemID)
                 if equipLoc and validTypes[equipLoc] then
@@ -212,6 +204,24 @@ local function getItemButton(idx)
             return
         end
         if button == "LeftButton" and self.bag and self.slot then
+            -- Ein per Klick geoeffnetes Fenster bleibt stehen, waehrend sich
+            -- die Taschen aendern (Set angelegt, Teil verschoben). Liegt am
+            -- gemerkten Platz nicht mehr dasselbe Teil, dort weitersuchen -
+            -- sonst legte der Klick an, was jetzt zufaellig dort liegt.
+            if GetContainerItemID and GetContainerItemID(self.bag, self.slot) ~= self.itemID then
+                local nb, nslot
+                for bag = 0, (NUM_BAG_SLOTS or 4) do
+                    for s = 1, (GetContainerNumSlots(bag) or 0) do
+                        if GetContainerItemID(bag, s) == self.itemID then
+                            nb, nslot = bag, s
+                            break
+                        end
+                    end
+                    if nb then break end
+                end
+                if not nb then popup:Hide() return end
+                self.bag, self.slot = nb, nslot
+            end
             -- Use the slot-aware equip helper (honours the exact target slot,
             -- so picking for the lower ring/trinket slot works correctly).
             if self.equipSlot and ns.EquipBagItemToSlot then
@@ -480,6 +490,13 @@ local function hookSlots()
                 scheduleClose()
             end)
         end
+    end
+    -- Das per Klick geoeffnete Fenster haengt am Charakterfenster und blieb
+    -- sonst nach dessen Schliessen allein stehen.
+    if CharacterFrame and CharacterFrame.HookScript then
+        CharacterFrame:HookScript("OnHide", function()
+            if popup then popup:Hide() end
+        end)
     end
 
     _hooked = true

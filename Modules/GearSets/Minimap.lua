@@ -32,9 +32,6 @@ local function updateMinimapPos()
     mmBtn:SetPoint("CENTER", Minimap, "CENTER", x, y)
 end
 
--- Forward declarations (resolves circular references between popup menu and settings opener)
-local openLoadoutsSettings
-
 -- Loadouts dropdown — uses ns:ShowPopupMenu (shared helper, EasyMenu replacement)
 local function showLoadoutMenu(anchor)
     local entries = {
@@ -64,16 +61,12 @@ local function showLoadoutMenu(anchor)
     table.insert(entries, { text = L["Save rings only..."],     func = function() promptSaveWithSlots(SLOT_GROUPS.rings)    end })
     table.insert(entries, { text = L["Save armor only..."],     func = function() promptSaveWithSlots(SLOT_GROUPS.armor)    end })
     table.insert(entries, { separator = true })
+    -- Oeffnen, nicht umschalten: ist das Fenster schon offen, schloss der
+    -- Eintrag es sonst. Der Rechtsklick auf den Knopf schaltet weiter um.
     table.insert(entries, { text = L["Settings..."],
-        func = function() openLoadoutsSettings() end })
+        func = function() ns:OpenOptions() end })
 
     ns:ShowPopupMenu(entries, anchor)
-end
-
--- Oeffnet die Einstellungen. Im Standalone gibt es genau ein Fenster.
--- Zugewiesen an das weiter oben deklarierte Local.
-function openLoadoutsSettings()
-    ns:ToggleOptions()
 end
 
 local function createMinimapButton()
@@ -139,7 +132,7 @@ local function createMinimapButton()
         if button == "LeftButton" then
             showLoadoutMenu(self)
         elseif button == "RightButton" then
-            openLoadoutsSettings()
+            ns:ToggleOptions()
         end
     end)
 

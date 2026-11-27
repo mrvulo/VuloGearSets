@@ -23,17 +23,28 @@ function ns:ImportFromVuloClassicUI()
     char.imported = true
 
     local n = 0
+    -- Namen wie bei uns gespeichert: ohne Steuerzeichen und "|" (R-84 -
+    -- ein Zeilenumbruch liefe sonst im Makro des Sets als eigene Zeile mit).
+    -- Spec- und Gestaltbindung bekommen denselben Zuschnitt, sonst zeigten
+    -- sie ins Leere.
+    local function clean(name)
+        return type(name) == "string"
+            and name:gsub("[%c|]", ""):match("^%s*(.-)%s*$") or ""
+    end
     for name, data in pairs(src.loadouts or {}) do
-        if not char.sets[name] then
-            char.sets[name] = ns:DeepCopy(data)
+        local c = clean(name)
+        if c ~= "" and type(data) == "table" and not char.sets[c] then
+            char.sets[c] = ns:DeepCopy(data)
             n = n + 1
         end
     end
     for name, g in pairs(src.specMapping or {}) do
-        if char.specMapping[name] == nil then char.specMapping[name] = g end
+        local c = clean(name)
+        if c ~= "" and char.specMapping[c] == nil then char.specMapping[c] = g end
     end
     for name, g in pairs(src.formMapping or {}) do
-        if char.formMapping[name] == nil then char.formMapping[name] = g end
+        local c = clean(name)
+        if c ~= "" and char.formMapping[c] == nil then char.formMapping[c] = g end
     end
 
     if n > 0 then

@@ -41,6 +41,7 @@ ns:RegisterLocale("zhCN", {
     ["Automation"] = "自动化",
     ["Back to previous gear"] = "换回之前的装备",
     ["Battleground"] = "战场",
+    ["Blizzard's set '%s' was not copied: a gear set with that name already exists here. Rename one of them."] = "暴雪的装备方案'%s'未被复制：这里已有同名装备方案。请重命名其中一个。",
     ["Blizzard's equipment manager is full (%d sets). '%s' stays in VuloGearSets only."] = "暴雪的装备管理器已满（%d个方案）。'%s'仅保留在VuloGearSets中。",
     ["Bottom edge"] = "下边缘",
     ["Character"] = "角色",

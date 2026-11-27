@@ -41,6 +41,7 @@ ns:RegisterLocale("frFR", {
     ["Automation"] = "Automatisation",
     ["Back to previous gear"] = "Revenir à l'équipement précédent",
     ["Battleground"] = "Champ de bataille",
+    ["Blizzard's set '%s' was not copied: a gear set with that name already exists here. Rename one of them."] = "L'ensemble Blizzard '%s' n'a pas été repris : un ensemble portant ce nom existe déjà ici. Renommez l'un des deux.",
     ["Blizzard's equipment manager is full (%d sets). '%s' stays in VuloGearSets only."] = "Le Gestionnaire d'équipement de Blizzard est plein (%d ensembles). '%s' reste uniquement dans VuloGearSets.",
     ["Bottom edge"] = "Bord inférieur",
     ["Character"] = "Personnage",

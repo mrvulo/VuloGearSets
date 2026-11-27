@@ -340,6 +340,14 @@ local function applyIconFilter(key)
     refreshIconGrid()
 end
 
+-- Wird das Set der offenen Symbolauswahl umbenannt oder geloescht, zeigte
+-- ein Klick ins Leere (der alte Name). Dann schliessen.
+function GS.iconPickerSetGone(name)
+    if _iconPicker and _iconPicker:IsShown() and _iconPicker.setName == name then
+        _iconPicker:Hide()
+    end
+end
+
 local function onIconClick(self)
     local name    = _iconPicker.setName
     local loadout = LO()[name]

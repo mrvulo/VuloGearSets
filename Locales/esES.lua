@@ -41,6 +41,7 @@ local T = {
     ["Automation"] = "Automatización",
     ["Back to previous gear"] = "Volver al equipo anterior",
     ["Battleground"] = "Campo de batalla",
+    ["Blizzard's set '%s' was not copied: a gear set with that name already exists here. Rename one of them."] = "El conjunto de Blizzard '%s' no se ha copiado: ya existe aquí un conjunto con ese nombre. Cambia el nombre de uno de ellos.",
     ["Blizzard's equipment manager is full (%d sets). '%s' stays in VuloGearSets only."] = "El gestor de equipamiento de Blizzard está lleno (%d conjuntos). '%s' se queda solo en VuloGearSets.",
     ["Bottom edge"] = "Borde inferior",
     ["Character"] = "Personaje",

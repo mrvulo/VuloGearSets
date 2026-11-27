@@ -19,6 +19,7 @@ local GetContainerItemLink     = GS.GetContainerItemLink
 local GetContainerNumFreeSlots = GS.GetContainerNumFreeSlots
 local GetContainerNumSlots     = GS.GetContainerNumSlots
 local GetItemCount             = GS.GetItemCount
+local GetItemInfoInstant       = GS.GetItemInfoInstant
 local LO                       = GS.LO
 local _PickupContainerItem     = GS._PickupContainerItem
 local bankIsOpen               = GS.bankIsOpen
@@ -364,10 +365,17 @@ local function setDiffersFromWorn(name)
     return false
 end
 
+-- Setname wie gespeichert: ohne Steuerzeichen (R-84) und ohne Leerzeichen
+-- am Rand ("Tank " und "Tank" waeren sonst zwei Sets, die gleich aussehen).
+-- Speichern, Umbenennen und die Nachfrage beim Speichern nutzen denselben
+-- Zuschnitt, sonst prueft die Nachfrage einen anderen Namen als gespeichert wird.
+local function cleanName(name)
+    return name and (name:gsub("%c", "")):match("^%s*(.-)%s*$")
+end
+
+-- Rueckgabe: der gespeicherte Name, nil bei Abbruch.
 local function saveAs(name, slotList)
-    -- Leerzeichen am Rand abschneiden wie beim Umbenennen: "Tank " und
-    -- "Tank" waeren sonst zwei Sets, die gleich aussehen.
-    name = name and name:gsub("%c", ""):match("^%s*(.-)%s*$")
+    name = cleanName(name)
     if not name or name == "" then
         ns:Print(L["Please provide a name for the gear set."])
         return
@@ -387,6 +395,7 @@ local function saveAs(name, slotList)
     ns:Print(string.format(L["Gear set '%s' saved (%d items)."],
         name, countSlots(set)))
     if ns.MirrorSetSaved then ns:MirrorSetSaved(name) end
+    return name
 end
 
 -- Pending slot list for the StaticPopup (popups have no parameter passing on Show)
@@ -396,7 +405,7 @@ local _pendingSaveSlots = nil
 -- saveAs ersetzt Teile und Slot-Maske, beim Speichern nur einer Gruppe
 -- (Schmuck, Waffen ...) fielen sonst alle anderen Teile still weg.
 local function saveFromDialog(text, slotList)
-    local name = text and text:match("^%s*(.-)%s*$")
+    local name = cleanName(text)
     if name and name ~= "" and LO()[name] then
         local partial = slotList and #slotList < #EQUIP_SLOTS
         local text = partial
@@ -468,7 +477,7 @@ end
 -- zeigen sie nach dem Umbenennen ins Leere. Gibt bei Erfolg den endgueltigen
 -- (getrimmten) Namen zurueck, damit der Aufrufer die Auswahl nachfuehren kann.
 local function renameLoadout(oldName, newName)
-    newName = newName and newName:gsub("%c", ""):match("^%s*(.-)%s*$") or ""
+    newName = cleanName(newName) or ""
     if newName == "" then
         ns:Print(L["Please provide a name for the gear set."])
         return
@@ -496,6 +505,8 @@ local function renameLoadout(oldName, newName)
         formMap()[newName] = formMap()[oldName]
         formMap()[oldName] = nil
     end
+    -- Ausgangspunkt fuer "Naechstes/Vorheriges Set" zieht mit.
+    if charDB().lastSet == oldName then charDB().lastSet = newName end
     if ns.RenameSetKeybind then ns:RenameSetKeybind(oldName, newName) end
     if ns.MirrorSetRenamed then ns:MirrorSetRenamed(oldName, newName) end
     if ns.RenameSetMacro then ns:RenameSetMacro(oldName, newName) end
@@ -622,6 +633,14 @@ local function swapWeaponsInCombat(loadout)
     if not (_PickupContainerItem and EquipCursorItem) then return 0 end
     local moved, taken = 0, {}
     local mainSwapped = false
+    -- Freie Faecher einmal holen und der Reihe nach vergeben (wie R-70):
+    -- im selben Frame meldet die Tasche ein abgelegtes Teil noch nicht.
+    local free, nextFree = nil, 1
+    -- Will das Set eine andere Haupthand, die nicht dran ist, bleibt die
+    -- Nebenhand: sonst stuende der Spieler ohne Schild da.
+    local want16 = loadout.slots and loadout.slots[16]
+    local mainOk = not want16
+        or variantKey(want16) == variantKey(GetInventoryItemLink("player", 16))
     for _, slot in ipairs(COMBAT_SLOTS) do
         local link = loadout.slots and loadout.slots[slot]
         local worn = GetInventoryItemLink("player", slot)
@@ -656,12 +675,16 @@ local function swapWeaponsInCombat(loadout)
                     if CursorHasItem() then ClearCursor() end
                 end
             end
-        elseif not link and worn and inMask(loadout, slot) then
+        elseif not link and worn and inMask(loadout, slot)
+               and (slot ~= 17 or mainOk) then
             -- Das Set will den Slot leer (z. B. Schild weg).
             ClearCursor()
             PickupInventoryItem(slot)
             if CursorHasItem and CursorHasItem() then
-                if stowCursorItem(nil) then moved = moved + 1 end
+                free = free or freeBagSlotList()
+                local target = free[nextFree] or false
+                if target then nextFree = nextFree + 1 end
+                if stowCursorItem(target) then moved = moved + 1 end
             end
         end
     end
@@ -676,6 +699,13 @@ local function queueAfterCombat(name, loadout, opts)
     local function run()
         local job = _afterCombat
         _afterCombat = nil
+        -- Schon wieder im Kampf (naechster Pull in der halben Sekunde):
+        -- weiter warten. Sonst liefe der Kampfzweig aus einem Timer, ohne
+        -- Tastendruck (I-15).
+        if job and InCombatLockdown() then
+            queueAfterCombat(job.name, job.loadout, job.opts)
+            return
+        end
         if job and mod._enabled then
             -- Ein inzwischen geloeschtes Set (nur ohne eigenes loadout)
             -- meldet equipLoadout selbst.
@@ -686,6 +716,7 @@ local function queueAfterCombat(name, loadout, opts)
             C_Timer.After(1, function()
                 if GS.onShapeshiftChange then GS.onShapeshiftChange() end
                 if GS.applyMountState then GS.applyMountState(false) end
+                if GS.queueTriggerEvaluate then GS.queueTriggerEvaluate() end
             end)
         end
     end
@@ -706,6 +737,11 @@ function GS.hasPendingAfterCombat()
     return _afterCombat ~= nil
 end
 
+-- Das Set des Auftrags (fuer AutoSwitch: dessen Slots nicht zuruecklegen).
+function GS.pendingAfterCombatLoadout()
+    return _afterCombat and (_afterCombat.loadout or LO()[_afterCombat.name]) or nil
+end
+
 -- =========================================================
 -- Zweihaender gegen Einhand plus Nebenhand (R-83)
 --
@@ -718,8 +754,6 @@ end
 --   * vom Zweihaender: erst die Haupthand, dann die Nebenhand
 -- Der zweite Schritt laeuft, sobald die Sperre weg ist.
 -- =========================================================
-local GetItemInfoInstant = _G.GetItemInfoInstant
-    or (_G.C_Item and _G.C_Item.GetItemInfoInstant)
 local TWO_HAND_LOC = { INVTYPE_2HWEAPON = true, INVTYPE_RANGED = true, INVTYPE_RANGEDRIGHT = true }
 
 local function isTwoHander(link)
@@ -729,12 +763,17 @@ local function isTwoHander(link)
 end
 
 -- Welcher Waffenslot wartet auf den zweiten Schritt: 16, 17 oder nil.
-local function weaponStep(loadout)
+-- Zweiter Wert true: der Zweihaender ist nirgends greifbar (verkauft, an der
+-- geschlossenen Bank) - dann bleibt die Nebenhand dran, statt den Spieler
+-- ohne Schild und ohne neue Waffe stehen zu lassen.
+local function weaponStep(loadout, useBank)
     local slots  = loadout.slots or {}
     local want16 = slots[16]
     local worn16 = GetInventoryItemLink("player", 16)
     if not want16 or variantKey(want16) == variantKey(worn16) then return nil end
     if isTwoHander(want16) and not slots[17] and GetInventoryItemLink("player", 17) then
+        local bag, _, _, idBag = findVariantInBags(want16, useBank)
+        if not (bag or idBag) then return nil, true end
         return 16
     end
     if isTwoHander(worn16) and slots[17]
@@ -802,7 +841,8 @@ local function equipLoadout(name, loadout, opts)
             job.before = { slots = captureCurrentEquipment(touched), slotMask = touched,
                            ammo = target.ammo and currentAmmoID() or nil }
         end
-        local weapons = combatSwapAllowed() and swapWeaponsInCombat(target) or 0
+        local weapons = (combatSwapAllowed() and not (opts and opts.auto))
+            and swapWeaponsInCombat(target) or 0
         job.combatWeapons = (weapons > 0) or (opts and opts.combatWeapons) or nil
         queueAfterCombat(name, loadout, job)
         -- Dieselbe Sperre wie am Ende der Funktion: eine Taste ist im Kampf
@@ -820,6 +860,9 @@ local function equipLoadout(name, loadout, opts)
         end
         return
     end
+    -- Ein neuer Wunsch des Spielers nach Kampfende ersetzt den aus dem
+    -- Kampf: der alte liefe sonst eine halbe Sekunde spaeter darueber.
+    if not followUp and not (opts and opts.auto) then _afterCombat = nil end
     -- Ein echtes Set (nicht der Vorher-Stand von "Zurueck"): Grundlage fuer
     -- "Naechstes/Vorheriges Set".
     local isRealSet = (loadout == nil)
@@ -837,6 +880,11 @@ local function equipLoadout(name, loadout, opts)
     -- nur, wenn sich wirklich etwas bewegt hat - sonst ueberschriebe ein
     -- zweiter Klick auf ein angelegtes Set den Stand von davor.
     local touched = touchedSlots(loadout)
+    -- Ein Wechsel des Spielers waehrend einer Situation: ihr Ende legt diese
+    -- Slots nicht wieder zurueck.
+    if not _autoEquip and not followUp and GS.forgetSnapshotSlots then
+        GS.forgetSnapshotSlots(touched, loadout.ammo)
+    end
     local before  = (opts and opts.before)
         or { slots = captureCurrentEquipment(touched), slotMask = touched,
              ammo  = loadout.ammo and currentAmmoID() or nil }
@@ -900,9 +948,13 @@ local function equipLoadout(name, loadout, opts)
 
     -- Waffen in zwei Schritten (siehe weaponStep). Zum Zweihaender raeumt
     -- dieser Durchgang die Nebenhand, die Waffe selbst kommt im zweiten.
-    local deferSlot = (not followUp) and PickupInventoryItem and weaponStep(loadout) or nil
+    local deferSlot, keepOffHand
+    if not followUp and PickupInventoryItem then
+        deferSlot, keepOffHand = weaponStep(loadout, useBank)
+    end
     local nextStep = deferSlot ~= nil
     local skipMask = {}
+    if keepOffHand then skipMask[17] = true end
     if deferSlot == 16 then
         skipMask[17] = true
         ClearCursor()
@@ -1193,6 +1245,9 @@ local function currentSetName(names)
         local st = getSetStatus(n)
         if st and st.state == "equipped" then return n end
     end
+    -- Keins ganz getragen (dem zuletzt gewaehlten fehlt ein Teil): von dort
+    -- weiterschalten, sonst pendelte "Naechstes" zwischen zwei Sets.
+    if last and LO()[last] then return last end
     return nil
 end
 
@@ -1735,7 +1790,15 @@ _G.SlashCmdList["VGSGEARSET"] = function(msg)
     cmd = cmd and cmd:lower() or ""
 
     if cmd == "save" then
-        saveAs(arg)
+        -- Vorhandenes Set: Teile erneuern, Slot-Maske behalten - ohne die
+        -- Nachfrage des Dialogs wuerde aus einem Teil-Set sonst still ein
+        -- ganzes.
+        local name = cleanName(arg)
+        if name and name ~= "" and LO()[name] then
+            overwriteLoadout(name)
+        else
+            saveAs(arg)
+        end
     elseif cmd == "" then
         -- /vgs bzw. /gearset allein oeffnen die Einstellungen; die Hilfe
         -- gibt es unter /vgs help.
@@ -1896,12 +1959,15 @@ local _origDelete    = deleteLoadout
 -- blieb dort ein geloeschtes Set stehen, bis man das Fenster neu oeffnet -
 -- mit Knoepfen, die dann ins Leere laufen.
 saveAs = function(name, slotList)
-    _origSaveAs(name, slotList)
-    if GS.sidebarAfterSave then GS.sidebarAfterSave(name) end
+    local finalName = _origSaveAs(name, slotList)
+    if not finalName then return end
+    if GS.sidebarAfterSave then GS.sidebarAfterSave(finalName) end
     if ns.RefreshOptions then ns:RefreshOptions() end
+    return finalName
 end
 deleteLoadout = function(name)
     _origDelete(name)
+    if GS.iconPickerSetGone then GS.iconPickerSetGone(name) end
     if GS.sidebarAfterDelete then GS.sidebarAfterDelete(name) end
     if ns.RefreshOptions then ns:RefreshOptions() end
 end
@@ -1911,6 +1977,7 @@ renameLoadout = function(oldName, newName)
     if not finalName then return end
     -- Ein noch offener Auftrag fuer nach dem Kampf folgt dem neuen Namen.
     if _afterCombat and _afterCombat.name == oldName then _afterCombat.name = finalName end
+    if GS.iconPickerSetGone then GS.iconPickerSetGone(oldName) end
     if GS.sidebarAfterRename then GS.sidebarAfterRename(oldName, finalName) end
     if ns.RefreshOptions then ns:RefreshOptions() end
     return finalName

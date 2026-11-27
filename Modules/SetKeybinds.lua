@@ -32,7 +32,6 @@ local L = ns.L
 
 local mod = ns:RegisterModule("setkeybinds", {
     name     = "Set Keybinds",
-    group    = "_hidden",
     defaults = { enabled = true },
 })
 
@@ -173,6 +172,11 @@ end
 function ns:ClearSetKeybind(name, silent)
     if not keyMap()[name] then return end
     keyMap()[name] = nil
+    -- Wie beim Umbenennen sofort: im Kampf wartet applyBindings, die Taste
+    -- legte bis dahin sonst ein neues Set gleichen Namens an.
+    for _, btn in pairs(runners) do
+        if btn.setName == name then btn.setName = nil end
+    end
     applyBindings()
     if not silent then
         ns:Print(string.format(L["'%s' no longer has a key."], name))

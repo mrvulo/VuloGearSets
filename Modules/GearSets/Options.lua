@@ -210,6 +210,9 @@ local function situationItems()
           default = D.triggersEnabled ~= false,
           get = function() return mod.db.triggersEnabled ~= false end,
           set = function(_, v)
+              -- "Zuruecksetzen" ruft jeden Setter auf, auch ohne Aenderung -
+              -- dann nicht das laufende Situations-Set aus- und wieder anziehen.
+              if (mod.db.triggersEnabled ~= false) == (v and true or false) then return end
               mod.db.triggersEnabled = v
               -- Aus: Situations-Teile runter, Zustand verwerfen. An: neu
               -- beginnen, ohne alte Staende zurueckzulegen.
@@ -346,7 +349,10 @@ local function otherCharacterItems()
     end
     table.insert(items, { type = "button", label = L["Forget this character"], width = 180,
         tooltip = L["Removes this character from the list, for example after deleting it. Its own gear sets are not touched."],
-        onClick = function() GS.forgetCharacter(otherChar); otherChar = nil end })
+        -- Kein otherChar = nil danach: forgetCharacter baut die Seite schon
+        -- neu auf und waehlt dabei den naechsten Charakter. Ein Zuruecksetzen
+        -- hinterher liesse den zweiten Klick nil vergessen.
+        onClick = function() GS.forgetCharacter(otherChar) end })
     return items
 end
 

@@ -31,7 +31,6 @@ local L = ns.L
 -- Seite "Slot-Auswahl & Sockel" (GetOptions am Dateiende).
 local mod = ns:RegisterModule("socketbar", {
     name     = "Socket Bar",
-    group    = "_hidden",
     defaults = {
         enabled          = true,
         markEmpty        = true,
@@ -217,13 +216,27 @@ end
 
 local sockets = {}   -- geordnet: { slot, index, gemID, texture, itemLink }
 
+-- Sockel-Texturen je Slot, gemerkt am Itemlink: ein eingesetzter Stein
+-- aendert den Link, Haltbarkeit und Munition (UNIT_INVENTORY_CHANGED feuert
+-- dafuer laufend) nicht. Gemerkt wird nur, wenn der Client das Teil kennt -
+-- sonst war der Tooltip womoeglich noch leer.
+local _texCache = {}
+
 local function rebuildSocketList()
     for i = #sockets, 1, -1 do sockets[i] = nil end
 
     for _, slot in ipairs(SLOTS) do
         local link = GetInventoryItemLink("player", slot)
         if link then
-            local textures = socketTexturesFor(slot)
+            local cached = _texCache[slot]
+            local textures
+            if cached and cached.link == link then
+                textures = cached.textures
+            else
+                textures = socketTexturesFor(slot)
+                _texCache[slot] = (GetItemInfo and GetItemInfo(link))
+                    and { link = link, textures = textures } or nil
+            end
             for i = 1, #textures do
                 sockets[#sockets + 1] = {
                     slot     = slot,

@@ -110,7 +110,12 @@ local FLIGHT_FORM_SPELLS = { 33943, 40120 }
 -- Das liegt in der Charakter-Datenbank statt in einer Variablen: nach
 -- einem /reload im Sattel waere der Zustand sonst weg, die Gerte bliebe
 -- fuer immer im Schmuckslot und das verdraengte Teil in der Tasche.
-local function cropState()      return charDB().cropState end
+-- type(): ein von Hand bearbeiteter oder beschaedigter Eintrag soll das
+-- Modul nicht beim Start abbrechen lassen.
+local function cropState()
+    local v = charDB().cropState
+    return type(v) == "table" and v or nil
+end
 local function setCropState(v)  charDB().cropState = v    end
 
 local _cropStateKey = "none" -- letzter bekannter Zustand: none | mount | fly
@@ -232,7 +237,12 @@ local function equipMountSpeedItem(list)
         prevLink = GetInventoryItemLink("player", target)
     end
 
-    if ns:EquipBagItemToSlot(bag, bagSlot, target) then
+    -- "bind": eine noch ungebundene Gerte, Blizzard fragt nach. Bestaetigt
+    -- der Spieler, steckt sie im Slot - ohne Merker legte sie beim Absitzen
+    -- niemand zurueck. Lehnt er ab, raeumt restoreMountSpeedItem den Merker
+    -- ab (wornManagedSlot findet nichts).
+    local ok, why = ns:EquipBagItemToSlot(bag, bagSlot, target)
+    if ok or why == "bind" then
         setCropState({ slot = target, prevLink = prevLink })
     end
 end
@@ -310,10 +320,27 @@ local function swapMountSpeedItem(list)
         restoreMountSpeedItem()
         return
     end
-    if ns:EquipBagItemToSlot(bag, bagSlot, slot) then
+    local ok, why = ns:EquipBagItemToSlot(bag, bagSlot, slot)
+    if ok or why == "bind" then
         setCropState({ slot = slot, prevLink = state.prevLink })
     end
 end
+
+-- Zuruecklegen, sobald es geht. Im Kampf ist es gesperrt, und wer den
+-- Schalter (oder das Modul) im Kampf ausschaltet, hat die Ereignisse dafuer
+-- schon abgemeldet - dann einmalig nach dem Kampf (R-77).
+local function restoreCropWhenSafe()
+    if not cropState() then return end
+    if not InCombatLockdown() then restoreMountSpeedItem() return end
+    local function afterCombat()
+        ns:UnregisterEvent("PLAYER_REGEN_ENABLED", afterCombat)
+        if cropState() and not (mod._enabled and mod.db and mod.db.ridingCropEnabled) then
+            restoreMountSpeedItem()
+        end
+    end
+    ns:RegisterEvent("PLAYER_REGEN_ENABLED", afterCombat)
+end
+GS.restoreCropWhenSafe = restoreCropWhenSafe
 
 -- force = auch handeln, wenn sich der Zustand nicht geaendert hat. Braucht
 -- der Schalter in den Optionen: wer ihn im Sattel umlegt, erwartet eine
@@ -326,7 +353,7 @@ local function applyMountState(force)
     if not mod.db.ridingCropEnabled then
         -- Ausgeschaltet, waehrend unser Teil angelegt war: zurueck, sonst
         -- bliebe es fuer immer im Schmuckslot stehen.
-        if cropState() and not InCombatLockdown() then restoreMountSpeedItem() end
+        restoreCropWhenSafe()
         return
     end
 
@@ -436,7 +463,7 @@ end
 
 local function triggerState()
     local c = charDB()
-    c.triggerState = c.triggerState or {}
+    if type(c.triggerState) ~= "table" then c.triggerState = {} end
     return c.triggerState
 end
 
@@ -570,6 +597,24 @@ end
 -- Situation etwas an (sonst "liess sich nicht anlegen").
 local _holdUntil = 0
 
+-- Slots aus einem gemerkten Stand streichen: was der Spieler seitdem selbst
+-- angelegt hat, legt das Ende einer Situation nicht wieder um.
+local function dropSnapshotSlots(snap, slots, ammo)
+    if type(snap) ~= "table" or type(snap.slotMask) ~= "table" or not slots then return end
+    local drop = {}
+    for _, s in ipairs(slots) do drop[s] = true end
+    local mask = {}
+    for _, s in ipairs(snap.slotMask) do
+        if drop[s] then
+            if snap.slots then snap.slots[s] = nil end
+        else
+            mask[#mask + 1] = s
+        end
+    end
+    snap.slotMask = mask
+    if ammo then snap.ammo = nil end
+end
+
 local function restore(snap)
     if snap and #(snap.slotMask or {}) > 0 then
         equipLoadout(L["Previous gear"], snap, { auto = true })
@@ -608,6 +653,9 @@ local _triggerTicker
 evaluateTriggers = function(fromTicker)
     if not triggersActive() then return end
     if InCombatLockdown() then return end
+    -- Ein im Kampf per Taste gewaehltes Set kommt zuerst (F065); Sets.lua
+    -- stoesst die Auswertung danach erneut an.
+    if GS.hasPendingAfterCombat and GS.hasPendingAfterCombat() then return end
     if UnitIsDeadOrGhost and UnitIsDeadOrGhost("player") then return end
     if GetTime() < _holdUntil then
         if not fromTicker then queueEvaluate(_holdUntil - GetTime() + 0.1) end
@@ -626,7 +674,9 @@ evaluateTriggers = function(fromTicker)
     elseif _triggerTicker then
         -- Ereignisse (Kampfende, Ortswechsel) warten nicht auf den Ticker,
         -- uebernehmen aber nur eine Lage, die er schon bestaetigt hat.
-        want = (_candidateTicks >= 2) and _candidate or state.temp
+        -- Kein and/or: ein bestaetigtes "keine Situation" (nil) fiele sonst
+        -- auf state.temp zurueck, und das Ende kaeme erst mit dem Ticker.
+        if _candidateTicks >= 2 then want = _candidate else want = state.temp end
     end
     -- Ohne Ticker (keiner Situation dieser Art ist ein Set zugeordnet)
     -- gilt die Abfrage direkt: eine noch laufende Situation endet dann,
@@ -674,14 +724,22 @@ end
 local function onTriggerEvent()
     queueEvaluate(0.3)
 end
+GS.queueTriggerEvaluate = onTriggerEvent
 
-local function applyTriggerEvents()
-    local on = triggersWanted()
+-- Tot oder als Geist wird nicht ausgewertet; ein Ortswechsel dabei ginge
+-- ohne diese beiden bis zum naechsten Gebietswechsel verloren.
+local TRIGGER_EVENTS = {
+    "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "PLAYER_UPDATE_RESTING",
+    "PLAYER_REGEN_ENABLED", "PLAYER_UNGHOST", "PLAYER_ALIVE",
+}
+
+-- fromEnable: aus OnEnable heraus steht mod._enabled noch auf false. Sonst
+-- (Optionen, Loeschen eines Sets) nur bei eingeschaltetem Modul anmelden -
+-- der Ticker liefe sonst bis zum Reload fuer nichts.
+local function applyTriggerEvents(fromEnable)
+    local on = triggersWanted() and (fromEnable or mod._enabled)
     local fn = on and ns.RegisterEvent or ns.UnregisterEvent
-    fn(ns, "PLAYER_ENTERING_WORLD",  onTriggerEvent)
-    fn(ns, "ZONE_CHANGED_NEW_AREA",  onTriggerEvent)
-    fn(ns, "PLAYER_UPDATE_RESTING",  onTriggerEvent)
-    fn(ns, "PLAYER_REGEN_ENABLED",   onTriggerEvent)
+    for _, ev in ipairs(TRIGGER_EVENTS) do fn(ns, ev, onTriggerEvent) end
     -- Voruebergehende Situationen haben keine verlaessliche Meldung
     -- (Schwimmen gar keine). Ein Ticker jede halbe Sekunde, aber nur,
     -- solange einer Situation dieser Art ein Set zugeordnet ist.
@@ -707,10 +765,25 @@ end
 -- alles neu an der dann aktuellen Stelle, ohne alte Staende zurueckzulegen.
 local function resetTriggerState()
     local state = triggerState()
-    if state.tempSnap and not InCombatLockdown() then
+    if state.tempSnap then
         local snap = state.tempSnap
         if state.temp == "fishing" then snap = withoutWeapons(snap) end
-        restore(snap)
+        if not InCombatLockdown() then
+            restore(snap)
+        else
+            -- Im Kampf gesperrt: den Stand behalten und nach dem Kampf
+            -- zuruecklegen, nicht wortlos verwerfen. Mit Abstand zu den
+            -- anderen Automatiken am Kampfende (gesperrte Teile).
+            local function afterCombat()
+                ns:UnregisterEvent("PLAYER_REGEN_ENABLED", afterCombat)
+                -- Ein im Kampf per Taste gewaehltes Set gewinnt: dessen
+                -- Slots legt das Zuruecklegen nicht wieder um.
+                local job = GS.pendingAfterCombatLoadout and GS.pendingAfterCombatLoadout()
+                if job then dropSnapshotSlots(snap, GS.touchedSlots(job), job.ammo) end
+                C_Timer.After(1.5, function() restore(snap) end)
+            end
+            ns:RegisterEvent("PLAYER_REGEN_ENABLED", afterCombat)
+        end
     end
     charDB().triggerState = {}
     triggerBaseline()
@@ -719,22 +792,29 @@ GS.resetTriggerState = resetTriggerState
 
 function GS.startTriggers()
     triggerBaseline()
-    applyTriggerEvents()
+    applyTriggerEvents(true)
 end
 
 function GS.stopTriggers()
-    local wasOn = mod.db and mod.db.triggersEnabled
     resetTriggerState()
     if _triggerTicker then _triggerTicker:Cancel(); _triggerTicker = nil end
-    ns:UnregisterEvent("PLAYER_ENTERING_WORLD",  onTriggerEvent)
-    ns:UnregisterEvent("ZONE_CHANGED_NEW_AREA",  onTriggerEvent)
-    ns:UnregisterEvent("PLAYER_UPDATE_RESTING",  onTriggerEvent)
-    ns:UnregisterEvent("PLAYER_REGEN_ENABLED",   onTriggerEvent)
-    return wasOn
+    for _, ev in ipairs(TRIGGER_EVENTS) do ns:UnregisterEvent(ev, onTriggerEvent) end
+end
+
+-- Ein Wechsel, den der Spieler selbst ausloest, waehrend eine Situation
+-- laeuft: deren Ende soll ihn nicht wieder ueberschreiben. Die Slots, die
+-- er gerade angefasst hat, fallen aus den gemerkten Staenden heraus.
+function GS.forgetSnapshotSlots(slots, ammo)
+    local state = charDB().triggerState
+    if type(state) ~= "table" or not slots then return end
+    dropSnapshotSlots(state.tempSnap, slots, ammo)
+    dropSnapshotSlots(state.locSnap, slots, ammo)
 end
 
 -- Haengt ein Reit-Set an Schmuckslots, laesst die Reitgerte die Finger
--- davon: sonst stritten zwei Automatiken um denselben Slot.
+-- davon: sonst stritten zwei Automatiken um denselben Slot. Gestalt-Sets
+-- zaehlen hier bewusst nicht: beritten bleibt die Haltung gleich, und ein
+-- volles Haltungs-Set traegt immer Schmuck - die Gerte kaeme sonst nie.
 function GS.mountSetCoversTrinkets()
     if not triggersActive() then return false end
     local name = triggerSet("mount")
@@ -1068,7 +1148,6 @@ GS.onInstanceWarn        = onInstanceWarn
 GS.onReadyCheckWarn      = onReadyCheckWarn
 GS.applyMountEvents      = applyMountEvents
 GS.applyMountState       = applyMountState
-GS.cropState             = cropState
 -- Fuer captureCurrentEquipment (Shared.lua): der Slot, in dem unser Teil
 -- gerade steckt - nur solange wir es angelegt haben.
 GS.cropWornSlot          = function()
@@ -1081,5 +1160,4 @@ GS.getSpecGroupLabel     = getSpecGroupLabel
 GS.onMountStateChange    = onMountStateChange
 GS.onShapeshiftChange    = onShapeshiftChange
 GS.onTalentChange        = onTalentChange
-GS.restoreMountSpeedItem = restoreMountSpeedItem
 GS.startSpecPolling      = startSpecPolling

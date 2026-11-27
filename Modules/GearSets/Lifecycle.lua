@@ -14,7 +14,6 @@ local applyMountEvents       = GS.applyMountEvents
 local applySidebarVisibility = GS.applySidebarVisibility
 local createMinimapButton    = GS.createMinimapButton
 local createSidebar          = GS.createSidebar
-local cropState              = GS.cropState
 local formMap                = GS.formMap
 local onInstanceWarn         = GS.onInstanceWarn
 local onInventoryChanged     = GS.onInventoryChanged
@@ -23,7 +22,6 @@ local onMountStateChange     = GS.onMountStateChange
 local onShapeshiftChange     = GS.onShapeshiftChange
 local onTalentChange         = GS.onTalentChange
 local refreshStatusDots      = GS.refreshStatusDots
-local restoreMountSpeedItem  = GS.restoreMountSpeedItem
 local specMap                = GS.specMap
 local startSpecPolling       = GS.startSpecPolling
 
@@ -34,8 +32,38 @@ function mod:OnEnable()
     LO(); formMap(); specMap()
     mod.db.minimap     = mod.db.minimap     or { hidden = false, angle = 45 }
 
+    -- Beschaedigte Eintraege (von Hand bearbeitet, kein Set mehr) entfernen:
+    -- jeder Zugriff auf ihre Felder braeche sonst hier OnEnable ab, vor allen
+    -- Ereignis-Anmeldungen. Ein Nicht-Tabellen-Eintrag traegt keine Daten.
+    local sets = LO()
+    for name, loadout in pairs(sets) do
+        if type(loadout) ~= "table" or type(name) ~= "string" then
+            sets[name] = nil
+        elseif loadout.slots ~= nil and type(loadout.slots) ~= "table" then
+            loadout.slots = {}
+        end
+    end
+
+    -- Setnamen mit Steuerzeichen (vor R-84 importiert): umbenennen, damit
+    -- Makro, Taste und Spiegel einen sauberen Namen bekommen. Ueber die
+    -- Umbenennen-Huelle, dann ziehen Spec, Gestalt, Taste und Makro mit.
+    local dirty = {}
+    for name in pairs(sets) do
+        if name:find("%c") then dirty[#dirty + 1] = name end
+    end
+    for _, old in ipairs(dirty) do
+        local base = old:gsub("[%c|]", ""):match("^%s*(.-)%s*$")
+        if base == "" then base = ns.L["Imported set"] end
+        local new, i = base, 2
+        while sets[new] and i < 100 do
+            new = string.format("%s (%d)", base, i)
+            i = i + 1
+        end
+        if not sets[new] then GS.renameLoadout(old, new) end
+    end
+
     -- Migration: legacy loadouts without slotMask → derive from currently saved slots
-    for _, loadout in pairs(LO()) do
+    for _, loadout in pairs(sets) do
         if loadout and not loadout.slotMask then
             local mask = {}
             for slot in pairs(loadout.slots or {}) do
@@ -166,17 +194,7 @@ function mod:OnDisable()
     -- Die Gerte darf nicht zurueckbleiben, nur weil das Modul aus geht.
     -- Im Kampf geht das nicht; dann einmalig nach dem Kampf nachholen -
     -- die Ereignisse oben sind schon abgemeldet, sonst holte es niemand.
-    if cropState() then
-        if InCombatLockdown() then
-            local function afterCombat()
-                ns:UnregisterEvent("PLAYER_REGEN_ENABLED", afterCombat)
-                if not mod._enabled and cropState() then restoreMountSpeedItem() end
-            end
-            ns:RegisterEvent("PLAYER_REGEN_ENABLED", afterCombat)
-        else
-            restoreMountSpeedItem()
-        end
-    end
+    GS.restoreCropWhenSafe()
     ns:UnregisterEvent("ACTIVE_TALENT_GROUP_CHANGED", onTalentChange)
     ns:UnregisterEvent("PLAYER_TALENT_UPDATE",        onTalentChange)
     ns:UnregisterEvent("CHARACTER_POINTS_CHANGED",    onTalentChange)

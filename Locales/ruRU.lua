@@ -41,6 +41,7 @@ ns:RegisterLocale("ruRU", {
     ["Automation"] = "Автоматика",
     ["Back to previous gear"] = "Вернуть предыдущую экипировку",
     ["Battleground"] = "Поле боя",
+    ["Blizzard's set '%s' was not copied: a gear set with that name already exists here. Rename one of them."] = "Комплект Blizzard «%s» не перенесен: комплект с таким названием здесь уже есть. Переименуйте один из них.",
     ["Blizzard's equipment manager is full (%d sets). '%s' stays in VuloGearSets only."] = "Менеджер экипировки Blizzard заполнен (комплектов: %d). «%s» остается только в VuloGearSets.",
     ["Bottom edge"] = "Нижний край",
     ["Character"] = "Персонаж",

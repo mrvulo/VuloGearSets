@@ -183,13 +183,14 @@ local function variantKey(link)
     if not link then return nil end
     local payload = link:match("item:([%-%d:]+)")
     if not payload then return nil end
-    local fields = {}
-    for f in (payload .. ":"):gmatch("(.-):") do
-        fields[#fields + 1] = (f ~= "" and f) or "0"
-        if #fields == 7 then break end
-    end
-    for i = #fields + 1, 7 do fields[i] = "0" end
-    return table.concat(fields, ":")
+    -- Die ersten sieben Felder direkt, ohne Hilfstabelle: das laeuft fuer
+    -- jedes Taschenfach bei jedem Neuaufbau der Leiste.
+    local a, b, c, d, e, f, g = payload:match(
+        "^([^:]*):?([^:]*):?([^:]*):?([^:]*):?([^:]*):?([^:]*):?([^:]*)")
+    return (a ~= "" and a or "0") .. ":" .. (b ~= "" and b or "0") .. ":"
+        .. (c ~= "" and c or "0") .. ":" .. (d ~= "" and d or "0") .. ":"
+        .. (e ~= "" and e or "0") .. ":" .. (f ~= "" and f or "0") .. ":"
+        .. (g ~= "" and g or "0")
 end
 
 -- Steckt gerade die Reitgerte (oder der Gluecksbringer) nur wegen des

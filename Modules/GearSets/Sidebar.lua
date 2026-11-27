@@ -44,11 +44,10 @@ local visibilityText        = GS.visibilityText
 local sidebar
 local sidebarSetButtons = {}
 local sidebarItemRows   = {}    -- pool of expanded-item-row frames
--- Set-Zeilen, deren Farben beim Stilwechsel nachgezogen werden muessen.
-local _setRowTextures   = {}
 
 ns:OnStyleChanged(function()
-    for _, btn in ipairs(_setRowTextures) do
+    -- Alle Set-Zeilen: ihre Farben haengen am Stil.
+    for _, btn in ipairs(sidebarSetButtons) do
         if btn.selection then btn.selection:SetColorTexture(ns:SelectionColor()) end
         if btn.hl        then btn.hl:SetColorTexture(ns:HoverColor()) end
     end
@@ -294,8 +293,6 @@ local function createSetRow(parent, index)
     btn.hl:SetPoint("BOTTOMRIGHT", -2, 2)
     btn.hl:SetColorTexture(ns:HoverColor())
     btn.hl:Hide()
-    -- Fuer den Stilwechsel merken: die Farben werden dann neu gesetzt.
-    _setRowTextures[#_setRowTextures + 1] = btn
 
     btn:SetScript("OnEnter", function(self)
         if not self.isSelected then self.hl:Show() end
@@ -392,9 +389,9 @@ local function createSetRow(parent, index)
             local menu = {
                 { title = true, text = setName },
                 { text = L["Equip"], func = function() equipLoadout(setName) end },
+                -- Neu gezeichnet wird in der Huelle (Sets.lua).
                 { text = L["Overwrite"], func = function()
                     overwriteLoadout(setName)
-                    refreshSidebar()
                 end },
                 { text = L["Change icon..."], func = function()
                     showIconPicker(setName, self)
@@ -527,7 +524,6 @@ local function createSetRow(parent, index)
                     if dlg then dlg.data = setName end
                 else
                     deleteLoadout(setName)
-                    refreshSidebar()
                 end
             end })
 
@@ -1169,7 +1165,6 @@ local function createSidebar()
     saveBtn:SetScript("OnClick", function()
         if sidebarSelected then
             overwriteLoadout(sidebarSelected)
-            refreshSidebar()
         end
     end)
     sidebar.saveBtn = saveBtn
@@ -1483,9 +1478,9 @@ end
 -- =========================================================
 function GS.sidebarAfterSave(name)
     if not sidebar then return end
-    -- Derselbe Zuschnitt wie in saveAs, sonst zeigte die Auswahl auf
-    -- "Tank " statt auf das gespeicherte "Tank".
-    sidebarSelected = name and name:match("^%s*(.-)%s*$")
+    -- Der Name kommt schon zugeschnitten (saveAs gibt den gespeicherten
+    -- zurueck, der Import seinen eindeutigen).
+    sidebarSelected = name
     refreshSidebar()
 end
 

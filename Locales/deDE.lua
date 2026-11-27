@@ -42,6 +42,7 @@ ns:RegisterLocale("deDE", {
     ["Automation"] = "Automatik",
     ["Back to previous gear"] = "Zurück zur vorherigen Ausrüstung",
     ["Battleground"] = "Schlachtfeld",
+    ["Blizzard's set '%s' was not copied: a gear set with that name already exists here. Rename one of them."] = "Blizzards Set '%s' wurde nicht übernommen: Hier gibt es schon ein Set mit diesem Namen. Benenne eines davon um.",
     ["Blizzard's equipment manager is full (%d sets). '%s' stays in VuloGearSets only."] = "Blizzards Ausrüstungsmanager ist voll (%d Sets). '%s' bleibt nur in VuloGearSets.",
     ["Bottom edge"] = "Unterkante",
     ["Character"] = "Charakter",

@@ -18,7 +18,6 @@ local L = ns.L
 
 local mod = ns:RegisterModule("itemtooltip", {
     name     = "Item Tooltip",
-    group    = "_hidden",
     defaults = { enabled = true },
 })
 
@@ -35,15 +34,12 @@ local function parseLink(link)
     local payload = link:match("item:([%-%d:]+)")
     if not payload then return nil end
 
-    local fields, n = {}, 0
-    for v in (payload .. ":"):gmatch("([%-%d]*):") do
-        n = n + 1
-        fields[n] = v
-    end
-
-    local id = tonumber(fields[1])
+    -- Feld 1 und 7 direkt, ohne Hilfstabelle: das laeuft fuer jedes Teil
+    -- jedes Sets, sooft ein Haendler-Tooltip sich neu aufbaut.
+    local f1, f7 = payload:match("^([^:]*):?[^:]*:?[^:]*:?[^:]*:?[^:]*:?[^:]*:?([^:]*)")
+    local id = tonumber(f1)
     if not id then return nil end
-    return id, tonumber(fields[7]) or 0
+    return id, tonumber(f7) or 0
 end
 
 -- =========================================================
@@ -203,6 +199,7 @@ end
 -- Ausruestungsmanager, und der Client schreibt dann selbst eine Zeile
 -- dazu. Nur was dort NICHT steht, bekommt unsere Zeile - so steht kein
 -- Set doppelt im Tooltip, und ein nicht gespiegeltes fehlt auch nicht.
+-- Rueckgabe: die Liste als ", A, B, " - gesucht wird ", Name, ".
 local function namesInBlizzardLine(data)
     local fmt = _G.EQUIPMENT_SETS
     if type(data) ~= "table" or type(data.lines) ~= "table" or type(fmt) ~= "string" then
@@ -217,11 +214,10 @@ local function namesInBlizzardLine(data)
         if plainString(text) then
             text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
             if text:sub(1, #prefix) == prefix then
-                local listed = {}
-                for n in (text:sub(#prefix + 1) .. ","):gmatch("%s*(.-)%s*,") do
-                    if n ~= "" then listed[n] = true end
-                end
-                return listed
+                -- Als ganze Zeile zurueck, nicht am Komma zerlegt: ein Set
+                -- "Tank, AoE" fiele sonst in zwei Namen und stuende doppelt da.
+                local rest = text:sub(#prefix + 1):gsub("%s*,%s*", ", ")
+                return ", " .. rest:match("^%s*(.-)%s*$") .. ", "
             end
         end
     end
@@ -245,7 +241,7 @@ local function addSetLine(tt, data, remeasure)
     local listed = namesInBlizzardLine(data)
     if listed then
         for i = #names, 1, -1 do
-            if listed[names[i]] then table.remove(names, i) end
+            if listed:find(", " .. names[i] .. ", ", 1, true) then table.remove(names, i) end
         end
         if #names == 0 then return end
     end
@@ -281,7 +277,11 @@ local function installHooks()
         return
     end
 
-    for _, tt in ipairs({ _G.GameTooltip, _G.ItemRefTooltip }) do
+    -- Die Vergleichs-Tooltips (Umschalt ueber einem Teil) gehoeren dazu;
+    -- nicht jeder Client hat alle vier.
+    for _, tt in ipairs({ _G.GameTooltip, _G.ItemRefTooltip, _G.ShoppingTooltip1,
+                          _G.ShoppingTooltip2, _G.ItemRefShoppingTooltip1,
+                          _G.ItemRefShoppingTooltip2 }) do
         if tt and tt.HookScript then
             tt:HookScript("OnTooltipSetItem", function(self) addSetLine(self, nil, true) end)
         end

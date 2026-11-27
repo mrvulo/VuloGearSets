@@ -74,3 +74,5 @@ Sitzungen vor dem 2026-09-27 liegen auf dem Gaming-PC; bis dahin sind Commits di
 - 2026-11-18 · assumed · F060 prüft nur gebundene Sets (aktive Spec, Situations-Set des Orts), nicht das zuletzt angelegte; Warnung nur im Chat, Standard an · F060
 - 2026-11-18 · assumed · Notiz (F062) wandert beim Kopieren auf andere Charaktere mit, nicht im Text-Export (F056-Format bleibt gleich) · F062
 - 2026-11-18 · Aufräumen erlaubt: unbenutzte Exporte und Hilfen entfernt (nur Interna, keine Funktion für Spieler) · user „cleanup von gesamten addon … toter kaputter Code“ · I-03
+- 2026-11-27 · Ganzes Addon auf Fehler, Logikfehler, Sicherheitslücken, toten Code und Leistung prüfen und beheben · user „das ganze addon auf bugs , logikfehler und sicherheitslücken checken sowie toten code … und die performance verbessert“ · R-87–R-99
+- 2026-11-27 · assumed · `/vgs save` auf ein vorhandenes Set erneuert nur die Teile und behält die Slot-Maske (wie „Überschreiben“); ein Wechsel des Spielers während einer Situation wird an deren Ende nicht zurückgedreht; Blizzard-Speichern über ein nicht verknüpftes eigenes Set wird abgelehnt statt überschrieben · R-89, R-90, R-94

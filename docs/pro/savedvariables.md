@@ -51,5 +51,8 @@ der jeweiligen Datei (z. B. `Modules/SlotPicker.lua`).
 | `note` | Notiz des Spielers, höchstens 200 Zeichen, ohne Senkrechtstrich; nil = keine (2026-11-18) |
 | `ammo` | Item-ID der Munition (Slot 0), nur mit Fernkampfslot gespeichert; nil = Munition nicht anfassen (2026-10-17) |
 
-Umbenennen zieht `specMapping`, `formMapping`, `keybinds`, `blizzMirror`, Makro und die Auswahl in
+Umbenennen zieht `specMapping`, `formMapping`, `keybinds`, `blizzMirror`, `lastSet`, Makro und die Auswahl in
 der Leiste mit (Rename-Hüllen in `Modules/GearSets/Sets.lua`).
+
+Start-Migration (2026-11-27): `sets`-Einträge, die keine Tabelle sind, werden entfernt; ein `slots`, das keine
+Tabelle ist, wird `{}`; Setnamen mit Steuerzeichen werden über `renameLoadout` gesäubert (R-92).

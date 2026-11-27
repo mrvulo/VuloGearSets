@@ -37,7 +37,13 @@ frame:SetScript("OnEvent", function(_, event, ...)
         local fn = list[i]
         if fn then
             local ok, err = pcall(fn, event, ...)
-            if not ok then ns:Debug("Event %s: %s", event, tostring(err)) end
+            if not ok then
+                ns:Debug("Event %s: %s", event, tostring(err))
+                -- Melden wie ein normaler Lua-Fehler, ohne die uebrigen
+                -- Handler abzubrechen - sonst verschwaende er spurlos.
+                local handler = geterrorhandler and geterrorhandler()
+                if handler then handler(err) end
+            end
         end
     end
     dispatching = dispatching - 1

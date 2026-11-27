@@ -139,9 +139,13 @@ local function addFromSnapshot(name, snap)
             set.slotMask[#set.slotMask + 1] = s
         end
     end
+    -- Schluessel auf die sieben Felder des Exemplars (variantKey) gekuerzt
+    -- und in der Laenge begrenzt: ein praeparierter Text landete sonst
+    -- beliebig lang in den SavedVariables.
     for s, key in pairs(snap.slots or {}) do
-        if VALID_SLOT[s] and type(key) == "string" then
-            set.slots[s] = "item:" .. key
+        if VALID_SLOT[s] and type(key) == "string" and #key <= 120
+           and key:match("^%d+[%-%d:]*$") then
+            set.slots[s] = "item:" .. variantKey("item:" .. key)
         end
     end
     -- Ein Set ohne Maske fiele auf die Altdaten-Rueckfaelle; die belegten
@@ -150,16 +154,30 @@ local function addFromSnapshot(name, snap)
         for s in pairs(set.slots) do set.slotMask[#set.slotMask + 1] = s end
         table.sort(set.slotMask)
     end
-    set.iconOverride = snap.iconOverride
-    set.ammo         = snap.ammo
-    set.showHelm     = snap.showHelm
-    set.showCloak    = snap.showCloak
+    -- Fuer beide Wege geprueft (Text und Kopie von einem anderen Charakter):
+    -- ein Symbol als Datei-ID oder kurzer Pfad ohne Escape-Zeichen, Munition
+    -- nur als ganze Item-ID und nur, wo es den Platz gibt (sonst meldete
+    -- jedes Anlegen sie als fehlend), Helm/Umhang nur true/false/nil.
+    local icon = snap.iconOverride
+    if type(icon) == "number"
+       or (type(icon) == "string" and #icon <= 200 and not icon:find("|", 1, true)) then
+        set.iconOverride = icon
+    end
+    local ammo = tonumber(snap.ammo)
+    if GS.hasAmmoSlot() and ammo and ammo > 0 and ammo < 2^31 and ammo == math.floor(ammo) then
+        set.ammo = ammo
+    end
+    if type(snap.showHelm)  == "boolean" then set.showHelm  = snap.showHelm  end
+    if type(snap.showCloak) == "boolean" then set.showCloak = snap.showCloak end
     set.note         = type(snap.note) == "string" and snap.note or nil
     LO()[name] = set
     upgradeLinks()
 
     if GS.sidebarAfterSave then GS.sidebarAfterSave(name) end
-    if ns.MirrorSetSaved then ns:MirrorSetSaved(name) end
+    -- Ohne Uebernahme (Forever): ein fremdes Blizzard-Set gleichen Namens
+    -- bleibt unberuehrt - sonst gehoerte es danach uns, und Loeschen des
+    -- importierten Sets loeschte Blizzards Original.
+    if ns.MirrorSetChanged then ns:MirrorSetChanged(name) end
     if ns.RefreshOptions then ns:RefreshOptions() end
     return name
 end
@@ -240,9 +258,7 @@ local function importString(text)
     snap.iconOverride = (icon ~= "") and (tonumber(icon) or icon) or nil
     -- Munition nur als positive ganze Item-ID und nur, wo es den Platz gibt:
     -- sonst meldete jedes Anlegen sie als fehlend.
-    local ammo = tonumber(fields[3])
-    snap.ammo = (GS.hasAmmoSlot() and ammo and ammo > 0 and ammo < 2^31
-                 and ammo == math.floor(ammo)) and ammo or nil
+    snap.ammo = tonumber(fields[3])   -- geprueft in addFromSnapshot
     snap.showHelm     = parseTriState(fields[4])
     snap.showCloak    = parseTriState(fields[5])
     for s in fields[6]:gmatch("(%d+)") do
@@ -397,6 +413,7 @@ local function copyFromCharacter(key, setName)
 end
 
 local function forgetCharacter(key)
+    if key == nil then return end
     charStore()[key] = nil
     if ns.RefreshOptions then ns:RefreshOptions() end
 end
